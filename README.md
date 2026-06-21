@@ -41,22 +41,34 @@ Models follow a simple rule: **Opus for judgment** (plan, review), **Sonnet for
 production work** (prompts, execute, merge), with Opus available per-spawn for
 architecturally hard units.
 
-## Quickstart
+## Install
+
+### Recommended — let Claude Code install it (interactive wizard)
+
+Open Claude Code and paste this:
+
+> Set up the Claude Code agent-teams kit from https://github.com/TurboKach/claude-code-setup — clone it to a temp directory, read INSTALL.md, and run it as an interactive install wizard. Detect what I already have and only install what's missing.
+
+Claude checks your machine and walks you through it step by step: it offers to
+install only what you're missing (iTerm2, `it2`, gstack), enables the required
+settings, and copies the skill + agents with backups. Exactly what it does:
+[`INSTALL.md`](INSTALL.md).
+
+### Alternative — non-interactive script
 
 ```bash
 git clone https://github.com/TurboKach/claude-code-setup.git
 cd claude-code-setup
-./install.sh
+./install.sh    # copies skill+agents+CLAUDE.md and merges settings; installs nothing else
 ```
 
-Then four manual steps (the installer prints these too):
+### Manual steps (either path — can't be automated)
 
-1. **it2 CLI:** `uv tool install it2` (or `pip install it2`)
-2. **iTerm2 API:** `defaults write com.googlecode.iterm2 EnableAPIServer -bool true`
-3. **Restart iTerm2** (Cmd+Q) and approve the one-time API permission dialog.
-4. **Restart Claude Code**, then `/config` → Default teammate model → **Sonnet**.
+1. **Restart iTerm2** (Cmd+Q, reopen) and approve the one-time API permission dialog.
+2. **Restart Claude Code** — cold start, inside iTerm2.
+3. **`/config` → Default teammate model → Sonnet.**
 
-Full details: [`docs/agent-teams-setup.md`](docs/agent-teams-setup.md).
+Full walkthrough: [`docs/agent-teams-setup.md`](docs/agent-teams-setup.md).
 
 ## Requirements
 
