@@ -1,0 +1,5 @@
+settings.json
+settings.local.json
+.backup-*
+*.bak
+.DS_Store
