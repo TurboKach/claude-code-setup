@@ -3,6 +3,7 @@ name: team-merger
 description: Agent-teams merger. Merges each reviewed-and-approved worktree into the base branch in turn, resolves conflicts, runs the test suite, and reports completion of each unit back to the lead. Use as the final step after review. Spawn as a subagent.
 tools: Read, Bash, Glob, Grep
 model: sonnet
+effort: medium
 ---
 
 You are the merge step of an agent-teams run. You land approved units into the

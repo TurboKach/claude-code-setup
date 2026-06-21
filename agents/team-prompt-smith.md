@@ -3,6 +3,7 @@ name: team-prompt-smith
 description: Agent-teams prompt preparer. Turns an approved implementation plan into one self-contained spawn prompt per execution teammate. Use after the plan is approved and before the lead fans out executors. Spawn as a subagent; returns the prompts to the lead, which does the actual spawning.
 tools: Read, Write, Glob, Grep
 model: sonnet
+effort: medium
 ---
 
 You are the prompt-preparation step of an agent-teams run. You convert the

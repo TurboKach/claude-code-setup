@@ -73,19 +73,40 @@ completion — **no further user gates**.
 ## Models per role (smart + token-efficient)
 
 Set **Default teammate model = Sonnet** in `/config` (token-efficient floor).
-Per-role models come from the agent definition files:
+Per-role model and **effort** come from the agent definition files (`model:` +
+`effort:` frontmatter). Effort deviates from the model default (`high` on Opus
+4.8 / Sonnet 4.6): judgment roles go **up**, high-volume roles go **down** to
+save tokens.
 
-| Role | Spawned as | Model | Rationale |
-|------|-----------|-------|-----------|
-| Orchestrator (lead) | main session | Opus | coordination, synthesis, user gate |
-| `team-planner` | subagent | Opus | plan quality is judgment-heavy |
-| `team-prompt-smith` | subagent | Sonnet | structured prompt writing |
-| `team-executor` | **teammate** | Sonnet (Opus for architecturally hard modules) | bulk code |
-| `team-reviewer` | subagent | Opus | catch subtle bugs |
-| `team-merger` | subagent | Sonnet | conflict resolution needs care |
-| researcher | subagent | (use built-in `Explore`) | broad reads, no custom file |
+| Role | Spawned as | Model | Effort | Rationale |
+|------|-----------|-------|--------|-----------|
+| Orchestrator (lead) | main session | Opus | session default | coordination, synthesis, user gate |
+| `team-planner` | subagent | Opus | xhigh | one pass, highest leverage |
+| `team-prompt-smith` | subagent | Sonnet | medium | structured prompt writing |
+| `team-executor` | **teammate** | Sonnet (Opus for hard modules) | medium | token-heavy fan-out |
+| `team-reviewer` | subagent | Opus | xhigh | adversarial bug-hunting |
+| `team-merger` | subagent | Sonnet | medium | mechanical merge/verify |
+| researcher | subagent | (use built-in `Explore`) | — | broad reads, no custom file |
 
-Override per spawn when a module is unusually hard: "spawn this executor on Opus".
+Override per spawn when a module is unusually hard: "spawn this executor on Opus
+at high effort".
+
+**Effort knobs:** per-role `effort:` frontmatter (above); session-wide via
+`/effort`, `--effort`, `effortLevel` in settings, or `CLAUDE_CODE_EFFORT_LEVEL`
+(env wins over frontmatter). Caveat: per-**teammate** effort is undocumented —
+only `tools` and `model` are confirmed to carry from a definition to a teammate,
+so the executor's `effort: medium` is honored as a subagent and may be ignored
+as a teammate (falls back to the session default — harmless).
+
+## Workflows vs teams — pick one orchestration layer
+
+The Workflow tool (deterministic multi-agent scripts) is a **lead-only**
+mechanism and an **alternative** to agent teams — not something teammates use.
+Teammates and subagents are workers; they cannot invoke Workflow (a teammate
+running a workflow that spawns agents would violate the no-nested-teams design).
+For a given task choose **either** a Workflow (scripted, deterministic fan-out
+you control) **or** an agent team (teammates that coordinate and that you can
+message). Never design a role that depends on a teammate launching a workflow.
 
 ## Worktrees + merge
 
