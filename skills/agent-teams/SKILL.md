@@ -55,12 +55,14 @@ subagents. The team's value is the parallel **execution** phase only.
    → adversarially verifies each unit's diff before it lands
 5. MERGE     (subagent: team-merger, sonnet)
    → merges each approved worktree into the base branch, reports completion
+6. TEARDOWN  (lead, after merge + any eyeball)
+   → shut each teammate down via the handshake, THEN prune worktrees/branches
 ```
 
 Steps 1, 2, 4, 5 are sequential and context-isolated (subagents). Step 3 is the
-only fan-out (teammates). Keep the **lead thin**: it coordinates and ingests
-summaries — it does not read large diffs or do the implementation itself. If the
-lead starts implementing, stop and delegate.
+only fan-out (teammates). Step 6 is the lead's own cleanup. Keep the **lead
+thin**: it coordinates and ingests summaries — it does not read large diffs or do
+the implementation itself. If the lead starts implementing, stop and delegate.
 
 ## Approval gate: PLAN ONLY
 
@@ -115,6 +117,33 @@ Give each executor its own git worktree so parallel edits never collide
 own a disjoint file set. The `team-merger` subagent merges each reviewed
 worktree into the base branch in turn, resolves conflicts, runs the test suite,
 and reports "<unit> landed" back to the lead. Unchanged worktrees are discarded.
+
+## Teardown (step 6 — order matters)
+
+When a teammate's work is landed (and eyeballed, if the project needs it), tear
+it down **handshake first, pane-close second**. A teammate leaves the team roster
+ONLY when the shutdown handshake completes — closing its iTerm pane does NOT
+deregister it and can orphan its process.
+
+Per teammate, in order:
+1. `SendMessage` a `{type:"shutdown_request", reason:"…"}`.
+2. **Wait for the `shutdown_response{approve:true}`.** That is what cleanly
+   terminates the process AND removes it from the roster. Don't proceed on a bare
+   "sent" ack — confirm the response.
+3. ONLY THEN, optionally close the now-empty pane for tidiness:
+   `it2 session close -s <UUID> -f`. Get the UUID from `it2 session list`
+   (widen with `COLUMNS=400` — the table truncates IDs). **Never** close the
+   lead's own pane or any session you didn't spawn (e.g. the user's other
+   `claude`/`claude -c` windows). Match panes by name/UUID, not position.
+4. After all teammates are down, prune the merged worktrees + delete the merged
+   branches (`git worktree remove --force …`, `git branch -D …`).
+
+Pitfall (observed): if the channel is flaky and a teammate never answers the
+handshake, closing its pane anyway leaves a **stale roster entry** (it lingers
+in the team list until the lead session ends) and can **orphan** the agent
+process on the detached tty — check with `ps` and `kill` the orphan if so. Closing
+panes is cosmetic; the handshake is the real teardown. Prefer fixing the channel /
+re-sending the request over force-closing.
 
 ## Layout (decided: auto split-panes, one team)
 

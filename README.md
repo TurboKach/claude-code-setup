@@ -14,7 +14,7 @@ steps, and you have parallel teammates running in iTerm2 split panes.
 | Path | What it is |
 |------|-----------|
 | `CLAUDE.md` | Universal principles + workflow (think-before-coding, simplicity, surgical changes, multi-session workflow, the agent-teams trigger) |
-| `skills/agent-teams/SKILL.md` | The orchestration playbook — when to fan out, the pipeline, models, worktree/merge flow, the plan-approval gate. Loads on demand. |
+| `skills/agent-teams/SKILL.md` | The orchestration playbook — when to fan out, the pipeline, models, worktree/merge flow, the plan-approval gate, teardown handshake. Loads on demand. |
 | `agents/team-planner.md` | Writes the plan, runs `/autoplan`, surfaces it for **your** approval *(Opus)* |
 | `agents/team-prompt-smith.md` | Turns the approved plan into one spawn prompt per executor *(Sonnet)* |
 | `agents/team-executor.md` | Implements one unit in its own worktree, as a **teammate** *(Sonnet; Opus for hard units)* |
