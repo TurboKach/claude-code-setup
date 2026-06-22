@@ -9,8 +9,9 @@ in parallel, no extra setup).
 
 > The default path uses ordinary background subagents and (optionally) Workflows —
 > no experimental flags, no iTerm2. **Named teammates in iTerm2 split panes** are
-> an **experimental, opt-in** extra for the narrow case where agents must talk to
-> each other live; that's the only part that needs the feature flag + iTerm2 setup.
+> an **experimental** extra that's **almost never needed** — only to dialogue live
+> with a delegated agent running in parallel; that's the only part that needs the
+> feature flag + iTerm2 setup.
 >
 > Fan-out uses significantly more tokens than a single session — use it for
 > parallel research, review, and feature work, not routine tasks.
@@ -19,9 +20,9 @@ in parallel, no extra setup).
 
 | Path | What it is |
 |------|-----------|
-| `CLAUDE.md` | Universal principles + workflow (think-before-coding, simplicity, surgical changes, multi-session workflow, the parallel-multi-agent trigger) |
+| `CLAUDE.md` | Universal principles + workflow (think-before-coding, simplicity, surgical changes, the single-master feature workflow, the parallel-multi-agent trigger) |
 | `skills/agent-teams/SKILL.md` | The orchestration playbook — when to fan out, how to pick the mechanism (subagents / Workflows / teammates), the pipeline, models, worktree/merge flow, the plan-approval gate. Loads on demand. |
-| `agents/team-planner.md` | Writes the plan, runs `/autoplan`, surfaces it for **your** approval *(Opus)* |
+| `agents/team-planner.md` | Writes the **rough** plan (headless); the lead refines it with `/autoplan` and surfaces it for **your** approval *(Opus)* |
 | `agents/team-prompt-smith.md` | Turns the approved plan into one spawn prompt per executor *(Sonnet)* |
 | `agents/team-executor.md` | Implements one unit as a **background subagent** (worktree, since units write in parallel) *(Sonnet; Opus for hard units)* |
 | `agents/team-reviewer.md` | Adversarially verifies each diff before merge — read-only, no worktree *(Opus)* |
@@ -32,23 +33,24 @@ in parallel, no extra setup).
 
 ## How it works
 
-Only the **lead** (your main session) spawns. Every step runs as a subagent; the
-parallel **execution** step fans out into one background subagent per independent
-unit, each in its own worktree (because they write concurrently and merge later):
+Only the **lead** (your main session) spawns. Every step delegates to a subagent
+except the lead's own interactive `/autoplan` pass; the parallel **execution**
+step fans out into one background subagent per independent unit, each in its own
+worktree (because they write concurrently and merge later):
 
 ```
-PLAN (planner) → you approve the plan ─┐   ← the only approval gate
-PROMPTS (prompt-smith)                 │   contracts baked into each prompt
+PLAN (planner drafts → lead runs /autoplan) → you approve ─┐   ← the only approval gate
+PROMPTS (prompt-smith)                                     │   contracts baked into each prompt
 EXECUTE (N executor subagents, parallel, in worktrees)  ← no cross-talk needed
-REVIEW (reviewer, read-only — no worktree)             │
+REVIEW (reviewer, read-only — no worktree)                 │
 MERGE (merger) → removes each worktree+branch, reports completion ───┘
 ```
 
 Pick the fan-out mechanism by need: **background subagents** by default;
 **Workflows** for large/deterministic/resumable fan-outs; **named teammates**
-only when agents must negotiate live (the experimental iTerm2 path). Worktree
-isolation is added **only** where agents write in parallel and merge — read-only
-fan-out (review, research) skips it.
+almost never (only to dialogue live with a delegated parallel agent — the
+experimental iTerm2 path). Worktree isolation is added **only** where agents
+write in parallel and merge — read-only fan-out (review, research) skips it.
 
 Models follow a simple rule: **Opus for judgment** (plan, review), **Sonnet for
 production work** (prompts, execute, merge), with Opus available per-spawn for
@@ -100,7 +102,7 @@ Full walkthrough: [`docs/agent-teams-setup.md`](docs/agent-teams-setup.md).
 - the two `settings.example.json` keys (the installer merges them)
 
 **Recommended for the full workflow:**
-- **gstack** *(optional)* — the planner runs `/autoplan` and the workflow
+- **gstack** *(optional)* — the lead runs `/autoplan` and the workflow
   references `/ship`, `/context-save`, etc. Install:
   ```bash
   git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack \

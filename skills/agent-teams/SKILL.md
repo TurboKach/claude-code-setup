@@ -1,6 +1,6 @@
 ---
 name: agent-teams
-description: Orchestration playbook for parallel multi-agent work in Claude Code. Use when fanning out genuinely parallel, independent work — N independent modules, multi-lens review, competing-hypothesis debugging, backend+frontend that must agree on a contract. Defaults to background subagents (with worktree isolation only when they write files in parallel and merge later); covers when to reach for Workflows instead, and the narrow named-teammate (split-pane) case for live cross-talk. Covers the lead's pipeline (plan → prompts → parallel execute → review → merge), per-role models, worktree/merge flow, and the plan-approval gate.
+description: Orchestration playbook for parallel multi-agent work in Claude Code. Use when fanning out genuinely parallel, independent work — N independent modules, multi-lens review, competing-hypothesis debugging, backend+frontend that must agree on a contract. Defaults to background subagents (with worktree isolation only when they write files in parallel and merge later); covers when to reach for Workflows instead, and the rarely-needed named-teammate (split-pane) escape hatch for live dialogue with a delegated agent. Covers the lead's pipeline (plan → prompts → parallel execute → review → merge), per-role models, worktree/merge flow, and the plan-approval gate.
 ---
 
 # Parallel multi-agent playbook (lead-side)
@@ -20,8 +20,9 @@ the same time**:
 - backend + frontend that must agree on a contract
 
 For **sequential** work (plan → build → ship), a dependency chain, or same-file
-edits, do NOT fan out — use the multi-session workflow in CLAUDE.md or a single
-session. The value here is the parallel **execution** phase only.
+edits, do NOT fan out — run it through the feature workflow in CLAUDE.md (the
+master session delegating each step to a subagent). The value here is the
+parallel **execution** phase only.
 
 ## 2. Pick the mechanism (this is the important decision)
 
@@ -29,7 +30,7 @@ session. The value here is the parallel **execution** phase only.
 |-----------|----------|--------------|-----------------|
 | **Background subagents** *(DEFAULT)* | independent units; contracts known up front | none — contract pre-specified in each prompt | low; in-process, no setup |
 | **Workflows** | large fan-out (10s+), deterministic/repeatable orchestration, cross-checking/voting, resumable runs | script variables | medium; you write/run a script |
-| **Named teammates** *(experimental, last resort)* | agents must negotiate in real time AND a shared tree is acceptable | live `SendMessage` cross-talk | high; iTerm2 panes, separate processes, manual teardown |
+| **Named teammates** *(experimental, almost never needed)* | you must dialogue *live* with a delegated agent running in parallel, off the master tab, AND a shared tree is acceptable | live `SendMessage` cross-talk | high; iTerm2 panes, separate processes, manual teardown |
 
 Default to **background subagents** (`Agent` tool, `run_in_background: true`, no
 `name`). They run **in-process** under the lead (no separate OS process, no
@@ -41,11 +42,16 @@ Reach for **Workflows** when the fan-out is large or you want deterministic,
 repeatable, resumable orchestration with built-in cross-checking. (Workflows are
 a lead-only mechanism; workers can't invoke them.)
 
-Use **named teammates only** when agents genuinely must coordinate *live* — e.g.
-two executors negotiating an API contract turn by turn — and you accept that
-**teammates are not isolated in worktrees** (Claude Code does not honor
-`isolation: worktree` for teammates; they share the lead's checkout, so you must
-partition files by hand). This is the heaviest path; see §"Named-teammate path".
+Reach for **named teammates almost never.** The only case they earn their keep:
+you want to dialogue *live* with a **delegated** agent running **in parallel**,
+off the master tab — and you accept that **teammates are not isolated in
+worktrees** (Claude Code does not honor `isolation: worktree` for teammates; they
+share the lead's checkout, so you must partition files by hand). Note what does
+NOT qualify: a planning gate. `/autoplan` runs in the lead (interactive there),
+and any input a delegated subagent needs is bubbled up to the lead — so the
+master already funnels approvals to you. Agent-to-agent contract negotiation
+doesn't qualify either: pre-specify the contract in each spawn prompt instead.
+This is the heaviest path; see §"Named-teammate path".
 
 > Critical fact (verified against the docs + observed 2026-06): `isolation:
 > worktree` is a **subagent** feature. A definition spawned as a *teammate* keeps
@@ -77,9 +83,13 @@ tear down.
 ## The pipeline
 
 ```
-1. PLAN      (subagent: team-planner, opus)
-   → produces docs/prompts/<feature>-plan.md, runs /autoplan, returns it
-   → LEAD surfaces the plan to the USER and waits for approval   ← only gate
+1. PLAN      (subagent drafts → LEAD runs /autoplan, interactive)
+   → team-planner subagent (opus) writes the ROUGH plan to
+     docs/prompts/<feature>-plan.md and returns it — it does NOT run /autoplan
+   → the LEAD runs /autoplan **itself** (interactive): the user answers its
+     option-picks in the master tab; /autoplan spawns its own review subagents,
+     so the heavy reads stay off the lead. Then surface the refined plan and
+     wait for the user's approval.   ← only gate
 2. PROMPTS   (subagent: team-prompt-smith, sonnet)
    → turns the approved plan into one self-contained spawn prompt per unit
 3. EXECUTE   (background subagents: team-executor, isolation: worktree)   ← parallel
@@ -93,10 +103,20 @@ tear down.
      merge removes that worktree + deletes its branch; reports completion
 ```
 
-Every step runs as a subagent; step 3 is the only fan-out (one background
-subagent per unit). Keep the **lead thin**: it coordinates and ingests summaries
-— it does not read large diffs or implement. If the lead starts implementing,
-stop and delegate.
+Every step delegates to a subagent except the lead's own `/autoplan` pass in
+step 1; step 3 is the only fan-out (one background subagent per unit). Keep the
+**lead thin**: it coordinates, runs `/autoplan`, and ingests summaries — it does
+not read large diffs or implement. If the lead starts implementing, stop and
+delegate.
+
+**Subagents are headless — they never prompt the user.** A subagent runs to
+completion and hands its result back; it has no channel to ask you anything
+mid-run. So never delegate an *interactive* gate to one — `/autoplan` surfaces
+option-picks, but run in a spawned/headless session it detects that and
+**auto-picks the recommended option silently**, so the user never sees the
+questions. Interactive skills run in the **lead** (the session you're attached
+to); only headless work goes to subagents. (This is why step 1 splits: the
+subagent drafts headlessly, the lead runs `/autoplan` interactively.)
 
 (For the rare named-teammate path, step 3's agents are teammates instead and a
 TEARDOWN step is required — see §"Named-teammate path".)
@@ -104,9 +124,11 @@ TEARDOWN step is required — see §"Named-teammate path".)
 ## Approval gate: PLAN ONLY
 
 The lead must get the **user's** approval on the plan (step 1) before any
-fan-out. Surface the plan, name the open taste-decisions, wait. After the plan is
-approved, executors run, review runs, and the merger lands work and reports
-completion — **no further user gates**.
+fan-out. The lead runs `/autoplan` **itself** (interactive) — never a subagent,
+which would run headless and silently auto-pick instead of surfacing the
+option-picks. Surface the refined plan, name the open taste-decisions, wait.
+After the plan is approved, executors run, review runs, and the merger lands work
+and reports completion — **no further user gates**.
 
 ## Models + effort per role
 
@@ -131,10 +153,11 @@ to the session default — harmless.
 
 ## Spawn recipes
 
-Plan (subagent), then gate:
-> Use the team-planner agent to write an implementation plan for <feature> to
-> `docs/prompts/<feature>-plan.md`, run /autoplan, and return it. I will get the
-> user's approval before any execution.
+Plan (subagent drafts, lead refines), then gate:
+> Use the team-planner agent to write a ROUGH implementation plan for <feature>
+> to `docs/prompts/<feature>-plan.md` and return it — it must NOT run /autoplan.
+> Then I (the lead) run /autoplan myself, interactively, so the user answers its
+> option-picks; I'll get the user's approval before any execution.
 
 Fan out execution (background subagents that write + merge → worktree), after approval:
 > Spawn one team-executor as a background subagent per unit in the approved plan,
@@ -156,11 +179,13 @@ For a large or repeatable fan-out, consider a **Workflow** instead of hand-
 spawning subagents: a deterministic script (plan → fan-out → review → merge) that
 scales to many units, cross-checks results, and resumes if interrupted.
 
-## Named-teammate path (the exception — live cross-talk only)
+## Named-teammate path (almost never needed — live dialogue only)
 
-Use this ONLY when agents must negotiate in real time and a shared checkout is
-acceptable. It is the heaviest path: separate processes, iTerm2 panes, and manual
-teardown. Requirements: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, `teammateMode:
+Use this ONLY when you must dialogue live with a delegated agent running in
+parallel and a shared checkout is acceptable. A planning gate is NOT such a case:
+`/autoplan` runs interactively in the lead, and subagent input bubbles up to the
+lead, so approvals already reach you in the master tab. It is the heaviest path:
+separate processes, iTerm2 panes, and manual teardown. Requirements: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, `teammateMode:
 auto`, iTerm2 with the Python API enabled, and the `it2` CLI (see
 `docs/agent-teams-setup.md`).
 
@@ -221,9 +246,10 @@ process is the real teardown when the handshake is impossible. This entire class
 of problem — orphans, zombies, pane-mapping — is why background subagents are the
 default: no pane, no separate process, no handshake, nothing to orphan.
 
-## Relationship to the multi-session workflow
+## Relationship to the feature workflow
 
-This is the parallel-execution variant of the multi-session feature workflow in
-CLAUDE.md. Planning (`/office-hours`, `/autoplan`) and shipping (`/ship`,
-`/land-and-deploy`) are unchanged; fan-out only replaces the "execute one step
-per session" phase with parallel agents when the steps are independent.
+This is the parallel-execution variant of the feature workflow in CLAUDE.md.
+Planning (`/office-hours`, `/autoplan`) and shipping (`/ship`,
+`/land-and-deploy`) are unchanged; fan-out only replaces the execute phase's
+sequential per-step subagents with parallel agents when the steps are
+independent.

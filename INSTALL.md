@@ -47,8 +47,8 @@ Offer **only** items that are missing or are real decisions. Suggested:
 
 Explain briefly: the **default path** (background subagents + Workflows) needs
 nothing beyond the skill + agents — no flag, no iTerm2. The settings flag +
-iTerm2 + `it2` are **only** for the optional named-teammate split-pane path (live
-cross-talk). gstack is optional — it powers `/autoplan`, `/ship`, `/context-save`
+iTerm2 + `it2` are **only** for the optional named-teammate split-pane path
+(almost never needed — live dialogue with a delegated agent). gstack is optional — it powers `/autoplan`, `/ship`, `/context-save`
 referenced by the workflow; without it, substitute plan mode and plain git.
 
 ## Step 2 — Execute (only chosen + only missing)
