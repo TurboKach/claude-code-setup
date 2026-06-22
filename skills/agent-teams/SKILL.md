@@ -138,12 +138,29 @@ Per teammate, in order:
 4. After all teammates are down, prune the merged worktrees + delete the merged
    branches (`git worktree remove --force …`, `git branch -D …`).
 
-Pitfall (observed): if the channel is flaky and a teammate never answers the
-handshake, closing its pane anyway leaves a **stale roster entry** (it lingers
-in the team list until the lead session ends) and can **orphan** the agent
-process on the detached tty — check with `ps` and `kill` the orphan if so. Closing
-panes is cosmetic; the handshake is the real teardown. Prefer fixing the channel /
-re-sending the request over force-closing.
+Hardened teardown + pitfalls (observed 2026-06). The handshake can fail two ways;
+a flaky channel is the *benign* one:
+
+1. **Context-exhausted zombie.** A teammate that hit its context limit (its pane shows
+   `Context limit reached · /compact or /clear`) CANNOT process ANY message — including
+   `shutdown_request`. It emits stale `idle` pings but never `shutdown_response`, so the
+   handshake can **NEVER** complete. Bound your wait: after ~one cycle with no ACK, treat
+   it as unreachable rather than re-sending forever.
+2. **Unreachable teammate whose work is already merged → kill the tree.** First verify
+   liveness with a **TESTED** ps pattern that matches the real arg
+   (`ps -axo pid,command | grep -- '--agent-name <name>'`, cross-checked by PID) — an
+   untested grep that silently matches nothing reads as a FALSE "all dead" (this bit us:
+   the pattern matched `--agent-name X@team` but the real string is `--agent-id X@team …
+   --agent-name X`). Then kill the agent PID **and its MCP children** (the agent spawns
+   uv/npm/node MCP processes — find them via `ps -axo pid,ppid`), SIGTERM then SIGKILL,
+   and confirm by PID. ONLY after the process is confirmed gone, close its pane by the
+   **recorded UUID** (`it2 session close -s <UUID> -f`).
+
+Closing a pane is cosmetic and never deregisters a live agent; killing the process is the
+real teardown when the handshake is impossible. Never close the lead pane or a pane you
+didn't spawn. The cleanest prevention for ALL of this — orphans, zombies, pane-mapping —
+is to use **unnamed background subagents** (see Spawn recipes): no pane, no separate
+process, no handshake, nothing to orphan.
 
 ## Layout (decided: auto split-panes, one team)
 
@@ -160,11 +177,28 @@ Plan (subagent), then gate:
 > `docs/prompts/<feature>-plan.md`, run /autoplan, and return it. I will get the
 > user's approval before any execution.
 
-Fan out execution (teammates), after approval:
-> Spawn one team-executor teammate per unit in the approved plan, each in its own
-> worktree, named for its unit (backend, frontend, ...). Give each the
-> prompt-smith's spawn prompt. Have backend and frontend message each other to
-> agree the API contract. Wait for all teammates to finish before merging.
+Fan out execution, after approval — **pick the spawn mechanism by isolation need:**
+
+- **Isolated parallel work (the DEFAULT): UNNAMED background subagents**, NOT named
+  teammates. `Agent` tool with `isolation: worktree` + `run_in_background: true` and
+  **no `name`**. These actually get a real worktree, run **in-process** under the lead
+  (no separate OS process, no iTerm pane), need **NO shutdown handshake**, and deliver a
+  clean completion notification. Pre-specify any cross-unit contract in each prompt so
+  they don't need live cross-talk. (Observed 2026-06: named teammates SILENTLY IGNORE
+  `isolation: worktree` — all four shared the main checkout and committed to `main`,
+  clobbering each other; recovery cost a full re-spawn.)
+- **Only when you need live cross-talk** (executors negotiating a contract in real time)
+  AND a shared tree is acceptable: named teammates. Then record the roster map below.
+
+Named-teammate spawn (only if cross-talk is genuinely required):
+> Spawn one team-executor teammate per unit, named for its unit (backend, frontend, …),
+> each in its own worktree. Give each the prompt-smith's spawn prompt. Have backend and
+> frontend message each other to agree the API contract. Wait for all to finish.
+
+**Immediately after spawning named teammates, record the roster map** so teardown is
+deterministic, not guesswork — `ps -axo pid,tty,command | grep -- '--agent-name'` and
+`COLUMNS=400 it2 session list` → save `name → {agent-id, PID, iTerm UUID, TTY, worktree}`.
+Match every later teardown action against this map by UUID/PID, never by pane position.
 
 Review + merge (subagents):
 > Use team-reviewer to adversarially verify each unit's diff, then team-merger to
