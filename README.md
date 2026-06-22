@@ -1,4 +1,4 @@
-# Claude Code setup — agent-teams starter kit
+# Claude Code setup — parallel multi-agent starter kit
 
 My [Claude Code](https://code.claude.com) setup: an opinionated `CLAUDE.md`, plus
 a working **parallel multi-agent** system — a skill that orchestrates fan-out work
@@ -60,7 +60,7 @@ architecturally hard units.
 
 Open Claude Code and paste this:
 
-> Set up the Claude Code agent-teams kit from https://github.com/TurboKach/claude-code-setup — clone it to a temp directory, read INSTALL.md, and run it as an interactive install wizard. Detect what I already have and only install what's missing.
+> Set up the Claude Code parallel-multi-agent kit from https://github.com/TurboKach/claude-code-setup — clone it to a temp directory, read INSTALL.md, and run it as an interactive install wizard. Detect what I already have and only install what's missing.
 
 Claude checks your machine and walks you through it step by step: it offers to
 install only what you're missing (iTerm2, `it2`, gstack), enables the required
@@ -120,6 +120,6 @@ Full walkthrough: [`docs/agent-teams-setup.md`](docs/agent-teams-setup.md).
 
 ## Credits
 
-Workflow and `agent-teams` system by [@TurboKach](https://github.com/TurboKach).
+Workflow and parallel multi-agent system by [@TurboKach](https://github.com/TurboKach).
 gstack by [Garry Tan](https://github.com/garrytan/gstack). Built for
 [Claude Code](https://code.claude.com). MIT licensed.
