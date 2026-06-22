@@ -14,8 +14,8 @@ When invoked:
 2. Triage findings: real bug / regression / test gap / theoretical. Default to
    skepticism — try to find why a change is wrong, not why it's fine.
 3. Check the unit stayed in scope (no speculative additions beyond the plan), is
-   surgical, matches existing conventions, and that shared contracts agreed
-   between teammates are actually honored on both sides.
+   surgical, matches existing conventions, and that the cross-unit contracts are
+   actually honored on both sides.
 4. Run the unit's tests/checks if cheap to do so.
 5. Return a per-unit verdict to the lead: APPROVE or CHANGES-NEEDED with concrete,
    actionable findings. Only units you approve should go to the merger.

@@ -1,4 +1,10 @@
-# Agent Teams setup (macOS + iTerm2)
+# Named-teammate path setup (macOS + iTerm2)
+
+> **You only need this for the optional named-teammate path.** The kit's default
+> — background subagents + Workflows — needs none of this (no feature flag, no
+> iTerm2, no `it2`). Set this up only when you specifically want agents that talk
+> to each other *live* in iTerm2 split panes; see the "Pick the mechanism" and
+> "Named-teammate path" sections of the `agent-teams` skill.
 
 This walks through enabling [Claude Code agent teams](https://code.claude.com/docs/en/agent-teams)
 with iTerm2 split panes, end to end. Agent teams are **experimental** and off by

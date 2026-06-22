@@ -36,18 +36,20 @@ PY
 
 Offer **only** items that are missing or are real decisions. Suggested:
 
-1. **Components** (multiSelect): core kit (skill + agents + settings — the point,
-   pre-checked); `it2` *(if missing)*; iTerm2 *(if missing)*; gstack *(if
-   missing)*.
+1. **Components** (multiSelect): core kit (skill + agents — the point, pre-checked,
+   enables the default background-subagent + Workflows path); optional teammate
+   path (settings flag + `teammateMode` + `it2` + iTerm2 — only for live
+   cross-talk); gstack *(if missing)*.
 2. **CLAUDE.md handling** — only if `~/.claude/CLAUDE.md` already exists:
-   *append the Agent Teams section* (recommended) / *replace with this repo's
-   CLAUDE.md* / *leave mine untouched*. If none exists, just install this repo's
-   `CLAUDE.md` (no need to ask).
+   *append the parallel-multi-agent section* (recommended) / *replace with this
+   repo's CLAUDE.md* / *leave mine untouched*. If none exists, just install this
+   repo's `CLAUDE.md` (no need to ask).
 
-Explain briefly: iTerm2 + `it2` are only needed for **split panes**; without them
-teams still work **in-process**. gstack is optional — it powers `/autoplan`,
-`/ship`, `/context-save` referenced by the workflow; without it, substitute plan
-mode and plain git.
+Explain briefly: the **default path** (background subagents + Workflows) needs
+nothing beyond the skill + agents — no flag, no iTerm2. The settings flag +
+iTerm2 + `it2` are **only** for the optional named-teammate split-pane path (live
+cross-talk). gstack is optional — it powers `/autoplan`, `/ship`, `/context-save`
+referenced by the workflow; without it, substitute plan mode and plain git.
 
 ## Step 2 — Execute (only chosen + only missing)
 
@@ -63,7 +65,8 @@ for f in "$SRC"/agents/team-*.md; do
   cp "$f" ~/.claude/agents/$b
 done
 ```
-Then **merge the settings** (preserve everything else):
+Then, **only if the user chose the optional teammate path**, merge its settings
+keys (preserve everything else) — skip this for a default-path-only install:
 ```bash
 python3 - "$SRC/settings.example.json" <<'PY'
 import json, os, sys
@@ -80,7 +83,7 @@ PY
 
 **CLAUDE.md** (per the chosen handling):
 - *none exists* → `cp "$SRC/CLAUDE.md" ~/.claude/CLAUDE.md`
-- *append* → add this repo's `## Agent Teams (parallel multi-agent)` section to
+- *append* → add this repo's `## Parallel multi-agent` section to
   the end of the user's `~/.claude/CLAUDE.md` (copy it verbatim from
   `$SRC/CLAUDE.md`). Don't duplicate it if already present.
 - *replace* → back up to `$BK`, then copy.
@@ -109,18 +112,20 @@ git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.cl
   && cd ~/.claude/skills/gstack && ./setup
 ```
 
-## Step 3 — Tell the user the manual steps (cannot be automated)
+## Step 3 — Tell the user the manual steps
 
+**Default path:** just **restart Claude Code** so the skill + agents load. Nothing
+else. Then suggest a test (background subagents, read-only → no worktrees):
+> Spawn 3 background subagents to review this code in parallel — one on security,
+> one on performance, one on test coverage. Have them report findings.
+
+**Optional teammate path only** (skip unless they installed it — cannot be automated):
 1. **Quit iTerm2 (Cmd+Q) and reopen** — activates the API server. Approve the
    one-time "allow Python API" dialog on first team spawn.
 2. **Restart Claude Code** — cold start, inside iTerm2, so the flag,
    `teammateMode`, skill, and agents all load. Don't `--resume`.
 3. **`/config` → Default teammate model → Sonnet** (token-efficient floor;
    per-role models in the agent files override it).
-
-Then suggest a test:
-> Spawn 3 teammates to review this code — one on security, one on performance,
-> one on test coverage. Have them report findings.
 
 ## Rules
 

@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Claude Code agent-teams starter kit installer.
+# Claude Code parallel-multi-agent starter kit installer.
 # Copies CLAUDE.md, the agent-teams skill, and the team-* agents into ~/.claude,
-# backing up anything it would overwrite, and merges the two required settings
-# keys (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS + teammateMode) without clobbering
-# the rest of your settings.json.
+# backing up anything it would overwrite. The kit's default path (background
+# subagents + Workflows) needs nothing else. This also merges two settings keys
+# (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS + teammateMode) that ONLY matter for the
+# optional named-teammate (iTerm2) path — harmless if you never use it.
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEST="${CLAUDE_HOME:-$HOME/.claude}"
@@ -47,7 +48,8 @@ for f in "$SRC"/agents/team-*.md; do
 done
 echo "  installed team-* agents"
 
-# settings.json — merge the two required keys, preserving everything else.
+# settings.json — merge the two teammate-path keys, preserving everything else.
+# (Only needed for the optional named-teammate path; harmless otherwise.)
 SETTINGS="$DEST/settings.json"
 if command -v python3 >/dev/null 2>&1; then
   python3 - "$SETTINGS" "$SRC/settings.example.json" <<'PY'
@@ -69,15 +71,20 @@ else
   echo "  python3 not found — add the keys from settings.example.json to $SETTINGS by hand"
 fi
 
-say "Files installed. Remaining manual steps:"
+say "Files installed. The default path (background subagents + Workflows) is ready now —"
+say "just restart Claude Code and ask for parallel work."
 cat <<'EOF'
+
+Optional — only if you want the experimental named-teammate (iTerm2 split-pane) path:
   1. it2 CLI (iTerm2 split panes):   uv tool install it2      (or: pip install it2)
   2. Enable iTerm2 Python API:       defaults write com.googlecode.iterm2 EnableAPIServer -bool true
   3. Quit & reopen iTerm2 (Cmd+Q); approve the one-time API permission dialog on first use.
-  4. (Optional) gstack for /autoplan, /ship, /context-save, etc.:
-       git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack \
-         && cd ~/.claude/skills/gstack && ./setup
-  5. Restart Claude Code, then: /config -> Default teammate model -> Sonnet.
+  4. Restart Claude Code (inside iTerm2), then: /config -> Default teammate model -> Sonnet.
 
-Full walkthrough: docs/agent-teams-setup.md
+Recommended for the full workflow:
+  - gstack for /autoplan, /ship, /context-save, etc.:
+      git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack \
+        && cd ~/.claude/skills/gstack && ./setup
+
+Named-teammate walkthrough: docs/agent-teams-setup.md
 EOF

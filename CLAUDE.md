@@ -88,12 +88,16 @@ Rules:
 - Plan reviews used individually (`/plan-eng-review` etc.) run via sub-agents — review token burn doesn't belong in main context.
 - If a session can't finish its step, commit `WIP:` and let the next session resume the same step. Don't advance.
 
-## Agent Teams (parallel multi-agent)
+## Parallel multi-agent
 
-Experimental teams are enabled (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`; iTerm2 split panes via `teammateMode: auto`). Use them ONLY for genuinely **parallel, independent** work; sequential pipelines belong to the multi-session workflow above or to plain subagents.
+For genuinely **parallel, independent** work only; sequential pipelines belong to the multi-session workflow above. Pick the mechanism by need:
 
-- **When to offer (lead only):** if a task has independent parallel parts (backend+frontend, N independent modules, competing-hypothesis debugging, multi-lens review) AND I haven't told you the approach AND the project's own CLAUDE.md hasn't set a preference (`use teams` / `never teams`) → ask whether to use a team before starting. If you are a teammate, never re-ask — just do your assigned task.
-- **How:** invoke the `agent-teams` skill for the full playbook (roles, models, worktree/merge flow, the plan-only approval gate). Don't inline the playbook here.
+- **Background subagents (DEFAULT):** independent units, contracts known up front. Add `isolation: worktree` **only** when they write files in parallel and merge later; read-only fan-out (review, research) needs no worktree. In-process, no setup, no teardown.
+- **Workflows:** large (10s+), deterministic/repeatable/resumable fan-outs with cross-checking.
+- **Named teammates (experimental, opt-in):** ONLY when agents must negotiate *live* AND a shared tree is acceptable — teammates are NOT worktree-isolated. Needs `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` + `teammateMode: auto` + iTerm2.
+
+- **When to offer (lead only):** if a task has independent parallel parts (backend+frontend, N independent modules, competing-hypothesis debugging, multi-lens review) AND I haven't told you the approach AND the project's own CLAUDE.md hasn't set a preference → ask whether to fan out before starting. If you are a worker, never re-ask — just do your assigned task.
+- **How:** invoke the `agent-teams` skill for the full playbook (mechanism choice, roles, models, worktree/merge flow, the plan-only approval gate). Don't inline the playbook here.
 
 ## Tooling
 
