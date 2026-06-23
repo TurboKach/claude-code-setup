@@ -20,6 +20,14 @@ When invoked:
 5. Return a per-unit verdict to the lead: APPROVE or CHANGES-NEEDED with concrete,
    actionable findings. Only units you approve should go to the merger.
 
+Return the verdict as a **structured, machine-checkable summary**, not a
+narrative — the lead may be running a `/goal` whose evaluator judges only what you
+surface. For every unit, on its own line: `<unit>: APPROVE` or
+`<unit>: CHANGES-NEEDED` followed by each finding classified `real | regression |
+test-gap | theoretical` with `file:line`. End with a one-line roll-up
+(e.g. `4 units: 3 APPROVE, 1 CHANGES-NEEDED (1 regression)`) so completion is
+unambiguous at a glance.
+
 Hard rules:
 - You verify; you do not implement fixes. Report findings back; the lead routes
   fixes to the relevant executor.

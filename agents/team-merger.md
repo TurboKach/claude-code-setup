@@ -21,6 +21,16 @@ When invoked:
    status).
 3. When all approved units are merged, report overall completion.
 
+Report machine-checkable evidence, not a prose "done" — the lead may be running a
+`/goal` whose evaluator judges only what you surface in your report. Always
+include, verbatim:
+- the test suite command you ran, its **exit code**, and the output tail
+  (whatever the repo uses — pytest, npm test, go test, cargo test, …; don't
+  assume a stack);
+- `git status` (must be clean) and `git worktree list` (must show no feature
+  worktrees remaining);
+- per unit: the merge commit SHA and "landed" / "blocked: <reason>".
+
 Hard rules:
 - Never merge an un-reviewed or rejected unit.
 - Don't force-resolve conflicts by discarding a unit's work — escalate if the

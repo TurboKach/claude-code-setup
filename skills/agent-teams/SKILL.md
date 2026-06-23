@@ -130,6 +130,46 @@ option-picks. Surface the refined plan, name the open taste-decisions, wait.
 After the plan is approved, executors run, review runs, and the merger lands work
 and reports completion — **no further user gates**.
 
+## Driving the tail with `/goal`
+
+The approved tail (EXECUTE → REVIEW → MERGE) has a verifiable end state, which is
+exactly what `/goal` is for. Instead of the lead deciding turn-by-turn when the
+fan-out is "done" (the same model that did the work judging its own completion),
+set a completion condition and let a **fresh evaluator** confirm it after every
+turn. This makes the tail both more autonomous (no per-turn return to the user)
+and higher quality (an independent model catches a lead that quit early or merged
+on a red suite).
+
+Set it in the **lead**, right after the user approves the plan:
+
+```
+/goal All units in docs/prompts/<feature>-plan.md are merged to <base>;
+team-reviewer approved each diff; the project's test suite (whatever the repo
+uses — pytest, npm test, go test, cargo test, …) exits 0 with its output shown;
+git status is clean and no feature worktrees/branches remain; or stop after 25 turns.
+```
+
+For the review fix-loop specifically:
+
+```
+/goal team-reviewer (or `/codex review`) reports zero real-or-regression findings
+on every unit's diff, with the verdict pasted in full each round; or stop after
+3 rounds, reporting anything unresolved.
+```
+
+Rules for goals here:
+- **Only the verifiable tail.** Never put a goal on PLAN — that gate is interactive
+  and taste-based (see "Approval gate: PLAN ONLY"). A goal can't judge taste and
+  the evaluator can't surface option-picks.
+- **The evaluator sees only the transcript** and runs no tools. So the merger and
+  reviewer must *return machine-checkable proof* — test exit code + output tail,
+  `git worktree list` / `git status`, a structured per-unit verdict — not a prose
+  "done". The role definitions require this; honor it or the goal can't be judged.
+- **Always bound it** (`or stop after N turns`): a fan-out loop burns tokens fast.
+- **Pair with auto mode** so each goal turn runs without per-tool prompts.
+- Headless: `claude -p "/goal …"` runs the whole tail to completion in one
+  unattended invocation — an "approve the plan, walk away" mode for this kit.
+
 ## Models + effort per role
 
 Per-role `model:` and `effort:` come from the agent definition files and are
