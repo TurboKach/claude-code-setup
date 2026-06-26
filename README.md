@@ -95,6 +95,7 @@ Full walkthrough: [`docs/agent-teams-setup.md`](docs/agent-teams-setup.md).
 **Default path (background subagents + Workflows):**
 - Claude Code **v2.1.18x or newer** (`claude --version`)
 - That's it — no flags, no iTerm2.
+- The `/goal`-driven feature workflow (the post-approval tail in `CLAUDE.md`) needs Claude Code **≥ 2.1.139** — `/goal` is a built-in command, no install required.
 
 **Optional named-teammate (iTerm2 split-pane) path adds:**
 - macOS + iTerm2 (split panes need tmux or iTerm2)
