@@ -32,15 +32,21 @@ parallel **execution** phase only.
 | **Workflows** | large fan-out (10s+), deterministic/repeatable orchestration, cross-checking/voting, resumable runs | script variables | medium; you write/run a script |
 | **Named teammates** *(experimental, almost never needed)* | you must dialogue *live* with a delegated agent running in parallel, off the master tab, AND a shared tree is acceptable | live `SendMessage` cross-talk | high; iTerm2 panes, separate processes, manual teardown |
 
-Default to **background subagents** (`Agent` tool, `run_in_background: true`, no
-`name`). They run **in-process** under the lead (no separate OS process, no
-iTerm2 pane), need **no shutdown handshake**, and deliver a clean completion
-notification. Pre-specify any cross-unit contract in each spawn prompt so they
-never need to talk to each other.
+Default to **background subagents** (`Agent` tool, no `name`). `team-executor`
+sets `background: true` in its frontmatter — the documented way to make a
+subagent always run in the background; for ad-hoc spawns say "in the background"
+(`run_in_background: true` on the Agent call also works on current builds). They
+run **in-process** under the lead (no separate OS process, no iTerm2 pane), need
+**no shutdown handshake**, and deliver a clean completion notification.
+Pre-specify any cross-unit contract in each spawn prompt so they never need to
+talk to each other.
 
 Reach for **Workflows** when the fan-out is large or you want deterministic,
-repeatable, resumable orchestration with built-in cross-checking. (Workflows are
-a lead-only mechanism; workers can't invoke them.)
+repeatable, resumable orchestration with built-in cross-checking. (In this kit
+only the lead runs Workflows — the worker roles' `tools` lists deliberately omit
+the Workflow and Agent tools, so they can't fan out on their own. That's a kit
+choice, not a platform rule: since v2.1.172 a subagent whose `tools` includes
+`Agent` can spawn nested subagents, up to 5 levels deep.)
 
 Reach for **named teammates almost never.** The only case they earn their keep:
 you want to dialogue *live* with a **delegated** agent running **in parallel**,
@@ -53,12 +59,14 @@ master already funnels approvals to you. Agent-to-agent contract negotiation
 doesn't qualify either: pre-specify the contract in each spawn prompt instead.
 This is the heaviest path; see §"Named-teammate path".
 
-> Critical fact (verified against the docs + observed 2026-06): `isolation:
-> worktree` is a **subagent** feature. A definition spawned as a *teammate* keeps
-> only its `tools` and `model` — worktree isolation is silently dropped. Spawning
-> the executors as named teammates once put all four in the same checkout
-> committing to `main`, clobbering each other. Background subagents are the safe
-> default precisely because they CAN get real worktrees when they need them.
+> Critical fact (observed 2026-06; the docs don't state it explicitly — they
+> only say teammates keep `tools`+`model` and advise partitioning files so no
+> two teammates edit the same file): `isolation: worktree` is a **subagent**
+> feature. A definition spawned as a *teammate* keeps only its `tools` and
+> `model` — worktree isolation is silently dropped. Spawning the executors as
+> named teammates once put all four in the same checkout committing to `main`,
+> clobbering each other. Background subagents are the safe default precisely
+> because they CAN get real worktrees when they need them.
 
 ## 3. Worktree isolation: only for parallel writes that merge
 
@@ -201,7 +209,8 @@ Plan (subagent drafts, lead refines), then gate:
 
 Fan out execution (background subagents that write + merge → worktree), after approval:
 > Spawn one team-executor as a background subagent per unit in the approved plan,
-> each with `isolation: worktree` and `run_in_background: true` and **no name**.
+> each with `isolation: worktree` and **no name** (team-executor's `background:
+> true` frontmatter already keeps it in the background).
 > Give each the prompt-smith's self-contained spawn prompt (the cross-unit
 > contract is baked in, so they don't message each other). Notify me when each
 > completes.
@@ -226,14 +235,16 @@ parallel and a shared checkout is acceptable. A planning gate is NOT such a case
 `/autoplan` runs interactively in the lead, and subagent input bubbles up to the
 lead, so approvals already reach you in the master tab. It is the heaviest path:
 separate processes, iTerm2 panes, and manual teardown. Requirements: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, `teammateMode:
-auto`, iTerm2 with the Python API enabled, and the `it2` CLI (see
+auto` (or `iterm2` to force iTerm2 native panes; the default is `in-process`),
+iTerm2 with the Python API enabled, and the `it2` CLI (see
 `docs/agent-teams-setup.md`).
 
-Hard constraints (verified against the docs):
+Hard constraints (documented, except where marked observed):
 - **One team per session; the lead is fixed.** Only the lead spawns — teammates
   can't spawn teammates (no nested teams).
 - **Teammates are NOT isolated in worktrees** — `isolation: worktree` is dropped
-  for teammates. Partition files by hand so no two teammates edit the same file.
+  for teammates *(observed; the docs only advise partitioning files between
+  teammates)*. Partition files by hand so no two teammates edit the same file.
 - **Layout is auto** — each teammate gets its own iTerm2 pane. Name teammates
   (`backend`, `frontend`) so they're identifiable by name, not position.
 - CLAUDE.md + skills load for every teammate, but a definition's
@@ -256,7 +267,9 @@ worktree}`. Match every later teardown action by UUID/PID, never by pane positio
 When a teammate's work is landed and eyeballed, tear it down **handshake first,
 pane-close second**. A teammate leaves the roster ONLY when the shutdown
 handshake completes — closing its pane does NOT deregister it and can orphan its
-process.
+process. (The docs describe shutdown only as "lead sends a shutdown request,
+teammate approves or rejects"; the JSON shapes below are the observed wire
+format.)
 
 Per teammate, in order:
 1. `SendMessage` a `{type:"shutdown_request", reason:"…"}`.

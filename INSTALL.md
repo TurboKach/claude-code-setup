@@ -12,7 +12,7 @@ Run these and show the user a short status summary:
 
 ```bash
 uname -s                                          # Darwin = macOS (needed for iTerm2 split panes)
-claude --version                                  # need >= 2.1.18x for agent-team split panes
+claude --version                                  # need >= 2.1.186 (background permission prompts, teammateMode "iterm2")
 ls -d /Applications/iTerm.app 2>/dev/null || echo "iTerm2: missing"
 which brew uv it2 2>/dev/null
 ls -d ~/.claude/skills/gstack 2>/dev/null && echo "gstack: present" || echo "gstack: missing"
@@ -29,8 +29,9 @@ PY
 - If `uname -s` is **not** `Darwin`: tell the user split panes need macOS+iTerm2
   (or tmux); they can still use `teammateMode: in-process`. Skip the iTerm2/it2
   offers below and continue with the core kit.
-- If `claude --version` is older than ~2.1.18x: warn that split panes may not
-  work and suggest updating Claude Code.
+- If `claude --version` is older than 2.1.186: suggest updating Claude Code —
+  before 2.1.186 background subagents silently auto-denied permission prompts,
+  and split panes / `teammateMode: "iterm2"` may not work.
 
 ## Step 1 — Ask what to set up (AskUserQuestion)
 

@@ -13,7 +13,9 @@ default.
 ## Requirements
 
 - **macOS** with **iTerm2** (split panes need tmux or iTerm2; this guide uses iTerm2).
-- **Claude Code v2.1.18x or newer** — check with `claude --version`.
+- **Claude Code v2.1.186 or newer** (use the latest) — check with
+  `claude --version`. v2.1.186 is when `teammateMode: "iterm2"` landed and when
+  background-subagent permission prompts started surfacing in the lead session.
 - **uv** (or pip) to install the `it2` CLI.
 - *(Optional)* **gstack** — the planner role runs `/autoplan` and the workflow
   references `/ship`, `/context-save`, etc. Without gstack those steps fall back
@@ -32,9 +34,12 @@ Add to `~/.claude/settings.json` (the installer merges these for you):
 
 - `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` turns the feature on. Without it, no
   team is set up and Claude won't spawn or propose teammates.
-- `teammateMode: "auto"` uses split panes when you're in iTerm2 or tmux, and
-  falls back to in-process (single terminal) otherwise. Other values: `"tmux"`
-  (force split panes) and `"in-process"` (never split).
+- `teammateMode: "auto"` uses split panes when you're in iTerm2 (with `it2`
+  installed) or inside tmux, and falls back to in-process (single terminal)
+  otherwise. Other values: `"tmux"` (split panes, auto-detecting tmux or
+  iTerm2), `"iterm2"` (force iTerm2 native panes; requires the `it2` CLI —
+  v2.1.186+), and `"in-process"` (never split — the default since v2.1.179,
+  which is why this key must be set explicitly).
 
 ## 2. Install the it2 CLI
 
