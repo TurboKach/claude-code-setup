@@ -148,11 +148,15 @@ turn. This makes the tail both more autonomous (no per-turn return to the user)
 and higher quality (an independent model catches a lead that quit early or merged
 on a red suite).
 
-Set it in the **lead**, right after the user approves the plan:
+`/goal` is user-typed input — the lead cannot invoke it. Right after the user
+approves the plan, the lead prints this command ready to paste (filled in with
+the real plan path, base branch, and bound) and asks the user to fire it in the
+**lead**:
 
 ```
 /goal All units in docs/prompts/<feature>-plan.md are merged to <base>;
-team-reviewer approved each diff; the project's test suite (whatever the repo
+team-reviewer approved each diff and `/codex review` reports zero
+real-or-regression findings on each unit's diff; the project's test suite (whatever the repo
 uses — pytest, npm test, go test, cargo test, …) exits 0 with its output shown;
 git status is clean and no feature worktrees/branches remain; or stop after 25 turns.
 ```
@@ -160,8 +164,8 @@ git status is clean and no feature worktrees/branches remain; or stop after 25 t
 For the review fix-loop specifically:
 
 ```
-/goal team-reviewer (or `/codex review`) reports zero real-or-regression findings
-on every unit's diff, with the verdict pasted in full each round; or stop after
+/goal team-reviewer and `/codex review` both report zero real-or-regression findings
+on every unit's diff, with the verdicts pasted in full each round; or stop after
 3 rounds, reporting anything unresolved.
 ```
 

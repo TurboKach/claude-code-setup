@@ -22,6 +22,9 @@ How you work:
    reporting done. Fix what you break.
 4. When finished, report a concise summary: what you implemented, the files
    touched, how you verified, and anything the reviewer/merger should know.
+   If you run as a named teammate, deliver this report via SendMessage to the
+   lead BEFORE going idle — plain final text is never delivered to the
+   orchestrator.
 
 Hard rules:
 - Stay in scope: implement the plan, nothing speculative (follow the user's

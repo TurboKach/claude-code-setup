@@ -6,6 +6,7 @@
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
 - Ask about *ambiguity*, not for *permission*. Obvious fixes don't need clarifying questions — just do them.
+- Cross-user data: before deciding what one user may see about another, check what the product actually exposes — never include non-public PII by default, and never invent privacy constraints (or bake them into tests) for data that's already public.
 
 ### 2. Simplicity First
 - Minimum code that solves the problem. Nothing speculative.
@@ -35,7 +36,9 @@
   1. [Step] → verify: [check]
   2. [Step] → verify: [check]
   ```
-- Never mark a task complete without proving it works. Run tests, check logs, demonstrate correctness.
+- **Green unit tests are not "done."** Before claiming done/verified/fixed for anything with a runtime surface, exercise the real user-facing flow end-to-end and show the evidence: drive the actual UI path and its state transitions (`/verify`, `/run`, `/browse`, `/qa`), render visual work against the reference, and check impact on every consuming client (apps, services, other repos).
+- If you cannot exercise the flow yourself, say "implemented, not yet verified — needs a manual test of X" — never "done" or "should now work." I must not be the first person to actually try the feature.
+- Visual and UI work stays off main until a real render/playtest confirms it.
 - Find root causes — no temporary fixes or band-aids.
 - Run existing tests after changes; fix anything you break. Verify type checking and linting pass if configured. For API changes, verify request/response contracts.
 
@@ -76,12 +79,14 @@
 
 ### Communication
 - For architectural decisions: present 2–3 options with tradeoffs, then recommend one.
+- **Earn the decision gate.** Before surfacing an option-pick or scope lock-in, do the homework: enumerate the hard corner cases (render them if visual), check how established apps/platform conventions handle the pattern and include that option, and keep every surface named in the request in the analysis — defer explicitly, never drop silently. A gate I must reject to go research myself is worse than no gate.
 - Keep summaries concise: what changed, why, and what to verify.
 - When blocked or uncertain, say so clearly rather than guessing.
+- **Render, don't ASCII-sketch, when it matters visually.** When depicting something visual (UI layouts, icon/option comparisons, diagrams, before/after, color/spacing choices) and an ASCII/text sketch can't convey it clearly, generate an actual image and `open` it for me instead — e.g. a throwaway script (SwiftUI `ImageRenderer`, AppKit, HTML→screenshot, matplotlib, SVG→PNG) rendered to a PNG in the scratchpad. Use the real tokens/sizes/colors when the choice depends on them. Don't force a low-fidelity ASCII approximation onto a decision that needs to be seen.
 
 ## Feature workflow
 
-For non-trivial work — anything with multiple steps or that benefits from a formal review cycle. One-shot edits and small fixes skip this entirely.
+For non-trivial work — anything with multiple steps or that benefits from a formal review cycle. One-shot edits and small fixes outside an active pipeline skip this entirely.
 
 One **master session** owns the feature end-to-end. It stays thin by running every token-heavy stage **out of main context** — in a subagent or an agent-team agent — so in practice it never fills up. The master coordinates and ingests summaries; it does not implement or hand-author specs. Plan files live in the repo at `docs/prompts/<feature>-plan.md` so they survive across machines and sessions.
 
@@ -95,11 +100,17 @@ Six stages, each delegated out of main context by the master session:
 6. **Ship** → `/ship` (PR) → `/land-and-deploy` (merge + deploy + post-deploy verify).
 
 Rules:
-- **Drive the post-approval tail (stages 4–6) with `/goal`.** Once the plan is approved it has a verifiable end state, so set a completion condition and let the master keep working across turns without returning control — a fresh evaluator (not the master that did the work) confirms done-ness after every turn. Bound every goal (`or stop after N turns`) and pair it with auto mode so each turn runs unattended. **Never wrap stages 1–3 in a goal** — plan approval is the one interactive, taste-based gate, not a verifiable condition. The evaluator only judges the transcript and runs no tools, so each role must surface machine-checkable proof (test exit codes + output, `git status`, structured per-unit verdicts), not just "done". Example tail goal: `/goal all units in docs/prompts/<feature>-plan.md are merged to <base>; the reviewer approved each diff; the project's test suite (whatever the repo uses — pytest, npm test, go test, cargo test, …) exits 0 with its output shown; git status is clean and no feature worktrees/branches remain; or stop after 25 turns`.
+- **Hard rule — the master never touches code.** Once a session is acting as master (a plan exists or the feature workflow is in play), it makes zero edits to product files: no inline implementation, no builds, no "too small to spawn for" post-review one-liners — every code change, however tiny, goes to a subagent. The "small fixes skip this workflow" exemption applies only to standalone one-shot requests, never to work inside an active pipeline.
+- **Plan-approval is the trigger, not a suggestion.** The moment build approval lands, transition unprompted into the delegated tail: print the ready-to-paste `/goal` command (below) and fan out per-step subagents once it's fired. Never write an ExitPlanMode plan whose steps have the master implementing units itself — each execution step must name who it's delegated to. Don't wait for the user to re-cite the pipeline.
+- **Drive the post-approval tail (stages 4–6) with `/goal`.** `/goal` is user-typed input — the master cannot invoke it. At the plan-approval gate the master prints the exact ready-to-paste `/goal` command (plan path, base branch, review gates, turn bound) and asks me to fire it. Once the plan is approved it has a verifiable end state, so the goal's completion condition lets the master keep working across turns without returning control — a fresh evaluator (not the master that did the work) confirms done-ness after every turn. Bound every goal (`or stop after N turns`) and pair it with auto mode so each turn runs unattended. **Never wrap stages 1–3 in a goal** — plan approval is the one interactive, taste-based gate, not a verifiable condition. The evaluator only judges the transcript and runs no tools, so each role must surface machine-checkable proof (test exit codes + output, `git status`, structured per-unit verdicts), not just "done". Example tail goal: `/goal all units in docs/prompts/<feature>-plan.md are merged to <base>; the reviewer approved each diff; the project's test suite (whatever the repo uses — pytest, npm test, go test, cargo test, …) exits 0 with its output shown; git status is clean and no feature worktrees/branches remain; or stop after 25 turns`.
 - Keeping the master thin via delegation is what lets one session run e2e. If it nevertheless approaches the context ceiling (~500k tokens), do a **deliberate, user-assisted handoff** to a fresh master session — don't silently push past it. `/context-save` + `/context-restore` are the handoff bridge.
 - Make handoff artifacts cold-start-ready *without being asked*: consolidate everything essential into one standalone root README so a fresh session needs no other file, and attach execution/implementation plans to their task/ticket so a future session finds them by reference — not just as local files.
 - Plan reviews used individually (`/plan-eng-review` etc.) run via sub-agents — review token burn doesn't belong in main context.
 - If work is interrupted mid-step, commit `WIP:` so the master (or a handoff session) can resume cleanly.
+- **Stage 5 is a hard merge gate.** Never merge a step to the base branch until `/codex review` has run on that step's diff and its verdict is shown. Internal reviewer subagents do NOT satisfy this gate — they are implementation helpers, not the independent review. If `/codex` hasn't run, say "unreviewed, not merging" instead of merging.
+- **Pushes to remote are user-approved, always.** Local merges and commits follow the gates above; `git push` — any remote, any branch — happens only after my explicit approval in the session (me firing `/ship` or `/land-and-deploy` counts as approval).
+- **Never say "verified" from indirect reasoning.** If a claim depends on code you haven't read — another repo, a client app, an API consumer — fan out a read-only subagent to read it and cite what it found first. Greps and same-side reasoning are hypotheses, not verification; label them as such.
+- **AFK is not approval.** Taste/approval gates (the /autoplan gate, plan approval, any option-pick) go through a real blocking primitive — AskUserQuestion or plan approval — never a prose question the next turn walks past. No answer → end the turn and wait (push-notify if I may be away). Proceeding on a recommended option, a default, or my silence is a pipeline violation.
 
 ## Parallel multi-agent
 
