@@ -75,11 +75,14 @@ say "Files installed. The default path (background subagents + Workflows) is rea
 say "just restart Claude Code and ask for parallel work."
 cat <<'EOF'
 
-Optional — only if you want the experimental named-teammate (iTerm2 split-pane) path:
-  1. it2 CLI (iTerm2 split panes):   uv tool install it2      (or: pip install it2)
-  2. Enable iTerm2 Python API:       defaults write com.googlecode.iterm2 EnableAPIServer -bool true
-  3. Quit & reopen iTerm2 (Cmd+Q); approve the one-time API permission dialog on first use.
-  4. Restart Claude Code (inside iTerm2), then: /config -> Default teammate model -> Sonnet.
+Optional — only if you want the experimental named-teammate (iTerm2 split-pane) path.
+(The installer sets teammateMode: "in-process" = teammates run in-process and show
+in the status bar, NO terminal panes. Opt into split panes by setting it to "iterm2":)
+  1. Enable panes:  set "teammateMode": "iterm2" in ~/.claude/settings.json
+  2. it2 CLI (iTerm2 split panes):   uv tool install it2      (or: pip install it2)
+  3. Enable iTerm2 Python API:       defaults write com.googlecode.iterm2 EnableAPIServer -bool true
+  4. Quit & reopen iTerm2 (Cmd+Q); approve the one-time API permission dialog on first use.
+  5. Restart Claude Code (inside iTerm2), then: /config -> Default teammate model -> Sonnet.
 
 Recommended for the full workflow:
   - gstack for /autoplan, /ship, /context-save, etc.:

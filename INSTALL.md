@@ -121,11 +121,15 @@ else. Then suggest a test (background subagents, read-only → no worktrees):
 > one on performance, one on test coverage. Have them report findings.
 
 **Optional teammate path only** (skip unless they installed it — cannot be automated):
-1. **Quit iTerm2 (Cmd+Q) and reopen** — activates the API server. Approve the
+1. **Enable panes:** set `"teammateMode": "iterm2"` in `~/.claude/settings.json`.
+   The installer leaves it at `"in-process"` (teammates in the status bar, no
+   panes); `"iterm2"` is what renders them as split panes. (Panes don't
+   self-close — `Cmd-W` a pane's tab to close it when done.)
+2. **Quit iTerm2 (Cmd+Q) and reopen** — activates the API server. Approve the
    one-time "allow Python API" dialog on first team spawn.
-2. **Restart Claude Code** — cold start, inside iTerm2, so the flag,
+3. **Restart Claude Code** — cold start, inside iTerm2, so the flag,
    `teammateMode`, skill, and agents all load. Don't `--resume`.
-3. **`/config` → Default teammate model → Sonnet** (token-efficient floor;
+4. **`/config` → Default teammate model → Sonnet** (token-efficient floor;
    per-role models in the agent files override it).
 
 ## Rules

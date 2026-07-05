@@ -27,7 +27,7 @@ in parallel, no extra setup).
 | `agents/team-executor.md` | Implements one unit as a **background subagent** (worktree, since units write in parallel) *(Sonnet; Opus for hard units)* |
 | `agents/team-reviewer.md` | Adversarially verifies each diff before merge — read-only, no worktree *(Opus)* |
 | `agents/team-merger.md` | Merges approved worktrees into the base branch, removes each worktree + branch after landing, reports done *(Sonnet)* |
-| `settings.example.json` | The two keys for the **optional** teammate path: the feature flag + `teammateMode` |
+| `settings.example.json` | The two keys for the teammate feature: the flag + `teammateMode` (defaults to `in-process` — teammates in the status bar, **no panes**; set to `"iterm2"` to opt into split panes) |
 | `install.sh` | Copies everything into `~/.claude` (with backups); the settings keys it merges only matter if you use the teammate path |
 | `docs/agent-teams-setup.md` | macOS + iTerm2 walkthrough — only needed for the optional named-teammate path |
 
@@ -82,11 +82,14 @@ once the files are copied, ask for parallel work and it fans out.
 
 ### Manual steps — only for the optional named-teammate path
 
-Skip these unless you want the experimental iTerm2 split-pane teammates:
+Skip these unless you want the experimental iTerm2 split-pane teammates. (The
+installer sets `teammateMode: "in-process"` — status-bar teammates, no panes; step 1
+opts into panes. Panes don't self-close: `Cmd-W` a pane's tab to close it.)
 
-1. **Restart iTerm2** (Cmd+Q, reopen) and approve the one-time API permission dialog.
-2. **Restart Claude Code** — cold start, inside iTerm2.
-3. **`/config` → Default teammate model → Sonnet.**
+1. **Enable panes:** set `"teammateMode": "iterm2"` in `~/.claude/settings.json`.
+2. **Restart iTerm2** (Cmd+Q, reopen) and approve the one-time API permission dialog.
+3. **Restart Claude Code** — cold start, inside iTerm2 (the mode is read at startup).
+4. **`/config` → Default teammate model → Sonnet.**
 
 Full walkthrough: [`docs/agent-teams-setup.md`](docs/agent-teams-setup.md).
 
