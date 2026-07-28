@@ -28,10 +28,12 @@ backup() { # $1 = path under DEST
 say "Installing into $DEST (backups -> $BACKUP)"
 
 # CLAUDE.md — never clobber an existing personal one.
+# (The source lives at global/CLAUDE.md so sessions in this repo don't load it
+# twice — a repo-root CLAUDE.md would duplicate ~/.claude/CLAUDE.md in context.)
 if [ -e "$DEST/CLAUDE.md" ]; then
-  echo "  $DEST/CLAUDE.md exists — left untouched. Merge from $SRC/CLAUDE.md by hand if you want it."
+  echo "  $DEST/CLAUDE.md exists — left untouched. Merge from $SRC/global/CLAUDE.md by hand if you want it."
 else
-  cp "$SRC/CLAUDE.md" "$DEST/CLAUDE.md"; echo "  installed CLAUDE.md"
+  cp "$SRC/global/CLAUDE.md" "$DEST/CLAUDE.md"; echo "  installed CLAUDE.md"
 fi
 
 # Skill — back up then replace.

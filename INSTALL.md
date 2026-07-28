@@ -83,10 +83,10 @@ PY
 ```
 
 **CLAUDE.md** (per the chosen handling):
-- *none exists* → `cp "$SRC/CLAUDE.md" ~/.claude/CLAUDE.md`
+- *none exists* → `cp "$SRC/global/CLAUDE.md" ~/.claude/CLAUDE.md`
 - *append* → add this repo's `## Parallel multi-agent` section to
   the end of the user's `~/.claude/CLAUDE.md` (copy it verbatim from
-  `$SRC/CLAUDE.md`). Don't duplicate it if already present.
+  `$SRC/global/CLAUDE.md`). Don't duplicate it if already present.
 - *replace* → back up to `$BK`, then copy.
 - *leave* → do nothing.
 

@@ -20,7 +20,7 @@ in parallel, no extra setup).
 
 | Path | What it is |
 |------|-----------|
-| `CLAUDE.md` | Universal principles + workflow (think-before-coding, simplicity, surgical changes, the single-master feature workflow, the parallel-multi-agent trigger) |
+| `global/CLAUDE.md` | Universal principles + workflow (think-before-coding, simplicity, surgical changes, the single-master feature workflow, the parallel-multi-agent trigger). Lives under `global/` so working sessions in this repo don't load it twice alongside `~/.claude/CLAUDE.md` |
 | `skills/agent-teams/SKILL.md` | The orchestration playbook — when to fan out, how to pick the mechanism (subagents / Workflows / teammates), the pipeline, models, worktree/merge flow, the plan-approval gate. Loads on demand. |
 | `agents/team-planner.md` | Writes the **rough** plan (headless); the lead refines it with `/autoplan` and surfaces it for **your** approval *(Opus)* |
 | `agents/team-prompt-smith.md` | Turns the approved plan into one spawn prompt per executor *(Sonnet)* |
@@ -100,7 +100,7 @@ Full walkthrough: [`docs/agent-teams-setup.md`](docs/agent-teams-setup.md).
   v2.1.186 is the practical floor: from there, background subagents surface
   permission prompts in your session (earlier versions silently auto-denied
   them). The underlying features are older — Workflows shipped in v2.1.154 and
-  `/goal` (the built-in command driving the post-approval tail in `CLAUDE.md`)
+  `/goal` (the built-in command driving the post-approval tail in `global/CLAUDE.md`)
   in v2.1.139; no install required for either.
 - That's it — no flags, no iTerm2.
 
