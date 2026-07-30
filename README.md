@@ -27,8 +27,8 @@ in parallel, no extra setup).
 | `agents/team-executor.md` | Implements one unit as a **background subagent** (worktree, since units write in parallel) *(Sonnet; Opus for hard units)* |
 | `agents/team-reviewer.md` | Adversarially verifies each diff before merge — read-only, no worktree *(Opus)* |
 | `agents/team-merger.md` | Merges approved worktrees into the base branch, removes each worktree + branch after landing, reports done *(Sonnet)* |
-| `settings.example.json` | The two keys for the teammate feature: the flag + `teammateMode` (defaults to `in-process` — teammates in the status bar, **no panes**; set to `"iterm2"` to opt into split panes) |
-| `install.sh` | Copies everything into `~/.claude` (with backups); the settings keys it merges only matter if you use the teammate path |
+| `settings.example.json` | The teammate-feature keys (the flag + `teammateMode`, defaults to `in-process` — teammates in the status bar, **no panes**; set to `"iterm2"` to opt into split panes) plus the model pin (`ANTHROPIC_DEFAULT_OPUS_MODEL` — see [Model pinning](#model-pinning)) |
+| `install.sh` | Copies everything into `~/.claude` (with backups) and merges the settings keys above |
 | `docs/agent-teams-setup.md` | macOS + iTerm2 walkthrough — only needed for the optional named-teammate path |
 
 ## How it works
@@ -93,6 +93,29 @@ opts into panes. Panes don't self-close: `Cmd-W` a pane's tab to close it.)
 
 Full walkthrough: [`docs/agent-teams-setup.md`](docs/agent-teams-setup.md).
 
+## Model pinning
+
+The agent files pin models by **alias** (`model: opus` / `model: sonnet`), so
+they keep their semantic tiers — "heavy role" vs "cheap role" — while one env
+var decides which concrete version each alias means. Claude Code resolves the
+aliases through `ANTHROPIC_DEFAULT_OPUS_MODEL` / `ANTHROPIC_DEFAULT_SONNET_MODEL` /
+`ANTHROPIC_DEFAULT_HAIKU_MODEL` everywhere: the main session, agent frontmatter,
+and per-spawn model choices.
+
+`settings.example.json` pins Opus to `claude-opus-4-8` so a new Opus release
+never silently changes (or re-prices) your agents:
+
+```json
+"env": { "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-8" }
+```
+
+Change the value to move to a different version, delete the key to follow the
+latest Opus again, or add the `_SONNET_`/`_HAIKU_` variants to pin those tiers
+too. Settings `env` changes are read at session start — restart Claude Code
+after editing. (Verified: with the pin set, `--model opus` and `model: opus`
+agents run `claude-opus-4-8`; the var works both from the shell and from the
+settings `env` block.)
+
 ## Requirements
 
 **Default path (background subagents + Workflows):**
@@ -107,7 +130,7 @@ Full walkthrough: [`docs/agent-teams-setup.md`](docs/agent-teams-setup.md).
 **Optional named-teammate (iTerm2 split-pane) path adds:**
 - macOS + iTerm2 (split panes need tmux or iTerm2)
 - `uv` or `pip` (for `it2`)
-- the two `settings.example.json` keys (the installer merges them)
+- the teammate keys from `settings.example.json` (the installer merges them)
 
 **Recommended for the full workflow:**
 - **gstack** *(optional)* — the lead runs `/autoplan` and the workflow
@@ -123,7 +146,8 @@ Full walkthrough: [`docs/agent-teams-setup.md`](docs/agent-teams-setup.md).
 
 - The installer **never overwrites an existing `~/.claude/CLAUDE.md`** and backs
   up any skill/agent files it replaces (under `~/.claude/.backup-<timestamp>`).
-  It merges only the two settings keys, with a `settings.json.bak` safety copy.
+  It merges only the `settings.example.json` keys, with a `settings.json.bak`
+  safety copy — and never overwrites a model pin you already set.
 - `settings.example.json` is intentionally minimal — your real `settings.json`
   is personal; never commit it (it tends to hold emails, tokens, and private
   paths).

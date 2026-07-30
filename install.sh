@@ -4,9 +4,11 @@ set -euo pipefail
 # Claude Code parallel-multi-agent starter kit installer.
 # Copies CLAUDE.md, the agent-teams skill, and the team-* agents into ~/.claude,
 # backing up anything it would overwrite. The kit's default path (background
-# subagents + Workflows) needs nothing else. This also merges two settings keys
-# (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS + teammateMode) that ONLY matter for the
-# optional named-teammate (iTerm2) path — harmless if you never use it.
+# subagents + Workflows) needs nothing else. This also merges the settings keys
+# from settings.example.json: the teammate-path pair (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
+# + teammateMode, only matter for the optional iTerm2 path) and the model pin
+# (ANTHROPIC_DEFAULT_OPUS_MODEL — keeps the "opus" alias on a fixed version;
+# added only if you haven't set your own value).
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEST="${CLAUDE_HOME:-$HOME/.claude}"
@@ -50,8 +52,9 @@ for f in "$SRC"/agents/team-*.md; do
 done
 echo "  installed team-* agents"
 
-# settings.json — merge the two teammate-path keys, preserving everything else.
-# (Only needed for the optional named-teammate path; harmless otherwise.)
+# settings.json — merge the example keys, preserving everything else.
+# Teammate-path pair is forced to the example values; model-pin env vars are
+# added only when absent, so a user's own pin is never clobbered.
 SETTINGS="$DEST/settings.json"
 if command -v python3 >/dev/null 2>&1; then
   python3 - "$SETTINGS" "$SRC/settings.example.json" <<'PY'
@@ -63,8 +66,11 @@ if os.path.exists(settings):
     json.dump(d, open(settings + ".bak", "w"), indent=2)  # safety copy
 else:
     d = {}
-d.setdefault("env", {})["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"] = \
+env = d.setdefault("env", {})
+env["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"] = \
     ex["env"]["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"]
+for k, v in ex["env"].items():
+    env.setdefault(k, v)  # model pins etc. — never clobber an existing choice
 d["teammateMode"] = ex["teammateMode"]
 json.dump(d, open(settings, "w"), indent=2)
 print("  merged env + teammateMode into settings.json (backup: settings.json.bak)")

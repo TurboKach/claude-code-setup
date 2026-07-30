@@ -45,6 +45,15 @@ Offer **only** items that are missing or are real decisions. Suggested:
    *append the parallel-multi-agent section* (recommended) / *replace with this
    repo's CLAUDE.md* / *leave mine untouched*. If none exists, just install this
    repo's `CLAUDE.md` (no need to ask).
+3. **Opus version** — only if `ANTHROPIC_DEFAULT_OPUS_MODEL` isn't already in
+   their settings `env`: ask which Opus the `opus` alias should mean (via
+   AskUserQuestion), so agent files saying `model: opus` don't silently follow
+   new Opus releases. Options:
+   - `claude-opus-4-8` *(recommended, the repo default — leaner token use than
+     Opus 5)*
+   - `claude-opus-5` *(current latest, pinned so a future Opus won't bump it)*
+   - *don't pin* — the alias keeps following whatever Anthropic ships as Opus
+   - custom: any full model ID the user types (the "Other" answer)
 
 Explain briefly: the **default path** (background subagents + Workflows) needs
 nothing beyond the skill + agents — no flag, no iTerm2. The settings flag +
@@ -66,19 +75,28 @@ for f in "$SRC"/agents/team-*.md; do
   cp "$f" ~/.claude/agents/$b
 done
 ```
-Then, **only if the user chose the optional teammate path**, merge its settings
-keys (preserve everything else) — skip this for a default-path-only install:
+Then merge settings keys per the user's choices (preserve everything else).
+The teammate flag + `teammateMode` go in **only if they chose the teammate
+path**; `ANTHROPIC_DEFAULT_OPUS_MODEL` is set to **the Opus version they picked
+in Step 1** (never overwritten if already present; leave it out entirely if
+they chose *don't pin*). Skip entirely if they chose neither:
 ```bash
 python3 - "$SRC/settings.example.json" <<'PY'
 import json, os, sys
+WANT_TEAMMATES = True            # set per the user's Step 1 answers
+OPUS_PIN = "claude-opus-4-8"     # their chosen version, or None for "don't pin"
 ex = json.load(open(sys.argv[1]))
 p = os.path.expanduser("~/.claude/settings.json")
 d = json.load(open(p)) if os.path.exists(p) else {}
 if os.path.exists(p): json.dump(d, open(p+".bak","w"), indent=2)
-d.setdefault("env", {})["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"] = ex["env"]["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"]
-d["teammateMode"] = ex["teammateMode"]
+env = d.setdefault("env", {})
+if WANT_TEAMMATES:
+    env["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"] = ex["env"]["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"]
+    d["teammateMode"] = ex["teammateMode"]
+if OPUS_PIN:
+    env.setdefault("ANTHROPIC_DEFAULT_OPUS_MODEL", OPUS_PIN)
 json.dump(d, open(p,"w"), indent=2)
-print("settings.json: flag + teammateMode set (backup: settings.json.bak)")
+print("settings.json updated (backup: settings.json.bak)")
 PY
 ```
 
