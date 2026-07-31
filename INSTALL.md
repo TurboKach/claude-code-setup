@@ -49,9 +49,9 @@ Offer **only** items that are missing or are real decisions. Suggested:
    their settings `env`: ask which Opus the `opus` alias should mean (via
    AskUserQuestion), so agent files saying `model: opus` don't silently follow
    new Opus releases. Options:
-   - `claude-opus-4-8` *(recommended, the repo default — leaner token use than
-     Opus 5)*
-   - `claude-opus-5` *(current latest, pinned so a future Opus won't bump it)*
+   - `claude-opus-5` *(recommended, the repo default — pinned so a future Opus
+     won't silently bump it; control token use via effort + prompt tuning)*
+   - `claude-opus-4-8` *(previous generation, if you want the older behavior)*
    - *don't pin* — the alias keeps following whatever Anthropic ships as Opus
    - custom: any full model ID the user types (the "Other" answer)
 
@@ -84,7 +84,7 @@ they chose *don't pin*). Skip entirely if they chose neither:
 python3 - "$SRC/settings.example.json" <<'PY'
 import json, os, sys
 WANT_TEAMMATES = True            # set per the user's Step 1 answers
-OPUS_PIN = "claude-opus-4-8"     # their chosen version, or None for "don't pin"
+OPUS_PIN = "claude-opus-5"       # their chosen version, or None for "don't pin"
 ex = json.load(open(sys.argv[1]))
 p = os.path.expanduser("~/.claude/settings.json")
 d = json.load(open(p)) if os.path.exists(p) else {}

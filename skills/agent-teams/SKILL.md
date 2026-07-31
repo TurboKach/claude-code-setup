@@ -191,10 +191,10 @@ judgment roles go **up**, high-volume roles go **down** to save tokens.
 | Role | Spawned as | Model | Effort | Rationale |
 |------|-----------|-------|--------|-----------|
 | Orchestrator (lead) | main session | Opus | session default | coordination, synthesis, user gate |
-| `team-planner` | subagent | Opus | xhigh | one pass, highest leverage |
+| `team-planner` | subagent | Opus | high | one pass, highest leverage (Opus 5: prior-model effort defaults don't transfer; `high` is the sweet spot) |
 | `team-prompt-smith` | subagent | Sonnet | medium | structured prompt writing |
 | `team-executor` | **background subagent** | Sonnet (Opus for hard units) | medium | token-heavy fan-out |
-| `team-reviewer` | subagent | Opus | xhigh | adversarial bug-hunting |
+| `team-reviewer` | subagent | Opus | high | adversarial bug-hunting (Opus 5 review stays accurate at lower effort) |
 | `team-merger` | subagent | Sonnet | medium | mechanical merge/verify |
 | researcher | subagent | (use built-in `Explore`) | — | broad reads, no custom file |
 

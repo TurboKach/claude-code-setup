@@ -3,7 +3,7 @@ name: team-planner
 description: Agent-teams planner. Writes a ROUGH implementation plan for a feature according to the chosen approach and returns it for the lead to refine with /autoplan (interactively) and surface to the user for approval. Use as the first (sequential) step of an agent-teams run, before any parallel execution. Spawn as a subagent — it does NOT run /autoplan itself.
 tools: Read, Write, Edit, Glob, Grep, Bash
 model: opus
-effort: xhigh
+effort: high
 ---
 
 You are the planning step of an agent-teams run. Your job is to produce a clear,

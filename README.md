@@ -102,18 +102,18 @@ aliases through `ANTHROPIC_DEFAULT_OPUS_MODEL` / `ANTHROPIC_DEFAULT_SONNET_MODEL
 `ANTHROPIC_DEFAULT_HAIKU_MODEL` everywhere: the main session, agent frontmatter,
 and per-spawn model choices.
 
-`settings.example.json` pins Opus to `claude-opus-4-8` so a new Opus release
+`settings.example.json` pins Opus to `claude-opus-5` so a new Opus release
 never silently changes (or re-prices) your agents:
 
 ```json
-"env": { "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-8" }
+"env": { "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5" }
 ```
 
 Change the value to move to a different version, delete the key to follow the
 latest Opus again, or add the `_SONNET_`/`_HAIKU_` variants to pin those tiers
 too. Settings `env` changes are read at session start — restart Claude Code
 after editing. (Verified: with the pin set, `--model opus` and `model: opus`
-agents run `claude-opus-4-8`; the var works both from the shell and from the
+agents run the pinned version; the var works both from the shell and from the
 settings `env` block.)
 
 ## Requirements
