@@ -38,11 +38,13 @@ else
   cp "$SRC/global/CLAUDE.md" "$DEST/CLAUDE.md"; echo "  installed CLAUDE.md"
 fi
 
-# Skill — back up then replace.
-backup "skills/agent-teams"
-rm -rf "$DEST/skills/agent-teams"
-cp -R "$SRC/skills/agent-teams" "$DEST/skills/agent-teams"
-echo "  installed skills/agent-teams"
+# Skills — back up then replace.
+for skill in agent-teams feature-workflow; do
+  backup "skills/$skill"
+  rm -rf "$DEST/skills/$skill"
+  cp -R "$SRC/skills/$skill" "$DEST/skills/$skill"
+  echo "  installed skills/$skill"
+done
 
 # Agents — back up each, then copy.
 for f in "$SRC"/agents/team-*.md; do

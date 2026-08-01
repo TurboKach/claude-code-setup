@@ -37,14 +37,15 @@ PY
 
 Offer **only** items that are missing or are real decisions. Suggested:
 
-1. **Components** (multiSelect): core kit (skill + agents — the point, pre-checked,
+1. **Components** (multiSelect): core kit (skills + agents — the point, pre-checked,
    enables the default background-subagent + Workflows path); optional teammate
    path (settings flag + `teammateMode` + `it2` + iTerm2 — only for live
    cross-talk); gstack *(if missing)*.
 2. **CLAUDE.md handling** — only if `~/.claude/CLAUDE.md` already exists:
-   *append the parallel-multi-agent section* (recommended) / *replace with this
-   repo's CLAUDE.md* / *leave mine untouched*. If none exists, just install this
-   repo's `CLAUDE.md` (no need to ask).
+   *append the feature-workflow pointer section* (recommended — the workflow
+   itself lives in the `feature-workflow` skill the core kit installs) /
+   *replace with this repo's CLAUDE.md* / *leave mine untouched*. If none
+   exists, just install this repo's `CLAUDE.md` (no need to ask).
 3. **Opus version** — only if `ANTHROPIC_DEFAULT_OPUS_MODEL` isn't already in
    their settings `env`: ask which Opus the `opus` alias should mean (via
    AskUserQuestion), so agent files saying `model: opus` don't silently follow
@@ -67,9 +68,11 @@ referenced by the workflow; without it, substitute plan mode and plain git.
 ```bash
 mkdir -p ~/.claude/agents ~/.claude/skills
 STAMP=$(date +%Y%m%d-%H%M%S); BK=~/.claude/.backup-$STAMP
-# back up + copy skill and agents
-[ -e ~/.claude/skills/agent-teams ] && mkdir -p "$BK/skills" && cp -R ~/.claude/skills/agent-teams "$BK/skills/"
-rm -rf ~/.claude/skills/agent-teams && cp -R "$SRC/skills/agent-teams" ~/.claude/skills/agent-teams
+# back up + copy skills and agents
+for s in agent-teams feature-workflow; do
+  [ -e ~/.claude/skills/$s ] && mkdir -p "$BK/skills" && cp -R ~/.claude/skills/$s "$BK/skills/"
+  rm -rf ~/.claude/skills/$s && cp -R "$SRC/skills/$s" ~/.claude/skills/$s
+done
 for f in "$SRC"/agents/team-*.md; do
   b=$(basename "$f"); [ -e ~/.claude/agents/$b ] && mkdir -p "$BK/agents" && cp ~/.claude/agents/$b "$BK/agents/"
   cp "$f" ~/.claude/agents/$b
@@ -102,9 +105,10 @@ PY
 
 **CLAUDE.md** (per the chosen handling):
 - *none exists* → `cp "$SRC/global/CLAUDE.md" ~/.claude/CLAUDE.md`
-- *append* → add this repo's `## Parallel multi-agent` section to
+- *append* → add this repo's `## Feature workflow` pointer section to
   the end of the user's `~/.claude/CLAUDE.md` (copy it verbatim from
-  `$SRC/global/CLAUDE.md`). Don't duplicate it if already present.
+  `$SRC/global/CLAUDE.md`; the full workflow lives in the installed
+  `feature-workflow` skill). Don't duplicate it if already present.
 - *replace* → back up to `$BK`, then copy.
 - *leave* → do nothing.
 

@@ -20,7 +20,7 @@ the same time**:
 - backend + frontend that must agree on a contract
 
 For **sequential** work (plan → build → ship), a dependency chain, or same-file
-edits, do NOT fan out — run it through the feature workflow in CLAUDE.md (the
+edits, do NOT fan out — run it through the `feature-workflow` skill (the
 master session delegating each step to a subagent). The value here is the
 parallel **execution** phase only.
 
@@ -305,7 +305,7 @@ default: no pane, no separate process, no handshake, nothing to orphan.
 
 ## Relationship to the feature workflow
 
-This is the parallel-execution variant of the feature workflow in CLAUDE.md.
+This is the parallel-execution variant of the `feature-workflow` skill's pipeline.
 Planning (`/office-hours`, `/autoplan`) and shipping (`/ship`,
 `/land-and-deploy`) are unchanged; fan-out only replaces the execute phase's
 sequential per-step subagents with parallel agents when the steps are

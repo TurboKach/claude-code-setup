@@ -21,6 +21,8 @@ When invoked:
      everything; only flag a sibling to coordinate with if the lead is using the
      named-teammate path
    - concrete acceptance criteria and how to verify (tests/commands)
+   - the retirement budget, verbatim: "if you exceed ~200k context or ~250
+     turns — commit WIP, write a handoff file to the scratchpad, and stop"
    - the worktree/branch it works in
    - the suggested model (`sonnet` default; flag `opus` if the unit is
      architecturally hard)
