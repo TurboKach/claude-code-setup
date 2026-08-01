@@ -40,7 +40,7 @@
 
 ## Feature workflow
 
-For any non-trivial feature — multiple steps, or work that benefits from a formal review cycle — and for any parallel multi-agent fan-out, invoke the `feature-workflow` skill FIRST. It holds the six-stage pipeline (discuss → plan → autoplan → delegated execute → `/codex` review → ship), the parallelism mechanism picker, and the token-discipline rules. One-shot edits and small fixes outside an active pipeline skip it.
+For any non-trivial feature — multiple steps, or work that benefits from a formal review cycle — and for any parallel multi-agent fan-out, invoke the `feature-workflow` skill FIRST, unprompted: I never ask for it by name; recognizing that work is big enough and loading it is your job. It holds the six-stage pipeline (discuss → plan → autoplan → delegated execute → `/codex` review → ship), the parallelism mechanism picker, and the token-discipline rules. One-shot edits and small fixes outside an active pipeline skip it.
 
 ## Tooling
 
