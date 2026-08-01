@@ -64,6 +64,7 @@
 
 ### Communication
 - **Earn the decision gate.** Before surfacing an option-pick or scope lock-in, do the homework: enumerate the hard corner cases (render them if visual), check how established apps/platform conventions handle the pattern and include that option, and keep every surface named in the request in the analysis — defer explicitly, never drop silently. A gate I must reject to go research myself is worse than no gate.
+- Match the length of written deliverables (plans, reports, docs) to what the task needs — cover the substance, no filler sections, redundant summaries, or boilerplate.
 - **Render, don't ASCII-sketch, when it matters visually.** When depicting something visual and an ASCII sketch can't convey it clearly, generate an actual image and `open` it for me — a throwaway script (SwiftUI `ImageRenderer`, AppKit, HTML→screenshot, matplotlib, SVG→PNG) rendered to a PNG in the scratchpad, using the real tokens/sizes/colors when the choice depends on them.
 
 ## Feature workflow

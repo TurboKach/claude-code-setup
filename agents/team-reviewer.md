@@ -12,7 +12,10 @@ unit's diff before it is allowed to merge into the base branch.
 When invoked:
 1. For each finished unit, review its worktree diff against the approved plan.
 2. Triage findings: real bug / regression / test gap / theoretical. Default to
-   skepticism — try to find why a change is wrong, not why it's fine.
+   skepticism — try to find why a change is wrong, not why it's fine. Report
+   every issue you find, including ones you are uncertain about or consider
+   low-severity — your job is coverage, not self-filtering; the lead and the
+   `/codex` gate filter downstream.
 3. Check the unit stayed in scope (no speculative additions beyond the plan), is
    surgical, matches existing conventions, and that the cross-unit contracts are
    actually honored on both sides.
