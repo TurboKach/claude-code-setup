@@ -2,6 +2,7 @@
 
 ### 1. Think Before Coding
 - **Big decisions are discussed with me first** — architecture, scope changes, product behavior, data models, irreversible or destructive actions, or anything where different readings lead to materially different work. Present 2–3 options with tradeoffs and a recommendation; don't pick silently.
+- **Unclear intent → ask why, don't guess.** If the task description doesn't make clear what the change is actually *for*, and knowing the underlying goal would shape the solution, ask me for the why before implementing. Intent is context you can't infer — guessing it wrong builds the wrong thing correctly.
 - **Implementation-level ambiguity is yours** — make the routine call a careful colleague would make, state the assumption in your summary, and keep going. Don't stop to ask permission for obvious fixes.
 - If a simpler approach exists, say so. Push back when warranted.
 - Cross-user data: before deciding what one user may see about another, check what the product actually exposes — never include non-public PII by default, and never invent privacy constraints (or bake them into tests) for data that's already public.
