@@ -20,9 +20,9 @@ the same time**:
 - backend + frontend that must agree on a contract
 
 For **sequential** work (plan → build → ship), a dependency chain, or same-file
-edits, do NOT fan out — run it through the `feature-workflow` skill (the
-master session delegating each step to a subagent). The value here is the
-parallel **execution** phase only.
+edits, do NOT fan out — run it through the `feature-workflow` skill, whose
+delegated execute spawns one `step-executor` per step on the session's own
+branch. The value here is the parallel **execution** phase only.
 
 ## 2. Pick the mechanism (this is the important decision)
 
@@ -59,11 +59,11 @@ master already funnels approvals to you. Agent-to-agent contract negotiation
 doesn't qualify either: pre-specify the contract in each spawn prompt instead.
 This is the heaviest path; see §"Named-teammate path".
 
-> Critical fact (observed 2026-06; the docs don't state it explicitly — they
-> only say teammates keep `tools`+`model` and advise partitioning files so no
-> two teammates edit the same file): `isolation: worktree` is a **subagent**
-> feature. A definition spawned as a *teammate* keeps only its `tools` and
-> `model` — worktree isolation is silently dropped. Spawning the executors as
+> Documented: teammates are **not** worktree-isolated. `isolation: worktree` is
+> a **subagent** feature; a definition spawned as a *teammate* keeps only its
+> `tools` and `model`, and the isolation is silently dropped ([docs](https://code.claude.com/docs/en/agents):
+> "Agent teams don't isolate teammates in worktrees, so partition the work so
+> each teammate owns a different set of files"). Spawning the executors as
 > named teammates once put all four in the same checkout committing to `main`,
 > clobbering each other. Background subagents are the safe default precisely
 > because they CAN get real worktrees when they need them.
@@ -79,9 +79,28 @@ worktree` each** — even if the plan says their files are disjoint. Read-only
 fan-out (review, research, multi-lens analysis) never gets a worktree,
 regardless of count — nothing is written, so isolation is pure overhead.
 
+**You don't decide this per spawn.** `team-executor` carries `isolation:
+worktree` in its own frontmatter, so every executor gets a worktree whether or
+not the spawning prompt remembers to ask. That's deliberate: the decision was
+already made when you picked the parallel path, and a rule that has to be
+re-derived at each spawn is a rule that gets skipped.
+
 **If you get here with only one writer, that's not an agent-teams run.** It
-means the fan-out decision was wrong or skipped — stop, and hand the work back
-to `feature-workflow`'s ordinary delegated execute on the session's own branch.
+means the fan-out decision was wrong or skipped — stop, and hand the work to
+`feature-workflow`'s sequential delegated execute, which spawns `step-executor`
+on the session's own branch with no worktree and nothing to merge.
+
+**Set `worktree.baseRef` to `"head"` before the first fan-out.** Subagent
+worktrees branch from the repository's *remote default branch* unless you
+change this — so with the default (`"fresh"`), every executor starts from a
+clean `origin/main` that has neither `docs/prompts/<feature>-plan.md` nor any
+of the session's in-progress commits, and the merger then drags main↔branch
+divergence into each unit. `settings.example.json` ships `{"worktree":
+{"baseRef": "head"}}`; the docs name this exact case ("use this when isolating
+subagents that need to operate on in-progress work" —
+[docs](https://code.claude.com/docs/en/worktrees#choose-the-base-branch)).
+A worktree is also a fresh checkout, so gitignored files don't come along —
+add a `.worktreeinclude` if executors need `.env` or similar to run tests.
 
 **Why "disjoint files" isn't a safe reason to skip worktrees with 2+ writers.**
 Disjointness isn't knowable at spawn time. *(Observed, 20 sessions reviewed):*
@@ -109,13 +128,19 @@ dropped without untangling it from the others it shares a tree with.
 > time, because disjointness can't be verified at spawn time and review needs a
 > separable diff either way.
 
-**Clean up after merge.** Once a unit is landed, its worktree and branch are
-dead weight — the merger removes the worktree (`git worktree remove`) and deletes
-the merged branch (`git branch -d`) immediately after each successful merge.
-A subagent's worktree is auto-removed by Claude Code **only if it made no
-changes** — an executor worktree always has changes (that's the point of
-spawning it), so this auto-cleanup never reclaims it; the merger removing it
-explicitly is not optional. The net result: nothing lingers on disk once work
+**Clean up after merge — nothing else will.** Once a unit lands, the merger
+removes its worktree (`git worktree remove`) and deletes the merged branch
+(`git branch -d`) immediately after each successful merge. That is not a
+tidiness step: **neither platform cleanup path ever reclaims an executor
+worktree.** Claude Code auto-removes a subagent worktree only if the subagent
+made no changes, and the periodic `cleanupPeriodDays` sweep skips any worktree
+still holding work — changed files, untracked files, or **unpushed commits** —
+which describes every executor worktree by construction, since executors commit
+locally and never push ([docs](https://code.claude.com/docs/en/worktrees#clean-up-subagent-and-background-session-worktrees)).
+If the merger doesn't remove it, it stays until someone runs `git worktree
+remove --force` by hand. For a run that dies before the merger gets there, the
+backstop is the `/goal` completion condition below ("no feature
+worktrees/branches remain"). The net result: nothing lingers on disk once work
 is merged, and there is no pane or process to tear down.
 
 ## The pipeline
@@ -130,10 +155,10 @@ is merged, and there is no pane or process to tear down.
      wait for the user's approval.   ← only gate
 2. PROMPTS   (subagent: team-prompt-smith, sonnet)
    → turns the approved plan into one self-contained spawn prompt per unit
-3. EXECUTE   (background subagents: team-executor, isolation: worktree)   ← parallel
-   → lead spawns one background subagent per independent unit; these WRITE
-     in parallel and merge later, so each gets a worktree; contracts are
-     pre-specified in each prompt
+3. EXECUTE   (background subagents: team-executor)   ← parallel
+   → lead spawns one background subagent per independent unit; each gets a
+     worktree from team-executor's own `isolation: worktree` frontmatter, not
+     from the spawn call; contracts are pre-specified in each prompt
 4. REVIEW    (subagent: team-reviewer, opus — read-only, NO worktree)
    → adversarially verifies each unit's diff before it lands
 5. MERGE     (subagent: team-merger, sonnet)
@@ -243,8 +268,8 @@ Plan (subagent drafts, lead refines), then gate:
 
 Fan out execution (background subagents that write + merge → worktree), after approval:
 > Spawn one team-executor as a background subagent per unit in the approved plan,
-> each with `isolation: worktree` and **no name** (team-executor's `background:
-> true` frontmatter already keeps it in the background).
+> with **no name** (team-executor's `background: true` and `isolation: worktree`
+> frontmatter already handle backgrounding and the per-unit worktree).
 > Give each the prompt-smith's self-contained spawn prompt (the cross-unit
 > contract is baked in, so they don't message each other). Notify me when each
 > completes.
@@ -277,8 +302,12 @@ Hard constraints (documented, except where marked observed):
 - **One team per session; the lead is fixed.** Only the lead spawns — teammates
   can't spawn teammates (no nested teams).
 - **Teammates are NOT isolated in worktrees** — `isolation: worktree` is dropped
-  for teammates *(observed; the docs only advise partitioning files between
-  teammates)*. Partition files by hand so no two teammates edit the same file.
+  for teammates. Partition files by hand so no two teammates edit the same file.
+- **A teammate needs `SendMessage` in its `tools` allowlist to report back** —
+  a teammate's plain final text is never delivered to the lead. The `team-*`
+  definitions omit `SendMessage` because they're written for the subagent path;
+  add it to the definition before spawning one as a teammate, or the report is
+  lost.
 - **Layout is auto** — each teammate gets its own iTerm2 pane. Name teammates
   (`backend`, `frontend`) so they're identifiable by name, not position.
 - CLAUDE.md + skills load for every teammate, but a definition's

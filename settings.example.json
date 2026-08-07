@@ -3,5 +3,8 @@
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
     "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5"
   },
-  "teammateMode": "in-process"
+  "teammateMode": "in-process",
+  "worktree": {
+    "baseRef": "head"
+  }
 }

@@ -14,7 +14,7 @@ Six stages, each delegated out of main context by the master session:
 1. **Discuss approach** → `/office-hours`. Explore the problem space, surface constraints, decide what's worth building. No code.
 2. **Scope + rough plan** → delegate codebase discovery and a rough draft to a Plan/team-planner subagent; it saves `docs/prompts/<feature>-plan.md` and returns the path. Rough is fine; the next step polishes. Scoping/planning counts as research: "scope"/"plan"/"design" requests go to this subagent — the main loop never hand-authors the spec inline.
 3. **Review + refine** → `/autoplan`. Runs CEO + Design + Eng + DX review skills sequentially, auto-decides mechanical questions, surfaces only taste decisions at a final approval gate. "Updates the plan in place" does NOT exempt the master from the no-hand-authoring rule: each phase's plan-integration edits are applied by a subagent fed that phase's findings; the master runs only the gates. The master never Reads the review sub-skill files — pass the skill path in the subagent prompt instead.
-4. **Execute** → delegate each step to a subagent — parallel via agent-teams where steps are independent, sequential otherwise; commit per step.
+4. **Execute** → delegate each step to a subagent; commit per step. Sequential steps go to `step-executor` (session's own branch, no worktree — it's the only writer in flight); independent steps that run at the same time go to `agent-teams` and its `team-executor` instead.
 5. **Independent review per step** → `/codex review`. Triage real / regression / test-gap / theoretical. Re-challenge only after substantive fixes. Drive the fix→re-review cycle with a bounded `/goal`: `/goal /codex review reports zero real-or-regression findings on every step's diff (the verdict pasted in full each round); or stop after 3 rounds, reporting anything unresolved`.
 6. **Ship** → `/ship` (PR) → `/land-and-deploy` (merge + deploy + post-deploy verify).
 
@@ -34,7 +34,7 @@ Rules:
 
 For genuinely **parallel, independent** work only; sequential pipelines belong to the feature workflow above. Pick the mechanism by need:
 
-- **Background subagents (DEFAULT):** independent units, contracts known up front. Add `isolation: worktree` **only** when they write files in parallel and merge later; read-only fan-out needs no worktree.
+- **Background subagents (DEFAULT):** independent units, contracts known up front. Concurrent writers each need a worktree — spawn them as `team-executor`, which carries `isolation: worktree` in its frontmatter so no spawn call has to remember. Read-only fan-out needs no worktree. Set `worktree.baseRef: "head"` first, or executor worktrees branch from the remote default branch instead of your in-progress work.
 - **Workflows:** large (10s+), deterministic/repeatable/resumable fan-outs with cross-checking.
 - **Named teammates (experimental, almost never needed):** only to dialogue *live* with a delegated agent running in parallel, off the master tab, AND a shared tree is acceptable — teammates are NOT worktree-isolated. Needs `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` + `teammateMode: auto` + iTerm2.
 - **Keep `teammateMode: "in-process"` (the built-in default).** Pane modes (`auto`/`iterm2`/`tmux`) spawn full named-teammate sessions that do NOT self-close; `"off"` is not a valid value. The delegate→build→review→fix workflow never needs live dialogue. Full pane/teardown mechanics live in the `agent-teams` skill.

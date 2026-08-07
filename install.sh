@@ -74,8 +74,11 @@ env["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"] = \
 for k, v in ex["env"].items():
     env.setdefault(k, v)  # model pins etc. — never clobber an existing choice
 d["teammateMode"] = ex["teammateMode"]
+# Executor worktrees must branch from the session's in-progress branch, not the
+# remote default — otherwise they can't see the plan file or prior units' work.
+d.setdefault("worktree", {}).setdefault("baseRef", ex["worktree"]["baseRef"])
 json.dump(d, open(settings, "w"), indent=2)
-print("  merged env + teammateMode into settings.json (backup: settings.json.bak)")
+print("  merged env + teammateMode + worktree.baseRef into settings.json (backup: settings.json.bak)")
 PY
 else
   echo "  python3 not found — add the keys from settings.example.json to $SETTINGS by hand"
