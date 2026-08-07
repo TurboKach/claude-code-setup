@@ -68,25 +68,55 @@ This is the heaviest path; see §"Named-teammate path".
 > clobbering each other. Background subagents are the safe default precisely
 > because they CAN get real worktrees when they need them.
 
-## 3. Worktree isolation: only for parallel writes that merge
+## 3. Worktree isolation: every concurrent writer gets one
 
-Worktree isolation has a real cost (≈200-500ms setup + disk per agent), so add it
-only when it earns its keep:
+You're in this skill because the fan-out decision already came back "parallel"
+— that call is made *before* `agent-teams` loads, per the global CLAUDE.md rule
+("Inside a pipeline, delegation is the default … If one subagent can do it, use
+one") and `feature-workflow`'s "When to offer (lead only)" bullet. So within a
+fan-out the rule is simple: **writers that run concurrently get `isolation:
+worktree` each** — even if the plan says their files are disjoint. Read-only
+fan-out (review, research, multi-lens analysis) never gets a worktree,
+regardless of count — nothing is written, so isolation is pure overhead.
 
-- **Parallel agents that WRITE files and merge later** (the EXECUTE step) → spawn
-  with `isolation: worktree`. Each gets its own checkout so concurrent edits never
-  collide; the merger lands them afterward.
-- **Read-only parallel fan-out** (review, research, multi-lens analysis) → **no
-  worktree**. Nothing is written, so isolation is pure overhead.
-- **A single writer, or writers touching strictly disjoint files you're certain
-  won't be merged through git** → no worktree needed.
+**If you get here with only one writer, that's not an agent-teams run.** It
+means the fan-out decision was wrong or skipped — stop, and hand the work back
+to `feature-workflow`'s ordinary delegated execute on the session's own branch.
+
+**Why "disjoint files" isn't a safe reason to skip worktrees with 2+ writers.**
+Disjointness isn't knowable at spawn time. *(Observed, 20 sessions reviewed):*
+of 3 genuinely-parallel execute batches, 2 collided — in `claude-watch`, units
+U0+U3 and separately U2+U5 all edited the CLI entrypoint despite being planned
+as independent. A new unit usually has to register itself in some hub file (a
+dispatcher, router, barrel export, `package.json`) that the plan assigned to
+nobody. Only one batch (wizards U1/U2) was genuinely clean. Plan around this:
+**if units keep colliding on a hub file, give that file to one unit** instead
+of isolating three agents that all want to edit it — prefer fewer, larger
+units over more, smaller colliding ones.
+
+**Why review needs a separable diff.** `team-reviewer` reviews "its worktree
+diff" and `team-merger` merges each unit in turn after approval; the global
+`/codex` merge gate forbids merging a step until that step's diff has been
+reviewed. With 2+ concurrent writers sharing one checkout there is no per-unit
+diff to review or merge independently, and a unit that fails review can't be
+dropped without untangling it from the others it shares a tree with.
+
+> **Deliberate deviation (from the platform docs' file-overlap test):** the
+> [docs](https://code.claude.com/docs/en/agents) key worktree isolation to
+> whether tasks touch the same files. This kit keys it to concurrent-writer
+> count instead — a stricter test (a superset of the docs' cases): even units
+> with disjoint files get worktrees the moment 2+ of them write at the same
+> time, because disjointness can't be verified at spawn time and review needs a
+> separable diff either way.
 
 **Clean up after merge.** Once a unit is landed, its worktree and branch are
 dead weight — the merger removes the worktree (`git worktree remove`) and deletes
 the merged branch (`git branch -d`) immediately after each successful merge.
-A subagent's worktree is also auto-removed if it made no changes. The net result:
-nothing lingers on disk once work is merged, and there is no pane or process to
-tear down.
+A subagent's worktree is auto-removed by Claude Code **only if it made no
+changes** — an executor worktree always has changes (that's the point of
+spawning it), so this auto-cleanup never reclaims it; the merger removing it
+explicitly is not optional. The net result: nothing lingers on disk once work
+is merged, and there is no pane or process to tear down.
 
 ## The pipeline
 
