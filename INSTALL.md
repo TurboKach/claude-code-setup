@@ -73,7 +73,7 @@ for s in agent-teams feature-workflow; do
   [ -e ~/.claude/skills/$s ] && mkdir -p "$BK/skills" && cp -R ~/.claude/skills/$s "$BK/skills/"
   rm -rf ~/.claude/skills/$s && cp -R "$SRC/skills/$s" ~/.claude/skills/$s
 done
-for f in "$SRC"/agents/team-*.md; do
+for f in "$SRC"/agents/*.md; do
   b=$(basename "$f"); [ -e ~/.claude/agents/$b ] && mkdir -p "$BK/agents" && cp ~/.claude/agents/$b "$BK/agents/"
   cp "$f" ~/.claude/agents/$b
 done
@@ -98,6 +98,9 @@ if WANT_TEAMMATES:
     d["teammateMode"] = ex["teammateMode"]
 if OPUS_PIN:
     env.setdefault("ANTHROPIC_DEFAULT_OPUS_MODEL", OPUS_PIN)
+# Not teammate-gated: any worktree fan-out needs it, or executor worktrees
+# branch from the remote default instead of the session's in-progress work.
+d.setdefault("worktree", {}).setdefault("baseRef", ex["worktree"]["baseRef"])
 json.dump(d, open(p,"w"), indent=2)
 print("settings.json updated (backup: settings.json.bak)")
 PY

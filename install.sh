@@ -47,12 +47,12 @@ for skill in agent-teams feature-workflow; do
 done
 
 # Agents — back up each, then copy.
-for f in "$SRC"/agents/team-*.md; do
+for f in "$SRC"/agents/*.md; do
   base="agents/$(basename "$f")"
   backup "$base"
   cp "$f" "$DEST/$base"
 done
-echo "  installed team-* agents"
+echo "  installed agents (team-* + step-executor)"
 
 # settings.json — merge the example keys, preserving everything else.
 # Teammate-path pair is forced to the example values; model-pin env vars are
