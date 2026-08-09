@@ -29,7 +29,9 @@ in parallel, no extra setup).
 | `agents/step-executor.md` | Implements one **sequential** step on the session's own branch — no worktree, nothing to merge; the feature-workflow counterpart to `team-executor` *(Sonnet; Opus for hard steps)* |
 | `agents/team-reviewer.md` | Adversarially verifies each diff before merge — read-only, no worktree *(Opus)* |
 | `agents/team-merger.md` | Merges approved worktrees into the base branch, removes each worktree + branch after landing, reports done *(Sonnet)* |
-| `settings.example.json` | The teammate-feature keys (the flag + `teammateMode`, defaults to `in-process` — teammates in the status bar, **no panes**; set to `"iterm2"` to opt into split panes), the model pin (`ANTHROPIC_DEFAULT_OPUS_MODEL` — see [Model pinning](#model-pinning)), and `worktree.baseRef: "head"` so executor worktrees branch from your in-progress branch rather than the remote default |
+| `settings.example.json` | The teammate-feature keys (the flag + `teammateMode`, defaults to `in-process` — teammates in the status bar, **no panes**; set to `"iterm2"` to opt into split panes), the model pin (`ANTHROPIC_DEFAULT_OPUS_MODEL` — see [Model pinning](#model-pinning)), `worktree.baseRef: "head"` so executor worktrees branch from your in-progress branch rather than the remote default, and the `SessionStart` update-check hook |
+| `hooks/stack-update-check.sh` | Runs once per session start: at most once a day, checks whether this repo's `master` has moved past the SHA you installed, and prints one line if so — silent otherwise (no update, no network, disabled, cached) |
+| `skills/stack-update/SKILL.md` | Applies a pending update: clones the repo, summarizes what changed, asks for your approval before writing anything, re-runs `install.sh`, and re-stamps |
 | `install.sh` | Copies everything into `~/.claude` (with backups) and merges the settings keys above |
 | `docs/agent-teams-setup.md` | macOS + iTerm2 walkthrough — only needed for the optional named-teammate path |
 
@@ -94,6 +96,24 @@ opts into panes. Panes don't self-close: `Cmd-W` a pane's tab to close it.)
 4. **`/config` → Default teammate model → Sonnet.**
 
 Full walkthrough: [`docs/agent-teams-setup.md`](docs/agent-teams-setup.md).
+
+## Staying up to date
+
+A `SessionStart` hook checks once a day whether this repo's `master` has moved past the
+SHA you installed — one cached `curl` to the GitHub API, silent unless there's news:
+
+```
+claude-code-setup: update available (installed abc1234 → remote def5678) — run /stack-update
+```
+
+`/stack-update` applies it: clones the repo, summarizes what changed, and **asks for your
+approval before writing anything**. Two state stamps track the update, not one — `installed`
+(the SHA skills/agents/settings are at) and `claude-md-installed` (the SHA whose `CLAUDE.md`
+you actually accepted). They diverge because `install.sh` never overwrites an existing
+`~/.claude/CLAUDE.md`, and `/stack-update` lets you decline that merge — so a single stamp
+would call the kit up to date while your `CLAUDE.md` sat stale and the change went missing.
+
+Opt out with `touch ~/.claude/.claude-code-setup/disabled`.
 
 ## Model pinning
 

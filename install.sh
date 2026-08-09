@@ -8,7 +8,9 @@ set -euo pipefail
 # from settings.example.json: the teammate-path pair (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
 # + teammateMode, only matter for the optional iTerm2 path) and the model pin
 # (ANTHROPIC_DEFAULT_OPUS_MODEL — keeps the "opus" alias on a fixed version;
-# added only if you haven't set your own value).
+# added only if you haven't set your own value). It also installs a SessionStart
+# hook that checks once a day whether this repo has moved past the SHA you
+# installed, and stamps that SHA so the check has something to compare against.
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEST="${CLAUDE_HOME:-$HOME/.claude}"
@@ -32,14 +34,16 @@ say "Installing into $DEST (backups -> $BACKUP)"
 # CLAUDE.md — never clobber an existing personal one.
 # (The source lives at global/CLAUDE.md so sessions in this repo don't load it
 # twice — a repo-root CLAUDE.md would duplicate ~/.claude/CLAUDE.md in context.)
+CLAUDE_MD_INSTALLED=0
 if [ -e "$DEST/CLAUDE.md" ]; then
   echo "  $DEST/CLAUDE.md exists — left untouched. Merge from $SRC/global/CLAUDE.md by hand if you want it."
 else
   cp "$SRC/global/CLAUDE.md" "$DEST/CLAUDE.md"; echo "  installed CLAUDE.md"
+  CLAUDE_MD_INSTALLED=1
 fi
 
 # Skills — back up then replace.
-for skill in agent-teams feature-workflow; do
+for skill in agent-teams feature-workflow stack-update; do
   backup "skills/$skill"
   rm -rf "$DEST/skills/$skill"
   cp -R "$SRC/skills/$skill" "$DEST/skills/$skill"
@@ -54,14 +58,37 @@ for f in "$SRC"/agents/*.md; do
 done
 echo "  installed agents (team-* + step-executor)"
 
+# Update-check hook — back up then replace.
+mkdir -p "$DEST/hooks"
+backup "hooks/stack-update-check.sh"
+cp "$SRC/hooks/stack-update-check.sh" "$DEST/hooks/stack-update-check.sh"
+chmod +x "$DEST/hooks/stack-update-check.sh"
+echo "  installed hooks/stack-update-check.sh"
+
+# Stamp the state dir so the update check has a SHA to compare against.
+# Skipped for a non-git checkout (e.g. a downloaded tarball) — with no stamp
+# the hook stays silent forever, which is the correct behavior there.
+if INSTALLED_SHA="$(git -C "$SRC" rev-parse HEAD 2>/dev/null)"; then
+  mkdir -p "$DEST/.claude-code-setup"
+  echo "$INSTALLED_SHA" > "$DEST/.claude-code-setup/installed"
+  echo "  stamped .claude-code-setup/installed"
+  if [ "$CLAUDE_MD_INSTALLED" = 1 ]; then
+    echo "$INSTALLED_SHA" > "$DEST/.claude-code-setup/claude-md-installed"
+    echo "  stamped .claude-code-setup/claude-md-installed"
+  fi
+else
+  echo "  $SRC is not a git checkout — skipping update-check stamp (check will stay disabled)"
+fi
+
 # settings.json — merge the example keys, preserving everything else.
 # Teammate-path pair is forced to the example values; model-pin env vars are
 # added only when absent, so a user's own pin is never clobbered.
 SETTINGS="$DEST/settings.json"
+HOOK_PATH="$DEST/hooks/stack-update-check.sh"
 if command -v python3 >/dev/null 2>&1; then
-  python3 - "$SETTINGS" "$SRC/settings.example.json" <<'PY'
+  python3 - "$SETTINGS" "$SRC/settings.example.json" "$HOOK_PATH" <<'PY'
 import json, os, sys
-settings, example = sys.argv[1], sys.argv[2]
+settings, example, hook_path = sys.argv[1], sys.argv[2], sys.argv[3]
 ex = json.load(open(example))
 if os.path.exists(settings):
     d = json.load(open(settings))
@@ -77,8 +104,22 @@ d["teammateMode"] = ex["teammateMode"]
 # Executor worktrees must branch from the session's in-progress branch, not the
 # remote default — otherwise they can't see the plan file or prior units' work.
 d.setdefault("worktree", {}).setdefault("baseRef", ex["worktree"]["baseRef"])
+
+# SessionStart hook — append into the existing matcher-"" group (creating it if
+# absent) rather than replacing the array, so other SessionStart hooks (e.g. a
+# user's own peon-ping command) survive untouched.
+hooks = d.setdefault("hooks", {})
+session_start = hooks.setdefault("SessionStart", [])
+group = next((g for g in session_start if g.get("matcher") == ""), None)
+if group is None:
+    group = {"matcher": "", "hooks": []}
+    session_start.append(group)
+entries = group.setdefault("hooks", [])
+if not any(e.get("command") == hook_path for e in entries):
+    entries.append({"type": "command", "command": hook_path, "timeout": 10})
+
 json.dump(d, open(settings, "w"), indent=2)
-print("  merged env + teammateMode + worktree.baseRef into settings.json (backup: settings.json.bak)")
+print("  merged env + teammateMode + worktree.baseRef + SessionStart update-check hook into settings.json (backup: settings.json.bak)")
 PY
 else
   echo "  python3 not found — add the keys from settings.example.json to $SETTINGS by hand"
