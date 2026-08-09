@@ -12,9 +12,11 @@ hook noticed: fetch upstream, show what changed, gate on approval, and (critical
 
 State dir: `${CLAUDE_HOME:-$HOME/.claude}/.claude-code-setup/` — `installed` (SHA that
 skills, agents, and settings are at), `claude-md-installed` (SHA whose `global/CLAUDE.md` the
-user last actually accepted — may lag `installed` if they skipped or hand-merged it; falls back
-to `installed` if absent), `last-check` (epoch of last poll), `disabled` (presence silences the
-SessionStart check entirely; `touch` it to opt out).
+user last actually accepted — may lag `installed` if they skipped or hand-merged it; if absent,
+there is no known base — `install.sh` only writes it when it copied `CLAUDE.md` for a user who
+had none, so anyone with a pre-existing personal `CLAUDE.md` has no stamp at all; never fall
+back to `installed`, see step 5), `last-check` (epoch of last poll), `disabled` (presence
+silences the SessionStart check entirely; `touch` it to opt out).
 
 Repo: `https://github.com/TurboKach/claude-code-setup.git`, default branch **`master`** (not
 `main`).
@@ -73,13 +75,28 @@ no state-dir file is written, until the approval gate in step 4 passes.
    two-way diff can't tell an upstream improvement apart from the user's own customization. Do
    it properly. Use `claude-md-installed` as the base for this diff, not `installed` — it's the
    SHA the user actually accepted `CLAUDE.md` at, which may lag `installed` if a prior run was
-   skipped or handed off for manual merge (fall back to `installed` if `claude-md-installed`
-   doesn't exist yet):
-   - `git show <claude-md-installed>:global/CLAUDE.md` — what the user last accepted.
-   - the clone's `global/CLAUDE.md` — what upstream has now.
-   - the live `~/.claude/CLAUDE.md` — the user's file, possibly hand-edited.
-   Diff the first two to isolate what actually changed upstream, then show that upstream
-   change against the live file. Then a **separate** `AskUserQuestion` — approving the bundle
+   skipped or handed off for manual merge.
+   - **`claude-md-installed` exists (normal case)** — three-way diff:
+     - `git show <claude-md-installed>:global/CLAUDE.md` — what the user last accepted.
+     - the clone's `global/CLAUDE.md` — what upstream has now.
+     - the live `~/.claude/CLAUDE.md` — the user's file, possibly hand-edited.
+     Diff the first two to isolate what actually changed upstream, then show that upstream
+     change against the live file.
+   - **`claude-md-installed` is absent — unknown base, do not fall back to `installed`.** This
+     is the common case: `install.sh` only writes `claude-md-installed` when it copies
+     `CLAUDE.md` for a user who had none, so anyone who already had a personal `CLAUDE.md`
+     (i.e. every existing user) ends up with an `installed` SHA but no `claude-md-installed`.
+     Falling back to `installed` would silently claim they accepted that revision's
+     `global/CLAUDE.md`, which they never did, and would permanently hide every upstream change
+     made before it. Instead: say plainly there's no record of which `global/CLAUDE.md`
+     revision they've accepted (either their `CLAUDE.md` predates the marker, or they've always
+     kept their own), and show a **two-way** diff instead — the clone's current
+     `global/CLAUDE.md` against the live `~/.claude/CLAUDE.md` — labeled explicitly as
+     "upstream's current version vs yours", not as "what changed upstream since you installed".
+     This diff will be noisy if they carry heavy local edits — expected and honest, and only a
+     one-time cost: step 7 records `claude-md-installed` after this run regardless of which way
+     gate #2 goes, so future runs get the precise three-way diff.
+   Then a **separate** `AskUserQuestion` — approving the bundle
    in gate #1 is not approval to rewrite `CLAUDE.md`, it's a distinct decision because the
    live file may carry local edits — with three choices: apply the upstream hunks (back up the
    live file first, preserve any local edits that don't conflict) / show the full diff and let
@@ -100,10 +117,20 @@ no state-dir file is written, until the approval gate in step 4 passes.
 7. **Update state.** Only now write to the state dir, and only on a zero-exit install:
    - `installed` — the clone's new HEAD SHA. After `install.sh` succeeds, skills, agents, and
      settings genuinely are at this revision.
-   - `claude-md-installed` — the clone's new HEAD SHA too, but **only if** gate #2 was answered
-     *apply the upstream hunks*. On *skip* or *decide by hand*, leave it at its old value (or
-     unset if it never existed) — the upstream `CLAUDE.md` change the user didn't accept stays
-     pending and will resurface in the next run's step 5 diff instead of silently vanishing.
+   - `claude-md-installed`:
+     - **`claude-md-installed` existed before this run (normal three-way case)** — write the
+       clone's new HEAD SHA **only if** gate #2 was answered *apply the upstream hunks*. On
+       *skip* or *decide by hand*, leave it at its old value — the upstream `CLAUDE.md` change
+       the user didn't accept stays pending and resurfaces in the next run's step 5 diff instead
+       of silently vanishing.
+     - **`claude-md-installed` was absent before this run (unknown-base case)** — write the
+       clone's new HEAD SHA regardless of the gate #2 answer, including *skip* and *decide by
+       hand*. The two-way diff step 5 showed already told the user exactly what they're
+       accepting or declining as a base going forward; recording it now is what turns every
+       future run back into the precise three-way diff instead of repeating the same noisy
+       full-file comparison forever. This does not mean their `CLAUDE.md` was rewritten —
+       gate #2 alone controls that — it only means "we now know what base to diff from next
+       time."
    - Delete `last-check` so the next session re-polls fresh instead of trusting the 24h cache.
 
 8. **Tell the user to restart Claude Code.** Skills, agents, hooks, and settings `env` are all
