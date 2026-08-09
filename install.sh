@@ -111,13 +111,21 @@ def norm_path(cmd):
     # it) refers to this install's DEST, which may differ from the real $HOME
     # when CLAUDE_HOME is overridden — so resolve those prefixes against DEST
     # before falling back to normal ~/$HOME expansion, then resolve the path.
-    for prefix in ("~/.claude", "$HOME/.claude"):
-        if cmd.startswith(prefix):
-            cmd = dest + cmd[len(prefix):]
-            break
-    else:
-        cmd = os.path.expandvars(os.path.expanduser(cmd))
-    return os.path.realpath(cmd)
+    # A malformed settings.json can hold a non-string (or unresolvable)
+    # "command"; return None so it never matches a real path instead of
+    # raising and aborting the whole merge.
+    if not isinstance(cmd, str):
+        return None
+    try:
+        for prefix in ("~/.claude", "$HOME/.claude"):
+            if cmd.startswith(prefix):
+                cmd = dest + cmd[len(prefix):]
+                break
+        else:
+            cmd = os.path.expandvars(os.path.expanduser(cmd))
+        return os.path.realpath(cmd)
+    except Exception:
+        return None
 
 # SessionStart hook — append into the existing matcher-"" group (creating it if
 # absent) rather than replacing the array, so other SessionStart hooks (e.g. a
