@@ -42,9 +42,19 @@ The whole check. Must **never** break or slow a session start: silence stderr, a
 `exit 0`, hard network timeout.
 
 State lives in `$CLAUDE_HOME/.claude-code-setup/` (default `~/.claude/.claude-code-setup/`):
-- `installed` — SHA `install.sh` last installed from
+- `installed` — SHA that skills, agents, and settings are at
+- `claude-md-installed` — SHA whose `global/CLAUDE.md` the user has actually accepted
 - `last-check` — epoch of the last remote poll (24h cache)
 - `disabled` — presence of this file turns the check off entirely
+
+**Two stamps, not one** (added after `/codex` flagged it as a P1): because
+`install.sh` never overwrites an existing `CLAUDE.md` and `/stack-update`'s gate #2 lets
+the user skip the merge, a single stamp would mark the kit up to date while their
+`CLAUDE.md` sat at an older revision — silencing the hook forever and losing the declined
+change. Splitting per surface keeps `installed` honest for the files the installer really
+did copy, while `claude-md-installed` is the base for the three-way diff, so a declined
+change stays pending and resurfaces next run instead of vanishing. `install.sh` writes
+`claude-md-installed` only when it actually copied `CLAUDE.md`.
 
 Logic, in order:
 1. No `installed` file (kit not installed by `install.sh`, e.g. a tarball) → exit silently.

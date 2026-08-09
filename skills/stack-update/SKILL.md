@@ -10,9 +10,11 @@ no link back to the repo. This skill is the manual apply step for the update the
 hook noticed: fetch upstream, show what changed, gate on approval, and (critically) reconcile
 `CLAUDE.md`, which `install.sh` never overwrites once it exists.
 
-State dir: `${CLAUDE_HOME:-$HOME/.claude}/.claude-code-setup/` — `installed` (SHA last
-installed), `last-check` (epoch of last poll), `disabled` (presence silences the SessionStart
-check entirely; `touch` it to opt out).
+State dir: `${CLAUDE_HOME:-$HOME/.claude}/.claude-code-setup/` — `installed` (SHA that
+skills, agents, and settings are at), `claude-md-installed` (SHA whose `global/CLAUDE.md` the
+user last actually accepted — may lag `installed` if they skipped or hand-merged it; falls back
+to `installed` if absent), `last-check` (epoch of last poll), `disabled` (presence silences the
+SessionStart check entirely; `touch` it to opt out).
 
 Repo: `https://github.com/TurboKach/claude-code-setup.git`, default branch **`master`** (not
 `main`).
@@ -30,12 +32,20 @@ no state-dir file is written, until the approval gate in step 4 passes.
    files, so a shallow clone buys nothing here. The clone is read-only reconnaissance — nothing
    is copied out of it until approval.
 
-3. **Summarize what's new, grouped by surface.** Derive the summary from both
-   `git log --oneline <installed>..HEAD` and `git diff --stat <installed>..HEAD` — raw commit
-   subjects are not the deliverable, a "what changes for me" bullet list is. If `<installed>`
-   is empty, unknown, or unreachable (e.g. upstream force-pushed and rewrote history), say so
-   explicitly at the top of the summary and base the bullets on `git diff --stat` against the
-   current working tree instead of a guessed range.
+3. **Summarize what's new, grouped by surface.** First check history shape with
+   `git merge-base --is-ancestor <installed> HEAD`:
+   - **Ancestor (normal case)** — derive the summary from `git log --oneline <installed>..HEAD`
+     and `git diff --stat <installed>..HEAD`; raw commit subjects are not the deliverable, a
+     "what changes for me" bullet list is.
+   - **Reachable but not an ancestor** — upstream rewrote history (force-push). Label the
+     summary as **divergent history**, not "what changed since you installed": `<installed>..HEAD`
+     is a set difference, not a lineage, and would misrepresent it. Base the bullets on
+     `git diff <installed>..HEAD` instead (endpoint comparison — stays correct regardless of
+     rewritten history).
+   - **`<installed>` empty, unknown, or unreachable at all** — say plainly that a change summary
+     is unavailable because there's no base to diff against. Show only the current HEAD SHA and
+     short subject, and the last ~10 commit subjects (`git log --oneline -10`) as context — and
+     label that list explicitly as *not* a diff against what the user has installed.
 
    Group bullets by the surfaces the user actually has installed, each stated in user-facing
    terms (not a hash dump):
@@ -61,8 +71,11 @@ no state-dir file is written, until the approval gate in step 4 passes.
    `install.sh:35-39`) — it just prints a reminder to merge by hand. So step 6's install
    refreshes skills and agents but silently skips the single most important file, and a
    two-way diff can't tell an upstream improvement apart from the user's own customization. Do
-   it properly:
-   - `git show <installed>:global/CLAUDE.md` — what the user last installed.
+   it properly. Use `claude-md-installed` as the base for this diff, not `installed` — it's the
+   SHA the user actually accepted `CLAUDE.md` at, which may lag `installed` if a prior run was
+   skipped or handed off for manual merge (fall back to `installed` if `claude-md-installed`
+   doesn't exist yet):
+   - `git show <claude-md-installed>:global/CLAUDE.md` — what the user last accepted.
    - the clone's `global/CLAUDE.md` — what upstream has now.
    - the live `~/.claude/CLAUDE.md` — the user's file, possibly hand-edited.
    Diff the first two to isolate what actually changed upstream, then show that upstream
@@ -76,10 +89,22 @@ no state-dir file is written, until the approval gate in step 4 passes.
 6. **Install.** Run `./install.sh` from the clone. It already backs up skills and agents to
    `~/.claude/.backup-<stamp>` and merges settings.json keys — reuse it, don't reimplement its
    logic here.
+   - **If it exits non-zero:** stop — do not write `installed` or `claude-md-installed`, the run
+     is not complete. Report exactly what was and wasn't applied (skills/agents may be partially
+     updated; `CLAUDE.md` may already have been changed by gate #2 above, before this step ran).
+     Point the user at the restore path: `~/.claude/.backup-<stamp>` (skills/agents backup
+     `install.sh` already took) and, if gate #2 applied hunks, the `CLAUDE.md` backup it took.
+     Don't invent a rollback — just leave the state files untouched and tell the user where the
+     backups are.
 
-7. **Update state.** Only now write to the state dir: write the clone's new HEAD SHA into
-   `installed`, and delete `last-check` so the next session re-polls fresh instead of trusting
-   the 24h cache.
+7. **Update state.** Only now write to the state dir, and only on a zero-exit install:
+   - `installed` — the clone's new HEAD SHA. After `install.sh` succeeds, skills, agents, and
+     settings genuinely are at this revision.
+   - `claude-md-installed` — the clone's new HEAD SHA too, but **only if** gate #2 was answered
+     *apply the upstream hunks*. On *skip* or *decide by hand*, leave it at its old value (or
+     unset if it never existed) — the upstream `CLAUDE.md` change the user didn't accept stays
+     pending and will resurface in the next run's step 5 diff instead of silently vanishing.
+   - Delete `last-check` so the next session re-polls fresh instead of trusting the 24h cache.
 
 8. **Tell the user to restart Claude Code.** Skills, agents, hooks, and settings `env` are all
    read at session start — nothing applied by this run is live in the current session until
