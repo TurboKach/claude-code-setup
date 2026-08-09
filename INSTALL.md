@@ -37,10 +37,10 @@ PY
 
 Offer **only** items that are missing or are real decisions. Suggested:
 
-1. **Components** (multiSelect): core kit (skills + agents — the point, pre-checked,
-   enables the default background-subagent + Workflows path); optional teammate
-   path (settings flag + `teammateMode` + `it2` + iTerm2 — only for live
-   cross-talk); gstack *(if missing)*.
+1. **Components** (multiSelect): core kit (skills + agents + the `stack-update`
+   check — the point, pre-checked, enables the default background-subagent +
+   Workflows path); optional teammate path (settings flag + `teammateMode` +
+   `it2` + iTerm2 — only for live cross-talk); gstack *(if missing)*.
 2. **CLAUDE.md handling** — only if `~/.claude/CLAUDE.md` already exists:
    *append the feature-workflow pointer section* (recommended — the workflow
    itself lives in the `feature-workflow` skill the core kit installs) /
@@ -66,10 +66,10 @@ referenced by the workflow; without it, substitute plan mode and plain git.
 
 **Core kit** (always, if chosen):
 ```bash
-mkdir -p ~/.claude/agents ~/.claude/skills
+mkdir -p ~/.claude/agents ~/.claude/skills ~/.claude/hooks
 STAMP=$(date +%Y%m%d-%H%M%S); BK=~/.claude/.backup-$STAMP
 # back up + copy skills and agents
-for s in agent-teams feature-workflow; do
+for s in agent-teams feature-workflow stack-update; do
   [ -e ~/.claude/skills/$s ] && mkdir -p "$BK/skills" && cp -R ~/.claude/skills/$s "$BK/skills/"
   rm -rf ~/.claude/skills/$s && cp -R "$SRC/skills/$s" ~/.claude/skills/$s
 done
@@ -77,6 +77,20 @@ for f in "$SRC"/agents/*.md; do
   b=$(basename "$f"); [ -e ~/.claude/agents/$b ] && mkdir -p "$BK/agents" && cp ~/.claude/agents/$b "$BK/agents/"
   cp "$f" ~/.claude/agents/$b
 done
+# update-check hook
+[ -e ~/.claude/hooks/stack-update-check.sh ] && mkdir -p "$BK/hooks" && cp ~/.claude/hooks/stack-update-check.sh "$BK/hooks/"
+cp "$SRC/hooks/stack-update-check.sh" ~/.claude/hooks/stack-update-check.sh
+chmod +x ~/.claude/hooks/stack-update-check.sh
+# stamp the state dir so the update check has a SHA to compare against —
+# skip if $SRC isn't a git checkout (e.g. a tarball); the check then stays
+# permanently silent, which is correct with nothing to compare against
+if INSTALLED_SHA=$(git -C "$SRC" rev-parse HEAD 2>/dev/null); then
+  mkdir -p ~/.claude/.claude-code-setup
+  echo "$INSTALLED_SHA" > ~/.claude/.claude-code-setup/installed
+  # only on the branch where CLAUDE.md was actually copied, see below
+else
+  echo "  $SRC is not a git checkout — skipping update-check stamp (check stays disabled)"
+fi
 ```
 Then merge settings keys per the user's choices (preserve everything else).
 The teammate flag + `teammateMode` go in **only if they chose the teammate
@@ -101,6 +115,19 @@ if OPUS_PIN:
 # Not teammate-gated: any worktree fan-out needs it, or executor worktrees
 # branch from the remote default instead of the session's in-progress work.
 d.setdefault("worktree", {}).setdefault("baseRef", ex["worktree"]["baseRef"])
+# SessionStart update-check hook — append into the existing matcher-"" group
+# (creating it if absent) rather than replacing the array, and match on the
+# command string so a second install doesn't add a duplicate entry.
+hook_path = os.path.expanduser("~/.claude/hooks/stack-update-check.sh")
+hooks = d.setdefault("hooks", {})
+session_start = hooks.setdefault("SessionStart", [])
+group = next((g for g in session_start if g.get("matcher") == ""), None)
+if group is None:
+    group = {"matcher": "", "hooks": []}
+    session_start.append(group)
+entries = group.setdefault("hooks", [])
+if not any(e.get("command") == hook_path for e in entries):
+    entries.append({"type": "command", "command": hook_path, "timeout": 10})
 json.dump(d, open(p,"w"), indent=2)
 print("settings.json updated (backup: settings.json.bak)")
 PY
@@ -114,6 +141,13 @@ PY
   `feature-workflow` skill). Don't duplicate it if already present.
 - *replace* → back up to `$BK`, then copy.
 - *leave* → do nothing.
+
+Only on the *none exists* and *replace* branches (a full copy, not the
+partial *append*), and only if `INSTALLED_SHA` was set above, also stamp
+`echo "$INSTALLED_SHA" > ~/.claude/.claude-code-setup/claude-md-installed` —
+this is the SHA whose `global/CLAUDE.md` the user actually accepted, distinct
+from `installed`, so a later declined `/stack-update` merge doesn't get
+silently marked as applied.
 
 **it2** (if chosen):
 ```bash
@@ -144,6 +178,11 @@ git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.cl
 else. Then suggest a test (background subagents, read-only → no worktrees):
 > Spawn 3 background subagents to review this code in parallel — one on security,
 > one on performance, one on test coverage. Have them report findings.
+
+Also mention: a `SessionStart` hook now checks once a day for a newer
+`claude-code-setup` and prints one line if there's an update — `/stack-update`
+applies it, and nothing is written without approval. Opt out with
+`touch ~/.claude/.claude-code-setup/disabled`.
 
 **Optional teammate path only** (skip unless they installed it — cannot be automated):
 1. **Enable panes:** set `"teammateMode": "iterm2"` in `~/.claude/settings.json`.
