@@ -86,9 +86,9 @@ fi
 SETTINGS="$DEST/settings.json"
 HOOK_PATH="$DEST/hooks/stack-update-check.sh"
 if command -v python3 >/dev/null 2>&1; then
-  python3 - "$SETTINGS" "$SRC/settings.example.json" "$HOOK_PATH" <<'PY'
+  python3 - "$SETTINGS" "$SRC/settings.example.json" "$HOOK_PATH" "$DEST" <<'PY'
 import json, os, sys
-settings, example, hook_path = sys.argv[1], sys.argv[2], sys.argv[3]
+settings, example, hook_path, dest = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 ex = json.load(open(example))
 if os.path.exists(settings):
     d = json.load(open(settings))
@@ -105,21 +105,61 @@ d["teammateMode"] = ex["teammateMode"]
 # remote default — otherwise they can't see the plan file or prior units' work.
 d.setdefault("worktree", {}).setdefault("baseRef", ex["worktree"]["baseRef"])
 
+def norm_path(cmd):
+    # Representation-independent comparison: a command written as
+    # "~/.claude/..." or "$HOME/.claude/..." (as settings.example.json ships
+    # it) refers to this install's DEST, which may differ from the real $HOME
+    # when CLAUDE_HOME is overridden — so resolve those prefixes against DEST
+    # before falling back to normal ~/$HOME expansion, then resolve the path.
+    for prefix in ("~/.claude", "$HOME/.claude"):
+        if cmd.startswith(prefix):
+            cmd = dest + cmd[len(prefix):]
+            break
+    else:
+        cmd = os.path.expandvars(os.path.expanduser(cmd))
+    return os.path.realpath(cmd)
+
 # SessionStart hook — append into the existing matcher-"" group (creating it if
 # absent) rather than replacing the array, so other SessionStart hooks (e.g. a
-# user's own peon-ping command) survive untouched.
+# user's own peon-ping command) survive untouched. If hooks/SessionStart/the
+# matcher-"" group aren't the shape we expect, skip hook registration only —
+# never rewrite a structure we don't understand, and never abort the merge.
+warning = None
 hooks = d.setdefault("hooks", {})
-session_start = hooks.setdefault("SessionStart", [])
-group = next((g for g in session_start if g.get("matcher") == ""), None)
-if group is None:
-    group = {"matcher": "", "hooks": []}
-    session_start.append(group)
-entries = group.setdefault("hooks", [])
-if not any(e.get("command") == hook_path for e in entries):
-    entries.append({"type": "command", "command": hook_path, "timeout": 10})
+if not isinstance(hooks, dict):
+    warning = '"hooks" is not an object'
+else:
+    session_start = hooks.setdefault("SessionStart", [])
+    if not isinstance(session_start, list):
+        warning = '"hooks.SessionStart" is not an array'
+    elif not all(isinstance(g, dict) for g in session_start):
+        warning = '"hooks.SessionStart" contains a non-object entry'
+    else:
+        group = next((g for g in session_start if g.get("matcher") == ""), None)
+        if group is None:
+            group = {"matcher": "", "hooks": []}
+            session_start.append(group)
+        if "hooks" not in group:
+            group["hooks"] = []
+        entries = group["hooks"]
+        if not isinstance(entries, list):
+            warning = 'the matcher-"" group\'s "hooks" is not an array'
+        else:
+            target = norm_path(hook_path)
+            already_present = any(
+                isinstance(e, dict) and "command" in e and norm_path(e["command"]) == target
+                for e in entries
+            )
+            if not already_present:
+                entries.append({"type": "command", "command": hook_path, "timeout": 10})
 
 json.dump(d, open(settings, "w"), indent=2)
-print("  merged env + teammateMode + worktree.baseRef + SessionStart update-check hook into settings.json (backup: settings.json.bak)")
+if warning:
+    print(f"  WARNING: settings.json's {warning} — skipped installing the SessionStart update-check hook.")
+    print(f"  Add it by hand: copy the \"hooks\" block from {example} into {settings}.")
+    print("  merged env + teammateMode + worktree.baseRef into settings.json (backup: settings.json.bak)")
+else:
+    print("  merged env + teammateMode + worktree.baseRef + SessionStart update-check hook into settings.json (backup: settings.json.bak)")
 PY
 else
   echo "  python3 not found — add the keys from settings.example.json to $SETTINGS by hand"

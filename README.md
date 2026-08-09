@@ -30,7 +30,7 @@ in parallel, no extra setup).
 | `agents/team-reviewer.md` | Adversarially verifies each diff before merge — read-only, no worktree *(Opus)* |
 | `agents/team-merger.md` | Merges approved worktrees into the base branch, removes each worktree + branch after landing, reports done *(Sonnet)* |
 | `settings.example.json` | The teammate-feature keys (the flag + `teammateMode`, defaults to `in-process` — teammates in the status bar, **no panes**; set to `"iterm2"` to opt into split panes), the model pin (`ANTHROPIC_DEFAULT_OPUS_MODEL` — see [Model pinning](#model-pinning)), `worktree.baseRef: "head"` so executor worktrees branch from your in-progress branch rather than the remote default, and the `SessionStart` update-check hook |
-| `hooks/stack-update-check.sh` | Runs once per session start: at most once a day, checks whether this repo's `master` has moved past the SHA you installed, and prints one line if so — silent otherwise (no update, no network, disabled, cached) |
+| `hooks/stack-update-check.sh` | Runs once per session start: at most once a day, checks whether this repo's `master` differs from the SHA you installed, and prints one line if so — silent otherwise (no update, no network, disabled, cached) |
 | `skills/stack-update/SKILL.md` | Applies a pending update: clones the repo, summarizes what changed, asks for your approval before writing anything, re-runs `install.sh`, and re-stamps |
 | `install.sh` | Copies everything into `~/.claude` (with backups) and merges the settings keys above |
 | `docs/agent-teams-setup.md` | macOS + iTerm2 walkthrough — only needed for the optional named-teammate path |
@@ -99,7 +99,7 @@ Full walkthrough: [`docs/agent-teams-setup.md`](docs/agent-teams-setup.md).
 
 ## Staying up to date
 
-A `SessionStart` hook checks once a day whether this repo's `master` has moved past the
+A `SessionStart` hook checks once a day whether this repo's `master` differs from the
 SHA you installed — one cached `curl` to the GitHub API, silent unless there's news:
 
 ```
