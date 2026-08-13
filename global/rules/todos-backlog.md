@@ -1,7 +1,6 @@
 ---
 paths:
   - "TODOS.md"
-  - "**/TODOS.md"
   - "docs/todos/**"
 ---
 
