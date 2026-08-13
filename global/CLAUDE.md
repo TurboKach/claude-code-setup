@@ -19,9 +19,9 @@
 
 ### 4. Goal-Driven Execution
 - Transform tasks into verifiable goals: "fix the bug" → "write a test that reproduces it, then make it pass."
-- **Green unit tests are not "done."** Before claiming done/verified/fixed for anything with a runtime surface, exercise the real user-facing flow end-to-end and show the evidence: drive the actual UI path (`/verify`, `/run`, `/browse`, `/qa`), render visual work against the reference, and check impact on every consuming client. If you cannot exercise the flow yourself, say so and name the manual test needed — I must not be the first person to actually try the feature.
+- **Green unit tests are not "done."** Before claiming done/verified/fixed for anything with a runtime surface, exercise the real user-facing flow end-to-end and show the evidence: drive the actual UI path (`/verify`, `/run`, `/browse`, `/qa`), render visual work against the reference, and check impact on every consuming client. If you cannot exercise the flow yourself, say so and name the manual test needed — I must not be the first person to actually try the feature. Even when a project's declared final gate is the owner's own device pass, visual changes still need a cheap isolated render (component screenshot, `ImageRenderer` harness, or simple HTML mock) as evidence before you present them — the device pass covers only what hardware alone can show: multi-touch, feel, performance.
 - Visual and UI work stays off main until a real render/playtest confirms it.
-- Find root causes — no temporary fixes or band-aids.
+- Find root causes — no temporary fixes or band-aids. Fix the mechanism, not just the reported trigger: same-mechanism sites the investigation surfaced are fixed with it or explicitly listed as deferred.
 
 ## Hard gates (always on)
 
@@ -38,7 +38,7 @@
 - **Inside a pipeline, delegation is the default** — implementation, token-heavy stages, wide multi-file investigations, and independent parallel tracks all go to subagents. Outside a pipeline, weigh the overhead: a subagent re-establishes context and reports back, so don't spawn one for work you'd finish in a handful of tool calls, and never to verify or double-check your own work (formal gates — team-reviewer, `/codex` — are the deliberate exception). One focused task per subagent, briefed precisely the first time; commit to the delegation — never redo its work. If one subagent can do it, use one; never more than 20 parallel unless I explicitly ask.
 - **Delegates spawn unnamed.** Passing `name:` turns a subagent into a mailbox teammate whose report reaches the master only if it remembers to SendMessage; unnamed spawns auto-deliver their final report (inline when foreground, task-notification when background). Names are only for parallel teams that need live coordination. And silence is not progress: past an agent's expected window — or when its result is an API error — read its transcript under the session's `subagents/` dir, salvage what finished, respawn a fresh agent for only the remainder.
 - Bug reports: investigate and fix autonomously — read the logs, errors, and failing tests yourself. Ask only when you genuinely lack context, not for permission.
-- **Earn the decision gate.** Before surfacing an option-pick or scope lock-in, do the homework: enumerate the hard corner cases (render them if visual), check how established apps/platform conventions handle the pattern and include that option, and keep every surface named in the request in the analysis — defer explicitly, never drop silently. A gate I must reject to go research myself is worse than no gate.
+- **Earn the decision gate.** Before surfacing an option-pick or scope lock-in, do the homework: enumerate the hard corner cases (render them if visual), check how established apps/platform conventions handle the pattern and include that option, and keep every surface named in the request in the analysis — defer explicitly, never drop silently. A gate I must reject to go research myself is worse than no gate. Gate only choices where readings differ materially — fold the rest into stated assumptions — and ask whether a thing should exist before asking how it should look.
 - Match the length of written deliverables (plans, reports, docs) to what the task needs — cover the substance, no filler sections, redundant summaries, or boilerplate.
 - **Render, don't ASCII-sketch, when it matters visually.** When an ASCII sketch can't convey something visual clearly, generate an actual image and `open` it for me — a throwaway script (SwiftUI `ImageRenderer`, HTML→screenshot, matplotlib, SVG→PNG) rendered to a PNG in the scratchpad, using the real tokens/sizes/colors when the choice depends on them.
 
@@ -52,6 +52,7 @@ It holds the six-stage pipeline (discuss → plan → autoplan → delegated exe
 
 - **Context7 MCP**: automatically look up current documentation for libraries and frameworks before implementing — don't wait to be told.
 - **gstack** (installed at `~/.claude/skills/gstack`): use `/browse` for all web browsing — never `mcp__claude-in-chrome__*` tools. After implementing a feature or fix, proactively run `/review` (branch diff review, works pre-PR) then `/codex` for cross-model review.
+- **/autoplan gate cap**: at the final approval gate, surface only the materially-divergent taste items (target ≤5); every surfaced item's options include the simplest choice (often "remove it entirely" / "do nothing"). This intentionally overrides the skill's "surface all taste decisions" instruction.
 
 ## Scope
 

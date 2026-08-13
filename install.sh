@@ -19,7 +19,7 @@ BACKUP="$DEST/.backup-$STAMP"
 
 say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 
-mkdir -p "$DEST/agents" "$DEST/skills"
+mkdir -p "$DEST/agents" "$DEST/skills" "$DEST/rules"
 
 backup() { # $1 = path under DEST
   if [ -e "$DEST/$1" ]; then
@@ -49,6 +49,14 @@ for skill in agent-teams feature-workflow stack-update; do
   cp -R "$SRC/skills/$skill" "$DEST/skills/$skill"
   echo "  installed skills/$skill"
 done
+
+# Rules — back up each, then copy.
+for f in "$SRC"/global/rules/*.md; do
+  base="rules/$(basename "$f")"
+  backup "$base"
+  cp "$f" "$DEST/$base"
+done
+echo "  installed rules"
 
 # Agents — back up each, then copy.
 for f in "$SRC"/agents/*.md; do

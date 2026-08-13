@@ -57,6 +57,7 @@ no state-dir file is written, until the approval gate in step 4 passes.
    - `global/CLAUDE.md` → their always-on rules — what changed, in a sentence.
    - `skills/*` → which skills are new or changed.
    - `agents/*` → which role agents changed.
+   - `global/rules/*` → which path-scoped user rules are new or changed.
    - `install.sh` / `settings.example.json` → what the installer will now do differently.
    Omit a group with no changes.
 

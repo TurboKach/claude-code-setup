@@ -66,7 +66,7 @@ referenced by the workflow; without it, substitute plan mode and plain git.
 
 **Core kit** (always, if chosen):
 ```bash
-mkdir -p ~/.claude/agents ~/.claude/skills ~/.claude/hooks
+mkdir -p ~/.claude/agents ~/.claude/skills ~/.claude/hooks ~/.claude/rules
 STAMP=$(date +%Y%m%d-%H%M%S); BK=~/.claude/.backup-$STAMP
 # back up + copy skills and agents
 for s in agent-teams feature-workflow stack-update; do
@@ -76,6 +76,11 @@ done
 for f in "$SRC"/agents/*.md; do
   b=$(basename "$f"); [ -e ~/.claude/agents/$b ] && mkdir -p "$BK/agents" && cp ~/.claude/agents/$b "$BK/agents/"
   cp "$f" ~/.claude/agents/$b
+done
+# back up + copy rules
+for f in "$SRC"/global/rules/*.md; do
+  b=$(basename "$f"); [ -e ~/.claude/rules/$b ] && mkdir -p "$BK/rules" && cp ~/.claude/rules/$b "$BK/rules/"
+  cp "$f" ~/.claude/rules/$b
 done
 # update-check hook
 [ -e ~/.claude/hooks/stack-update-check.sh ] && mkdir -p "$BK/hooks" && cp ~/.claude/hooks/stack-update-check.sh "$BK/hooks/"
