@@ -38,4 +38,6 @@ your context):
 - Filter build and test output before it enters your context — e.g.
   `xcodebuild … 2>&1 | xcbeautify --quiet`, `xcodebuild … 2>&1 | tail -n 60`,
   `npm test 2>&1 | tail -n 80`, or `grep -nE 'error:|failed'` — never dump a raw
-  build or test log. Raw logs are what push executors past their budget.
+  build or test log. Raw logs are what push executors past their budget. Keep
+  the producer's exit code — `set -o pipefail` (or check `${PIPESTATUS[0]}`) —
+  so a filtered pipeline can never turn a failed build or test run green.

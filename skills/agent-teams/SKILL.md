@@ -209,18 +209,11 @@ the real plan path, base branch, and bound) and asks the user to fire it in the
 **lead**:
 
 ```
-/goal All units in docs/prompts/<feature>-plan.md are merged to <base>;
-team-reviewer approved each diff and each unit has a `/codex challenge` verdict shown
-(fix rounds allowed; hard-stop at round 3 with the remainder reported); the project's test suite (whatever the repo
-uses — pytest, npm test, go test, cargo test, …) exits 0 with its output shown;
-git status is clean and no feature worktrees/branches remain; or stop after 25 turns.
-```
-
-For the review fix-loop specifically:
-
-```
-/goal every unit's diff has team-reviewer approval and a `/codex challenge` verdict shown
-(fix rounds allowed; hard-stop at round 3 with the remainder reported); or stop after 12 turns.
+/goal all units in docs/prompts/<feature>-plan.md are merged to <base>; each unit has
+team-reviewer approval and a /codex challenge verdict on <unit-base>..<unit-head> (the
+unit's worktree branch, challenged before it merges) that is clean or hard-stopped at
+round 3 with the remainder reported to the user; the project's test suite exits 0 with
+its output shown; no feature worktrees/branches remain; or stop after 25 turns.
 ```
 
 Rules for goals here:
