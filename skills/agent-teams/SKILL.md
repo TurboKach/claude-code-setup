@@ -160,7 +160,10 @@ is merged, and there is no pane or process to tear down.
      worktree from team-executor's own `isolation: worktree` frontmatter, not
      from the spawn call; contracts are pre-specified in each prompt
 4. REVIEW    (subagent: team-reviewer, opus — read-only, NO worktree)
-   → adversarially verifies each unit's diff before it lands
+   → adversarially verifies each unit's diff before it lands; then, per approved
+     unit, the lead runs the codex gate `Skill(codex, "challenge <unit-base>..<unit-branch>")`
+     (the unit's worktree branch is a shared ref, so the range resolves from the base
+     checkout) — full output to a file, triaged verdict shown — before the merger touches it
 5. MERGE     (subagent: team-merger, sonnet)
    → merges each approved worktree into the base branch; after each successful
      merge removes that worktree + deletes its branch; reports completion
@@ -209,11 +212,10 @@ the real plan path, base branch, and bound) and asks the user to fire it in the
 **lead**:
 
 ```
-/goal all units in docs/prompts/<feature>-plan.md are merged to <base>; each unit has
-team-reviewer approval and a /codex challenge verdict on <unit-base>..<unit-head> (the
-unit's worktree branch, challenged before it merges) that is clean or hard-stopped at
+/goal all units in docs/prompts/<feature>-plan.md are merged to <base>, each with a
+/codex challenge verdict on <unit-base>..<unit-branch> that is clean or hard-stopped at
 round 3 with the remainder reported to the user; the project's test suite exits 0 with
-its output shown; no feature worktrees/branches remain; or stop after 25 turns.
+its output shown; or stop after 25 turns.
 ```
 
 Rules for goals here:

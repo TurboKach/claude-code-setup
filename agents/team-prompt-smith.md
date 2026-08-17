@@ -16,6 +16,9 @@ When invoked:
    Execution agents do not inherit the lead's conversation, so each prompt must
    stand alone and include:
    - the unit's exact scope and the files it owns (and must not touch)
+   - exactly one concern, sized so the executor finishes in roughly ≤100 tool
+     calls — split the unit in the prompt set if it can't; a fixer prompt
+     carries one finding set, never several
    - the **full** cross-unit contract it must honor, baked in (API shapes, types)
      — background subagents don't talk to each other, so the prompt must carry
      everything; only flag a sibling to coordinate with if the lead is using the

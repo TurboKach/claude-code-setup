@@ -34,7 +34,8 @@ Hard rules:
   handoff file to the scratchpad, and stop — report the handoff path.
 - Filter build and test output before it enters your context — e.g.
   `xcodebuild … 2>&1 | xcbeautify --quiet`, `xcodebuild … 2>&1 | tail -n 60`,
-  `npm test 2>&1 | tail -n 80`, or `grep -nE 'error:|failed'` — never dump a raw
-  build or test log. Keep the producer's exit code — `set -o pipefail` (or
+  `npm test 2>&1 | tail -n 80`, or `grep -nE 'error:|failed' || true` (grep
+  exits 1 on a clean log; the producer's status is what you report) — never
+  dump a raw build or test log. Keep the producer's exit code — `set -o pipefail` (or
   check `${PIPESTATUS[0]}`) — so a filtered pipeline can never turn a failed
   build or test run green.
