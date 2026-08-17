@@ -44,7 +44,7 @@ flowchart TD
     WF --> CODEX
     TM --> TEARDOWN["manual teardown:<br/>shutdown handshake → close pane"] --> CODEX
 
-    CODEX["Stage 5 — <b>/codex review</b> per step's diff<br>⛔ hard gate: no merge without a verdict"] --> SHIP["Stage 6 — /ship → /land-and-deploy<br/>⛔ hard gate: push needs user approval"]
+    CODEX["Stage 5 — <b>/codex challenge</b> per step's diff<br>⛔ hard gate: no merge without a triaged verdict"] --> SHIP["Stage 6 — /ship → /land-and-deploy<br/>⛔ hard gate: push needs user approval"]
     SHIP --> DONE([Done])
     ONESHOT --> DONE
 ```

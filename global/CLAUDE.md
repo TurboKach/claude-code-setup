@@ -26,7 +26,7 @@
 ## Hard gates (always on)
 
 - **Pushes to remote are user-approved, always.** `git push` — any remote, any branch — only after my explicit approval in the session (me firing `/ship` or `/land-and-deploy` counts).
-- **`/codex` merge gate.** Never merge a pipeline step until `/codex review` has run on that step's diff and its verdict is shown. Internal reviewer subagents do NOT satisfy this gate. If `/codex` hasn't run, say "unreviewed, not merging".
+- **`/codex` merge gate.** Never merge a pipeline step until gstack's `/codex` skill has run in **challenge** mode on that step's accumulated diff — `Skill(codex, "challenge <step-base-sha>..HEAD")`, in the master or in a fresh `general-purpose` runner that invokes that Skill — and its triaged verdict is shown. NEVER `codex:codex-rescue` (the OpenAI plugin agent that hands Codex a coding task — not a review, does not satisfy this gate). Bare `codex exec` only if the gstack skill is unavailable, and say so; `/codex review` (pass/fail mode) only when I ask for it by name. Internal reviewer subagents do NOT satisfy this gate. If `/codex` hasn't run, say "unreviewed, not merging".
 - **Never say "verified" from indirect reasoning.** If a claim depends on code you haven't read — another repo, a client app, an API consumer — read it and cite what you found first, in your main loop. Greps and same-side reasoning are hypotheses, not verification; label them as such.
 - **AFK is not approval.** Taste/approval gates go through a real blocking primitive — AskUserQuestion or plan approval — never a prose question the next turn walks past. No answer → end the turn and wait (push-notify if I may be away). Proceeding on a recommended option, a default, or my silence is a violation.
 - **Inside a pipeline, the master session writes zero product code.** A pipeline is active the moment a plan file exists, plan mode is approved, or `feature-workflow` has loaded. From then on every product-file change — however tiny, however "faster to just do it" — goes to a subagent; the master coordinates, gates, and commits. The "small fixes skip the workflow" exemption covers standalone one-shot requests only, never work inside an active pipeline.
@@ -46,7 +46,7 @@
 
 **Trigger — mechanical, not a judgment call.** Before your first edit, load the `feature-workflow` skill if ANY of these holds: the work touches 2+ files, has 2+ steps, a plan file exists or is being written, or it's a parallel/multi-agent fan-out. In doubt, load it — loading costs one tool call, skipping it costs the pipeline. I never ask for it by name; recognizing the work is big enough is your job.
 
-It holds the six-stage pipeline (discuss → plan → autoplan → delegated execute → `/codex` review → ship), the parallelism mechanism picker, and the token-discipline rules. Genuine one-shot edits outside an active pipeline skip it.
+It holds the six-stage pipeline (discuss → plan → autoplan → delegated execute → `/codex` challenge → ship), the parallelism mechanism picker, and the token-discipline rules. Genuine one-shot edits outside an active pipeline skip it.
 
 ## Tooling
 

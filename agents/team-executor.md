@@ -30,3 +30,9 @@ Hard rules:
   report that to the lead rather than trying to expand.
 - Commit your work in your worktree; don't merge to the base branch — the
   merger does that after review, then removes your worktree and branch.
+- Budget: if you exceed ~200k context or ~250 turns, commit `WIP:`, write a
+  handoff file to the scratchpad, and stop — report the handoff path.
+- Filter build and test output before it enters your context — e.g.
+  `xcodebuild … 2>&1 | xcbeautify --quiet`, `xcodebuild … 2>&1 | tail -n 60`,
+  `npm test 2>&1 | tail -n 80`, or `grep -nE 'error:|failed'` — never dump a raw
+  build or test log.

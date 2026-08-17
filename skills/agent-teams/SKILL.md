@@ -210,8 +210,8 @@ the real plan path, base branch, and bound) and asks the user to fire it in the
 
 ```
 /goal All units in docs/prompts/<feature>-plan.md are merged to <base>;
-team-reviewer approved each diff and `/codex review` reports zero
-real-or-regression findings on each unit's diff; the project's test suite (whatever the repo
+team-reviewer approved each diff and each unit has a `/codex challenge` verdict shown
+(fix rounds allowed; hard-stop at round 3 with the remainder reported); the project's test suite (whatever the repo
 uses — pytest, npm test, go test, cargo test, …) exits 0 with its output shown;
 git status is clean and no feature worktrees/branches remain; or stop after 25 turns.
 ```
@@ -219,9 +219,8 @@ git status is clean and no feature worktrees/branches remain; or stop after 25 t
 For the review fix-loop specifically:
 
 ```
-/goal team-reviewer and `/codex review` both report zero real-or-regression findings
-on every unit's diff, with the verdicts pasted in full each round; or stop after
-3 rounds, reporting anything unresolved.
+/goal every unit's diff has team-reviewer approval and a `/codex challenge` verdict shown
+(fix rounds allowed; hard-stop at round 3 with the remainder reported); or stop after 12 turns.
 ```
 
 Rules for goals here:
