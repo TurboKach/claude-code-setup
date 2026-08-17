@@ -36,15 +36,16 @@ flowchart TD
     ERR -.->|hand back| SEQ
 
     PAR --> REV["team-reviewer — read-only, no worktree"]
-    REV --> MERGE["team-merger — merge, then<br/><b>git worktree remove + branch -d</b><br/>(no platform sweep will ever do this)"]
+    REV --> UCODEX["per approved unit: <b>/codex challenge</b><br/>&lt;unit-base&gt;..&lt;unit-branch&gt; — triaged verdict<br/>⛔ before it merges"]
+    UCODEX --> MERGE["team-merger — merge, then<br/><b>git worktree remove + branch -d</b><br/>(no platform sweep will ever do this)"]
 
     SEQ --> CODEX
-    MERGE --> CODEX
+    MERGE --> SHIP
     RO --> CODEX
     WF --> CODEX
     TM --> TEARDOWN["manual teardown:<br/>shutdown handshake → close pane"] --> CODEX
 
-    CODEX["Stage 5 — <b>/codex challenge</b> per step's diff<br>⛔ hard gate: no merge without a triaged verdict"] --> SHIP["Stage 6 — /ship → /land-and-deploy<br/>⛔ hard gate: push needs user approval"]
+    CODEX["Stage 5 — <b>/codex challenge</b> per step's diff<br>(&lt;step-base-sha&gt;..HEAD)<br>⛔ hard gate: no merge without a triaged verdict"] --> SHIP["Stage 6 — /ship → /land-and-deploy<br/>⛔ hard gate: push needs user approval"]
     SHIP --> DONE([Done])
     ONESHOT --> DONE
 ```
@@ -99,8 +100,9 @@ These are what a logic review should test. Each should hold on every path above.
 6. **Once the pipeline is active, the master writes no product code.** Applies
    from `LOAD` onward — L2 through L6. L1 is the only path where the master
    edits, and it is by definition outside the pipeline.
-7. **Nothing merges without `/codex`, nothing pushes without the user.** Both
-   hard gates sit after every leaf converges.
+7. **Nothing merges without `/codex`, nothing pushes without the user.** The
+   sequential gate sits after every leaf converges; the parallel path runs it
+   per unit between review and merge.
 
 ## Known soft spots
 

@@ -47,7 +47,8 @@ worktree (because they write concurrently and merge later):
 PLAN (planner drafts → lead runs /autoplan) → you approve ─┐   ← the only approval gate
 PROMPTS (prompt-smith)                                     │   contracts baked into each prompt
 EXECUTE (N executor subagents, parallel, in worktrees)  ← no cross-talk needed
-REVIEW (reviewer, read-only — no worktree)                 │
+REVIEW (reviewer, read-only — no worktree) → per approved  │
+  unit: Skill(codex, "challenge <unit-base>..<unit-branch>") — triaged verdict shown
 MERGE (merger) → removes each worktree+branch, reports completion ───┘
 ```
 
@@ -59,7 +60,8 @@ write in parallel and merge — read-only fan-out (review, research) skips it.
 
 Models follow a simple rule: **Opus for judgment** (plan, review), **Sonnet for
 production work** (prompts, execute, merge), with Opus available per-spawn for
-architecturally hard units.
+architecturally hard units. Executor spawns are sized to one concern each
+(roughly ≤100 tool calls; the plan splits anything bigger).
 
 ## Install
 
