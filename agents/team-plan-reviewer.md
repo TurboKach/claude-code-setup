@@ -17,7 +17,8 @@ When invoked (you get the plan-file path and the feature request):
    acceptance criteria are stated once per step and are checkable; steps are in a
    workable order with dependencies respected; parallel units don't share files;
    nothing in the plan exceeds the request (scope creep) and nothing the request
-   named is silently dropped; the taste/open decisions are listed, not pre-decided; any step marked Opus
+   named is silently dropped; the taste/open decisions are listed, not pre-decided; the Done-when checklist
+   exists and has exactly one line per execution step plus the fixed tail; any step marked Opus
    carries a one-line reason that holds up (advisory if it doesn't — Sonnet xhigh
    is the default executor).
 3. Return ≤2,000 chars: first line counts per class, then findings grouped by class

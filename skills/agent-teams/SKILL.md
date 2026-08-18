@@ -227,8 +227,9 @@ judgment roles go **up**, high-volume roles go **down** to save tokens.
 | `team-merger` | subagent | Sonnet | medium | mechanical merge/verify |
 | researcher | subagent | (use built-in `Explore`) | — | broad reads, no custom file |
 
-Override per spawn when a unit is unusually hard: "spawn this executor on Opus at
-high effort". As background subagents these roles honor their `effort:`
+Pin `model:` on every spawn (unpinned = inherits the lead's Fable tier; `fable`
+never in a subagent; Explore → haiku). Override per spawn only when the plan marks a
+unit Opus with a reason. As background subagents these roles honor their `effort:`
 frontmatter; the named-teammate path may ignore per-teammate effort and fall back
 to the session default — harmless.
 

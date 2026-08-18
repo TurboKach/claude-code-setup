@@ -27,7 +27,13 @@ When invoked for a **first draft**:
    plan-reviewer flags. For a parallel run, make units genuinely independent —
    no two units edit the same files; if the work is really sequential or heavily
    cross-dependent, say so.
-3. After the plan, list the **taste/open decisions** that need the user's call,
+3. End the plan with a **Done-when checklist**: one `- [ ] N. <step>` line per
+   execution step (its commit + acceptance criteria in a few words) plus the fixed
+   tail — codex verdict clean or stopped at round 3 with remainder reported;
+   test-gap/theoretical fix-or-defer question asked and tech-debt entries
+   committed; test suite exits 0 with output shown; handoff written; no live
+   agents. The lead ticks this list as the arc runs; keep it terse.
+4. After the plan, list the **taste/open decisions** that need the user's call,
    each with a recommended option and the simplest option (often "do nothing" /
    "leave it out"). Do NOT decide those silently.
 
