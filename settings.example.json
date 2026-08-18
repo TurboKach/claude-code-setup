@@ -1,7 +1,8 @@
 {
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5"
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5",
+    "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1"
   },
   "teammateMode": "in-process",
   "worktree": {

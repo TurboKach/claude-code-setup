@@ -225,10 +225,10 @@ judgment roles go **up**, high-volume roles go **down** to save tokens.
 | `team-executor` | **background subagent** | Sonnet (Opus only when the plan justifies it) | xhigh | token-heavy fan-out; Sonnet 5 guide: xhigh for coding |
 | `team-reviewer` | subagent | Opus | high | adversarial bug-hunting (Opus 5 review stays accurate at lower effort) |
 | `team-merger` | subagent | Sonnet | medium | mechanical merge/verify |
-| researcher | subagent | (use built-in `Explore`) | — | broad reads, no custom file |
+| `explorer` | subagent | Sonnet | medium | codebase search, read-only (built-in `Explore` would inherit the lead's model + effort) |
 
 Pin `model:` on every spawn (unpinned = inherits the lead's Fable tier; `fable`
-never in a subagent; Explore → sonnet — it inherits the lead's model otherwise). Override per spawn only when the plan marks a
+never in a subagent; search → `explorer`, not built-in `Explore`, which inherits the lead's model and effort). Override per spawn only when the plan marks a
 unit Opus with a reason. As background subagents these roles honor their `effort:`
 frontmatter; the named-teammate path may ignore per-teammate effort and fall back
 to the session default — harmless.
