@@ -228,7 +228,7 @@ judgment roles go **up**, high-volume roles go **down** to save tokens.
 | researcher | subagent | (use built-in `Explore`) | — | broad reads, no custom file |
 
 Pin `model:` on every spawn (unpinned = inherits the lead's Fable tier; `fable`
-never in a subagent; Explore → haiku). Override per spawn only when the plan marks a
+never in a subagent; Explore → sonnet — it inherits the lead's model otherwise). Override per spawn only when the plan marks a
 unit Opus with a reason. As background subagents these roles honor their `effort:`
 frontmatter; the named-teammate path may ignore per-teammate effort and fall back
 to the session default — harmless.
