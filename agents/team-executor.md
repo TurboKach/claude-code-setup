@@ -1,9 +1,9 @@
 ---
 name: team-executor
-description: Agent-teams executor. Implements one independent unit of an approved plan from a self-contained spawn prompt, running concurrently with sibling executors. Use only for parallel fan-out; a single sequential step goes to step-executor instead. Default Sonnet; Opus for architecturally hard units.
+description: Agent-teams executor. Implements one independent unit of an approved plan from a self-contained spawn prompt, running concurrently with sibling executors. Use only for parallel fan-out; a single sequential step goes to step-executor instead. Sonnet at effort xhigh by default; Opus only when the plan marks the unit with a reason.
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: sonnet
-effort: medium
+effort: xhigh
 background: true
 isolation: worktree
 ---

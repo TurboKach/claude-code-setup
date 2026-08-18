@@ -21,7 +21,10 @@ When invoked for a **first draft**:
    execution step names the subagent that executes it (`step-executor` for
    sequential steps, `team-executor` for parallel units) — the lead never
    implements. Size each step so its executor finishes in roughly ≤100 tool calls;
-   split anything bigger. For a parallel run, make units genuinely independent —
+   split anything bigger. Executors are Sonnet by default (the agent's frontmatter);
+   mark a step Opus only with a one-line reason (cross-file algorithmic invariants,
+   concurrency, measured layout math…) — an unjustified Opus step is a defect the
+   plan-reviewer flags. For a parallel run, make units genuinely independent —
    no two units edit the same files; if the work is really sequential or heavily
    cross-dependent, say so.
 3. After the plan, list the **taste/open decisions** that need the user's call,

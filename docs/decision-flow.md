@@ -36,16 +36,15 @@ flowchart TD
     ERR -.->|hand back| SEQ
 
     PAR --> REV["team-reviewer — read-only, no worktree"]
-    REV --> UCODEX["per approved unit: <b>/codex challenge</b><br/>&lt;unit-base&gt;..&lt;unit-branch&gt; — triaged verdict<br/>⛔ before it merges"]
-    UCODEX --> MERGE["team-merger — merge, then<br/><b>git worktree remove + branch -d</b><br/>(no platform sweep will ever do this)"]
+    REV --> MERGE["team-merger — merge, then<br/><b>git worktree remove + branch -d</b><br/>(no platform sweep will ever do this)"]
 
     SEQ --> CODEX
-    MERGE --> SHIP
+    MERGE --> CODEX
     RO --> CODEX
     WF --> CODEX
     TM --> TEARDOWN["manual teardown:<br/>shutdown handshake → close pane"] --> CODEX
 
-    CODEX["Stage 5 — <b>/codex challenge</b> per step's diff<br>(&lt;step-base-sha&gt;..HEAD)<br>⛔ hard gate: no merge without a triaged verdict"] --> SHIP["Stage 6 — /ship → /land-and-deploy<br/>⛔ hard gate: push needs user approval"]
+    CODEX["Stage 5 — ONE <b>/codex challenge</b> on the feature diff<br>(&lt;feature-base-sha&gt;..HEAD) — P1/P2 fixed, rounds ≤3<br>⛔ hard gate: no ship without a triaged verdict"] --> SHIP["Stage 6 — /ship → /land-and-deploy<br/>⛔ hard gate: push needs user approval"]
     SHIP --> DONE([Done])
     ONESHOT --> DONE
 ```
@@ -85,8 +84,8 @@ These are what a logic review should test. Each should hold on every path above.
 2. **Worktree ⟹ something explicitly removes it.** Holds on L3 only, via
    `team-merger`. Neither platform mechanism (no-change auto-removal, the
    `cleanupPeriodDays` sweep) ever fires on an executor worktree, because it has
-   unpushed commits. Backstop for an aborted run: the `/goal` condition "no
-   feature worktrees/branches remain".
+   unpushed commits. Backstop for an aborted run: the lead's end-of-run check that no
+   feature worktrees/branches remain.
 3. **Worktree ⟹ it can see the plan file and prior work.** Requires
    `worktree.baseRef: "head"`. Under the default `"fresh"`, L3 breaks silently —
    executors get a clean `origin/main`.
@@ -100,9 +99,9 @@ These are what a logic review should test. Each should hold on every path above.
 6. **Once the pipeline is active, the master writes no product code.** Applies
    from `LOAD` onward — L2 through L6. L1 is the only path where the master
    edits, and it is by definition outside the pipeline.
-7. **Nothing merges without `/codex`, nothing pushes without the user.** The
-   sequential gate sits after every leaf converges; the parallel path runs it
-   per unit between review and merge.
+7. **Nothing ships without `/codex`, nothing pushes without the user.** Both
+   paths converge on one challenge of the whole feature diff after the last
+   step/merge.
 
 ## Known soft spots
 

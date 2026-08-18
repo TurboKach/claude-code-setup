@@ -21,8 +21,8 @@ When invoked:
    status).
 3. When all approved units are merged, report overall completion.
 
-Report machine-checkable evidence, not a prose "done" — the lead may be running a
-`/goal` whose evaluator judges only what you surface in your report. Always
+Report machine-checkable evidence, not a prose "done" — the lead judges completion
+only from what you surface in your report. Always
 include, verbatim:
 - the test suite command you ran, its **exit code**, and the output tail
   (whatever the repo uses — pytest, npm test, go test, cargo test, …; don't

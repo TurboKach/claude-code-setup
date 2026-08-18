@@ -27,8 +27,8 @@ in parallel, no extra setup).
 | `agents/team-planner.md` | Explores and **returns** the plan as text (headless, read-only); the lead — in native plan mode — writes it to the plan file *(Opus)* |
 | `agents/team-plan-reviewer.md` | Validates the plan against the code before the lead presents it via `ExitPlanMode` for **your** approval *(Opus)* |
 | `agents/team-prompt-smith.md` | Turns the approved plan into one spawn prompt per executor *(Sonnet)* |
-| `agents/team-executor.md` | Implements one unit of a **parallel** fan-out as a background subagent — carries `isolation: worktree` in its frontmatter, since concurrent writers merge later *(Sonnet; Opus for hard units)* |
-| `agents/step-executor.md` | Implements one **sequential** step on the session's own branch — no worktree, nothing to merge; the feature-workflow counterpart to `team-executor` *(Sonnet; Opus for hard steps)* |
+| `agents/team-executor.md` | Implements one unit of a **parallel** fan-out as a background subagent — carries `isolation: worktree` in its frontmatter, since concurrent writers merge later *(Sonnet xhigh; Opus only when the plan justifies it)* |
+| `agents/step-executor.md` | Implements one **sequential** step on the session's own branch — no worktree, nothing to merge; the feature-workflow counterpart to `team-executor` *(Sonnet xhigh; Opus only when the plan justifies it)* |
 | `agents/team-reviewer.md` | Adversarially verifies each diff before merge — read-only, no worktree *(Opus)* |
 | `agents/team-merger.md` | Merges approved worktrees into the base branch, removes each worktree + branch after landing, reports done *(Sonnet)* |
 | `settings.example.json` | The teammate-feature keys (the flag + `teammateMode`, defaults to `in-process` — teammates in the status bar, **no panes**; set to `"iterm2"` to opt into split panes), the model pin (`ANTHROPIC_DEFAULT_OPUS_MODEL` — see [Model pinning](#model-pinning)), `worktree.baseRef: "head"` so executor worktrees branch from your in-progress branch rather than the remote default, and the `SessionStart` update-check hook |
@@ -48,9 +48,9 @@ worktree (because they write concurrently and merge later):
 PLAN (lead in plan mode: planner drafts → plan-reviewer validates → ExitPlanMode) → you approve ─┐   ← the only approval gate
 PROMPTS (prompt-smith)                                     │   contracts baked into each prompt
 EXECUTE (N executor subagents, parallel, in worktrees)  ← no cross-talk needed
-REVIEW (reviewer, read-only — no worktree) → per approved  │
-  unit: Skill(codex, "challenge <unit-base>..<unit-branch>") — triaged verdict shown
-MERGE (merger) → removes each worktree+branch, reports completion ───┘
+REVIEW (reviewer, read-only — no worktree)                 │
+MERGE (merger) → removes each worktree+branch, reports completion
+CODEX (lead) → one Skill(codex, "challenge <feature-base>..HEAD") ─┘   ← triaged verdict, P1/P2 fixed
 ```
 
 Pick the fan-out mechanism by need: **background subagents** by default;
@@ -148,9 +148,7 @@ settings `env` block.)
 - Claude Code **v2.1.186 or newer** (`claude --version`) — use the latest.
   v2.1.186 is the practical floor: from there, background subagents surface
   permission prompts in your session (earlier versions silently auto-denied
-  them). The underlying features are older — Workflows shipped in v2.1.154 and
-  `/goal` (the built-in command driving the post-approval tail in `skills/feature-workflow/SKILL.md`)
-  in v2.1.139; no install required for either.
+  them). Workflows shipped in v2.1.154; no install required.
 - That's it — no flags, no iTerm2.
 
 **Optional named-teammate (iTerm2 split-pane) path adds:**
@@ -170,6 +168,7 @@ settings `env` block.)
 
 ## Notes
 
+- **2026-08-18 pipeline diet (from the clipsy_ios S1–S4 forensics):** `/codex challenge` runs once per feature (not per step) with P1/P2 priorities and a fix-now / defer-to-tech-debt question for the rest; `/goal` is dropped — plan approval starts the tail; executors and fixers are Sonnet xhigh, Opus only when the plan justifies it. gstack's codex skill needs a local patch on macOS (`mktemp "$TMP_ROOT/codex-err-XXXXXX"` — drop the `.txt` suffix, BSD mktemp rejects it); re-apply after `/gstack-upgrade`.
 - **Native plan mode replaced gstack `/autoplan` on 2026-08-18 (experiment).** Stage 2–3 is now `EnterPlanMode` → `team-planner` returns the draft → lead transcribes → `team-plan-reviewer` validates → one AskUserQuestion for taste items → `ExitPlanMode`. To restore `/autoplan`: `git revert autoplan-off && ./install.sh` (tag `autoplan-off` marks the switch commit).
 - The installer **never overwrites an existing `~/.claude/CLAUDE.md`** and backs
   up any skill/agent files it replaces (under `~/.claude/.backup-<timestamp>`).

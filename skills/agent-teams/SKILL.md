@@ -115,8 +115,8 @@ units over more, smaller colliding ones.
 
 **Why review needs a separable diff.** `team-reviewer` reviews "its worktree
 diff" and `team-merger` merges each unit in turn after approval; the global
-`/codex` merge gate forbids merging a step until that step's diff has been
-reviewed. With 2+ concurrent writers sharing one checkout there is no per-unit
+`/codex` ship gate challenges the merged feature diff once, but the reviewer
+still needs a per-unit diff. With 2+ concurrent writers sharing one checkout there is no per-unit
 diff to review or merge independently, and a unit that fails review can't be
 dropped without untangling it from the others it shares a tree with.
 
@@ -139,8 +139,8 @@ which describes every executor worktree by construction, since executors commit
 locally and never push ([docs](https://code.claude.com/docs/en/worktrees#clean-up-subagent-and-background-session-worktrees)).
 If the merger doesn't remove it, it stays until someone runs `git worktree
 remove --force` by hand. For a run that dies before the merger gets there, the
-backstop is the `/goal` completion condition below ("no feature
-worktrees/branches remain"). The net result: nothing lingers on disk once work
+backstop is the lead's end-of-run check that no feature worktrees/branches
+remain. The net result: nothing lingers on disk once work
 is merged, and there is no pane or process to tear down.
 
 ## The pipeline
@@ -162,10 +162,7 @@ is merged, and there is no pane or process to tear down.
      worktree from team-executor's own `isolation: worktree` frontmatter, not
      from the spawn call; contracts are pre-specified in each prompt
 4. REVIEW    (subagent: team-reviewer, opus — read-only, NO worktree)
-   → adversarially verifies each unit's diff before it lands; then, per approved
-     unit, the lead runs the codex gate `Skill(codex, "challenge <unit-base>..<unit-branch>")`
-     (the unit's worktree branch is a shared ref, so the range resolves from the base
-     checkout) — full output to a file, triaged verdict shown — before the merger touches it
+   → adversarially verifies each unit's diff before it lands
 5. MERGE     (subagent: team-merger, sonnet)
    → merges each approved worktree into the base branch; after each successful
      merge removes that worktree + deletes its branch; reports completion
@@ -173,7 +170,7 @@ is merged, and there is no pane or process to tear down.
 
 Every step delegates to a subagent except the lead's own plan-mode transcription
 and gates in step 1; step 3 is the only fan-out (one background subagent per unit).
-Keep the **lead thin**: it coordinates, runs the gates, and ingests summaries — it
+Keep the **lead thin**: it coordinates, runs the gates and the single codex challenge, and ingests summaries — it
 does not read large diffs or implement. If the lead starts implementing, stop and
 delegate.
 
@@ -195,42 +192,23 @@ fan-out. The gate is Claude's native `ExitPlanMode` in the lead — never a
 subagent, which has no channel to the user. Resolve the open taste-decisions with
 one AskUserQuestion first, then present the plan and wait.
 After the plan is approved, executors run, review runs, and the merger lands work
-and reports completion — **no further user gates**.
+and reports completion.
+6. CODEX     (lead, or a fresh general-purpose runner)
+   → ONE `Skill(codex, "challenge <feature-base>..<base-HEAD>")` on the merged
+     feature diff — full output to a file, triaged verdict shown; P1/P2 → fresh
+     Sonnet fixer on the base branch → re-challenge, round N of 3 (feature-workflow
+     stage 5 rules: P1 open at round 3 → ask; test-gap/theoretical → one
+     fix-now / defer-to-tech-debt question). No further user gates before that.
 
-## Driving the tail with `/goal`
+## No `/goal`
 
-The approved tail (EXECUTE → REVIEW → MERGE) has a verifiable end state, which is
-exactly what `/goal` is for. Instead of the lead deciding turn-by-turn when the
-fan-out is "done" (the same model that did the work judging its own completion),
-set a completion condition and let a **fresh evaluator** confirm it after every
-turn. This makes the tail both more autonomous (no per-turn return to the user)
-and higher quality (an independent model catches a lead that quit early or merged
-on a red suite).
-
-`/goal` is user-typed input — the lead cannot invoke it. Right after the user
-approves the plan, the lead prints this command ready to paste (filled in with
-the real plan path, base branch, and bound) and asks the user to fire it in the
-**lead**:
-
-```
-/goal all units in docs/prompts/<feature>-plan.md are merged to <base>, each with a
-/codex challenge verdict on <unit-base>..<unit-branch> that is clean or hard-stopped at
-round 3 with the remainder reported to the user; the project's test suite exits 0 with
-its output shown; or stop after 25 turns.
-```
-
-Rules for goals here:
-- **Only the verifiable tail.** Never put a goal on PLAN — that gate is interactive
-  and taste-based (see "Approval gate: PLAN ONLY"). A goal can't judge taste and
-  the evaluator can't surface option-picks.
-- **The evaluator sees only the transcript** and runs no tools. So the merger and
-  reviewer must *return machine-checkable proof* — test exit code + output tail,
-  `git worktree list` / `git status`, a structured per-unit verdict — not a prose
-  "done". The role definitions require this; honor it or the goal can't be judged.
-- **Always bound it** (`or stop after N turns`): a fan-out loop burns tokens fast.
-- **Pair with auto mode** so each goal turn runs without per-tool prompts.
-- Headless: `claude -p "/goal …"` runs the whole tail to completion in one
-  unattended invocation — an "approve the plan, walk away" mode for this kit.
+The approved tail (EXECUTE → REVIEW → MERGE → CODEX) runs unprompted from plan
+approval: the lead spawns, ingests summaries, and moves on without returning to
+the user except at the real gates (a P1 still open at codex round 3, the
+test-gap/theoretical fix-or-defer question, push approval). Roles still return
+machine-checkable proof — test exit code + output tail, `git worktree list` /
+`git status`, structured per-unit verdicts — because the lead judges completion
+from those, not from prose "done".
 
 ## Models + effort per role
 
@@ -244,7 +222,7 @@ judgment roles go **up**, high-volume roles go **down** to save tokens.
 | `team-planner` | subagent | Opus | high | one pass, highest leverage (Opus 5: prior-model effort defaults don't transfer; `high` is the sweet spot); returns text, lead transcribes |
 | `team-plan-reviewer` | subagent | Opus | high | validates the plan against the code before the gate; read-only |
 | `team-prompt-smith` | subagent | Sonnet | medium | structured prompt writing |
-| `team-executor` | **background subagent** | Sonnet (Opus for hard units) | medium | token-heavy fan-out |
+| `team-executor` | **background subagent** | Sonnet (Opus only when the plan justifies it) | xhigh | token-heavy fan-out; Sonnet 5 guide: xhigh for coding |
 | `team-reviewer` | subagent | Opus | high | adversarial bug-hunting (Opus 5 review stays accurate at lower effort) |
 | `team-merger` | subagent | Sonnet | medium | mechanical merge/verify |
 | researcher | subagent | (use built-in `Explore`) | — | broad reads, no custom file |
@@ -360,7 +338,7 @@ default: no pane, no separate process, no handshake, nothing to orphan.
 
 ## Relationship to the feature workflow
 
-This is the parallel-execution variant of the `feature-workflow` skill's pipeline.
+This is the parallel-execution variant of the `feature-workflow` skill's pipeline; its stage-5 codex rules (per-feature range, P1/P2, rounds, tech-debt deferral) apply verbatim.
 Planning (`/office-hours`, native plan mode) and shipping (`/ship`,
 `/land-and-deploy`) are unchanged; fan-out only replaces the execute phase's
 sequential per-step subagents with parallel agents when the steps are

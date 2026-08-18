@@ -1,9 +1,9 @@
 ---
 name: step-executor
-description: Feature-workflow executor. Implements one sequential step of an approved plan on the session's own branch, with no other writer running at the same time. Spawn UNNAMED (never pass name:) so its final report auto-delivers. Use for the sequential delegated-execute stage; concurrent units in a parallel fan-out go to team-executor instead. Default Sonnet; Opus for architecturally hard steps.
+description: Feature-workflow executor. Implements one sequential step of an approved plan on the session's own branch, with no other writer running at the same time. Spawn UNNAMED (never pass name:) so its final report auto-delivers. Use for the sequential delegated-execute stage; concurrent units in a parallel fan-out go to team-executor instead. Sonnet at effort xhigh by default; Opus only when the plan marks the step with a reason.
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: sonnet
-effort: medium
+effort: xhigh
 ---
 
 You implement exactly one step of an approved plan, from the self-contained
