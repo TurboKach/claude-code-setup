@@ -195,7 +195,7 @@ in the status bar, NO terminal panes. Opt into split panes by setting it to "ite
   5. Restart Claude Code (inside iTerm2), then: /config -> Default teammate model -> Sonnet.
 
 Recommended for the full workflow:
-  - gstack for /autoplan, /ship, /context-save, etc.:
+  - gstack for /office-hours, /codex, /ship, /context-save, etc.:
       git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack \
         && cd ~/.claude/skills/gstack && ./setup
 

@@ -24,7 +24,8 @@ in parallel, no extra setup).
 | `global/rules/` | Path-scoped user rules, installed to `~/.claude/rules/` — load only when a matching file is touched, so they don't add to every session's always-on context |
 | `skills/feature-workflow/SKILL.md` | The six-stage single-master feature pipeline, the parallel-multi-agent mechanism picker, and the token-discipline rules. Loads on demand when a pipeline or fan-out starts (extracted from CLAUDE.md per 5-gen progressive disclosure). |
 | `skills/agent-teams/SKILL.md` | The orchestration playbook — when to fan out, how to pick the mechanism (subagents / Workflows / teammates), the pipeline, models, worktree/merge flow, the plan-approval gate. Loads on demand. |
-| `agents/team-planner.md` | Writes the **rough** plan (headless); the lead refines it with `/autoplan` and surfaces it for **your** approval *(Opus)* |
+| `agents/team-planner.md` | Explores and **returns** the plan as text (headless, read-only); the lead — in native plan mode — writes it to the plan file *(Opus)* |
+| `agents/team-plan-reviewer.md` | Validates the plan against the code before the lead presents it via `ExitPlanMode` for **your** approval *(Opus)* |
 | `agents/team-prompt-smith.md` | Turns the approved plan into one spawn prompt per executor *(Sonnet)* |
 | `agents/team-executor.md` | Implements one unit of a **parallel** fan-out as a background subagent — carries `isolation: worktree` in its frontmatter, since concurrent writers merge later *(Sonnet; Opus for hard units)* |
 | `agents/step-executor.md` | Implements one **sequential** step on the session's own branch — no worktree, nothing to merge; the feature-workflow counterpart to `team-executor` *(Sonnet; Opus for hard steps)* |
@@ -39,12 +40,12 @@ in parallel, no extra setup).
 ## How it works
 
 Only the **lead** (your main session) spawns. Every step delegates to a subagent
-except the lead's own interactive `/autoplan` pass; the parallel **execution**
+except the lead's own plan-mode transcription and gates; the parallel **execution**
 step fans out into one background subagent per independent unit, each in its own
 worktree (because they write concurrently and merge later):
 
 ```
-PLAN (planner drafts → lead runs /autoplan) → you approve ─┐   ← the only approval gate
+PLAN (lead in plan mode: planner drafts → plan-reviewer validates → ExitPlanMode) → you approve ─┐   ← the only approval gate
 PROMPTS (prompt-smith)                                     │   contracts baked into each prompt
 EXECUTE (N executor subagents, parallel, in worktrees)  ← no cross-talk needed
 REVIEW (reviewer, read-only — no worktree) → per approved  │
@@ -158,17 +159,18 @@ settings `env` block.)
 - the teammate keys from `settings.example.json` (the installer merges them)
 
 **Recommended for the full workflow:**
-- **gstack** *(optional)* — the lead runs `/autoplan` and the workflow
-  references `/ship`, `/context-save`, etc. Install:
+- **gstack** *(optional)* — the workflow references `/office-hours`, `/codex`,
+  `/ship`, `/context-save`, etc. Install:
   ```bash
   git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack \
     && cd ~/.claude/skills/gstack && ./setup
   ```
-  Without gstack the team still works — substitute plan mode for `/autoplan` and
+  Without gstack the team still works — skip the codex gate (say so) and use
   plain git/PR commands for the ship steps.
 
 ## Notes
 
+- **Native plan mode replaced gstack `/autoplan` on 2026-08-18 (experiment).** Stage 2–3 is now `EnterPlanMode` → `team-planner` returns the draft → lead transcribes → `team-plan-reviewer` validates → one AskUserQuestion for taste items → `ExitPlanMode`. To restore `/autoplan`: `git revert autoplan-off && ./install.sh` (tag `autoplan-off` marks the switch commit).
 - The installer **never overwrites an existing `~/.claude/CLAUDE.md`** and backs
   up any skill/agent files it replaces (under `~/.claude/.backup-<timestamp>`).
   It merges only the `settings.example.json` keys, with a `settings.json.bak`

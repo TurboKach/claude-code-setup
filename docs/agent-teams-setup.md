@@ -17,9 +17,8 @@ default.
   `claude --version`. v2.1.186 is when `teammateMode: "iterm2"` landed and when
   background-subagent permission prompts started surfacing in the lead session.
 - **uv** (or pip) to install the `it2` CLI.
-- *(Optional)* **gstack** — the planner role runs `/autoplan` and the workflow
-  references `/ship`, `/context-save`, etc. Without gstack those steps fall back
-  to plain plan mode / manual git. See [the gstack note](#gstack-optional).
+- *(Optional)* **gstack** — the workflow references `/office-hours`, `/codex`,
+  `/ship`, `/context-save`, etc. Without gstack those steps fall back to manual git. See [the gstack note](#gstack-optional).
 
 ## 1. Enable the feature flag + split-pane mode
 
@@ -96,7 +95,7 @@ Teammates should appear as split panes (or in the agent panel in-process; use
 ## gstack (optional)
 
 The full workflow leans on [gstack](https://github.com/garrytan/gstack) skills
-(`/autoplan`, `/office-hours`, `/context-save`, `/codex`, `/ship`,
+(`/office-hours`, `/context-save`, `/codex`, `/ship`,
 `/land-and-deploy`). Install it with:
 
 ```bash
@@ -104,8 +103,8 @@ git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.cl
   && cd ~/.claude/skills/gstack && ./setup
 ```
 
-Without gstack, the team still works — just substitute plan mode for `/autoplan`
-and use plain git/PR commands for the ship steps.
+Without gstack, the team still works — skip the codex gate (and say so) and use
+plain git/PR commands for the ship steps.
 
 ## Notes & limitations
 

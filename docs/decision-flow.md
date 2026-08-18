@@ -16,7 +16,7 @@ flowchart TD
     G0 -->|yes| LOAD[["load <b>feature-workflow</b><br/>⇒ pipeline is now ACTIVE"]]
 
     LOAD --> INV0{{"INVARIANT: master writes zero product code<br/>from here until ship"}}
-    INV0 --> S123["Stages 1–3<br/>/office-hours → team-planner → /autoplan<br/><b>user approves plan</b> ← only taste gate"]
+    INV0 --> S123["Stages 1–3<br/>/office-hours → plan mode: team-planner → team-plan-reviewer → ExitPlanMode<br/><b>user approves plan</b> ← only taste gate"]
 
     S123 --> G2{"<b>Gate 2</b> — stage 4 Execute<br/>are 2+ steps independent AND<br/>running at the same time?"}
 

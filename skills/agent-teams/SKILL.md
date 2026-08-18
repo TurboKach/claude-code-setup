@@ -53,7 +53,7 @@ you want to dialogue *live* with a **delegated** agent running **in parallel**,
 off the master tab — and you accept that **teammates are not isolated in
 worktrees** (Claude Code does not honor `isolation: worktree` for teammates; they
 share the lead's checkout, so you must partition files by hand). Note what does
-NOT qualify: a planning gate. `/autoplan` runs in the lead (interactive there),
+NOT qualify: a planning gate. `ExitPlanMode` and `AskUserQuestion` run in the lead,
 and any input a delegated subagent needs is bubbled up to the lead — so the
 master already funnels approvals to you. Agent-to-agent contract negotiation
 doesn't qualify either: pre-specify the contract in each spawn prompt instead.
@@ -146,13 +146,15 @@ is merged, and there is no pane or process to tear down.
 ## The pipeline
 
 ```
-1. PLAN      (subagent drafts → LEAD runs /autoplan, interactive)
-   → team-planner subagent (opus) writes the ROUGH plan to
-     docs/prompts/<feature>-plan.md and returns it — it does NOT run /autoplan
-   → the LEAD runs /autoplan **itself** (interactive): the user answers its
-     option-picks in the master tab; /autoplan spawns its own review subagents,
-     so the heavy reads stay off the lead. Then surface the refined plan and
-     wait for the user's approval.   ← only gate
+1. PLAN      (LEAD in native plan mode; subagents draft + validate)
+   → the LEAD calls EnterPlanMode, then spawns team-planner (opus), which
+     RETURNS the plan as text (units, file boundaries, shared contracts, open
+     decisions) — subagents can't write files while the lead is in plan mode
+   → the LEAD writes it verbatim to the plan file, spawns team-plan-reviewer
+     (read-only) to validate it against the code, splices in any blocking
+     fixes from a fresh planner spawn, resolves the open decisions with one
+     AskUserQuestion, then calls ExitPlanMode.   ← only gate
+   → on approval: copy the plan file to docs/prompts/<feature>-plan.md, commit
 2. PROMPTS   (subagent: team-prompt-smith, sonnet)
    → turns the approved plan into one self-contained spawn prompt per unit
 3. EXECUTE   (background subagents: team-executor)   ← parallel
@@ -169,20 +171,19 @@ is merged, and there is no pane or process to tear down.
      merge removes that worktree + deletes its branch; reports completion
 ```
 
-Every step delegates to a subagent except the lead's own `/autoplan` pass in
-step 1; step 3 is the only fan-out (one background subagent per unit). Keep the
-**lead thin**: it coordinates, runs `/autoplan`, and ingests summaries — it does
-not read large diffs or implement. If the lead starts implementing, stop and
+Every step delegates to a subagent except the lead's own plan-mode transcription
+and gates in step 1; step 3 is the only fan-out (one background subagent per unit).
+Keep the **lead thin**: it coordinates, runs the gates, and ingests summaries — it
+does not read large diffs or implement. If the lead starts implementing, stop and
 delegate.
 
 **Subagents are headless — they never prompt the user.** A subagent runs to
 completion and hands its result back; it has no channel to ask you anything
-mid-run. So never delegate an *interactive* gate to one — `/autoplan` surfaces
-option-picks, but run in a spawned/headless session it detects that and
-**auto-picks the recommended option silently**, so the user never sees the
-questions. Interactive skills run in the **lead** (the session you're attached
-to); only headless work goes to subagents. (This is why step 1 splits: the
-subagent drafts headlessly, the lead runs `/autoplan` interactively.)
+mid-run. So never delegate an *interactive* gate to one — `ExitPlanMode` and
+`AskUserQuestion` are unavailable to a subagent, so a delegated gate either
+auto-picks silently or dies. Gates run in the **lead** (the session you're
+attached to); only headless work goes to subagents. (This is why step 1 splits:
+subagents draft and validate headlessly, the lead transcribes and gates.)
 
 (For the rare named-teammate path, step 3's agents are teammates instead and a
 TEARDOWN step is required — see §"Named-teammate path".)
@@ -190,9 +191,9 @@ TEARDOWN step is required — see §"Named-teammate path".)
 ## Approval gate: PLAN ONLY
 
 The lead must get the **user's** approval on the plan (step 1) before any
-fan-out. The lead runs `/autoplan` **itself** (interactive) — never a subagent,
-which would run headless and silently auto-pick instead of surfacing the
-option-picks. Surface the refined plan, name the open taste-decisions, wait.
+fan-out. The gate is Claude's native `ExitPlanMode` in the lead — never a
+subagent, which has no channel to the user. Resolve the open taste-decisions with
+one AskUserQuestion first, then present the plan and wait.
 After the plan is approved, executors run, review runs, and the merger lands work
 and reports completion — **no further user gates**.
 
@@ -240,7 +241,8 @@ judgment roles go **up**, high-volume roles go **down** to save tokens.
 | Role | Spawned as | Model | Effort | Rationale |
 |------|-----------|-------|--------|-----------|
 | Orchestrator (lead) | main session | Opus | session default | coordination, synthesis, user gate |
-| `team-planner` | subagent | Opus | high | one pass, highest leverage (Opus 5: prior-model effort defaults don't transfer; `high` is the sweet spot) |
+| `team-planner` | subagent | Opus | high | one pass, highest leverage (Opus 5: prior-model effort defaults don't transfer; `high` is the sweet spot); returns text, lead transcribes |
+| `team-plan-reviewer` | subagent | Opus | high | validates the plan against the code before the gate; read-only |
 | `team-prompt-smith` | subagent | Sonnet | medium | structured prompt writing |
 | `team-executor` | **background subagent** | Sonnet (Opus for hard units) | medium | token-heavy fan-out |
 | `team-reviewer` | subagent | Opus | high | adversarial bug-hunting (Opus 5 review stays accurate at lower effort) |
@@ -254,11 +256,11 @@ to the session default — harmless.
 
 ## Spawn recipes
 
-Plan (subagent drafts, lead refines), then gate:
-> Use the team-planner agent to write a ROUGH implementation plan for <feature>
-> to `docs/prompts/<feature>-plan.md` and return it — it must NOT run /autoplan.
-> Then I (the lead) run /autoplan myself, interactively, so the user answers its
-> option-picks; I'll get the user's approval before any execution.
+Plan (lead in plan mode; subagents draft + validate), then gate:
+> [EnterPlanMode] Use the team-planner agent to return a ROUGH implementation plan
+> for <feature> as text — units, file boundaries, shared contracts, open decisions.
+> I write it to the plan file, have team-plan-reviewer validate it, resolve the open
+> decisions with the user, and get approval via ExitPlanMode before any execution.
 
 Fan out execution (background subagents that write + merge → worktree), after approval:
 > Spawn one team-executor as a background subagent per unit in the approved plan,
@@ -285,8 +287,8 @@ scales to many units, cross-checks results, and resumes if interrupted.
 
 Use this ONLY when you must dialogue live with a delegated agent running in
 parallel and a shared checkout is acceptable. A planning gate is NOT such a case:
-`/autoplan` runs interactively in the lead, and subagent input bubbles up to the
-lead, so approvals already reach you in the master tab. It is the heaviest path:
+`ExitPlanMode` runs in the lead, and subagent input bubbles up to the lead, so
+approvals already reach you in the master tab. It is the heaviest path:
 separate processes, iTerm2 panes, and manual teardown. Requirements: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, `teammateMode:
 auto` (or `iterm2` to force iTerm2 native panes; the default is `in-process`),
 iTerm2 with the Python API enabled, and the `it2` CLI (see
@@ -359,7 +361,7 @@ default: no pane, no separate process, no handshake, nothing to orphan.
 ## Relationship to the feature workflow
 
 This is the parallel-execution variant of the `feature-workflow` skill's pipeline.
-Planning (`/office-hours`, `/autoplan`) and shipping (`/ship`,
+Planning (`/office-hours`, native plan mode) and shipping (`/ship`,
 `/land-and-deploy`) are unchanged; fan-out only replaces the execute phase's
 sequential per-step subagents with parallel agents when the steps are
 independent.

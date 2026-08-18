@@ -46,13 +46,13 @@
 
 **Trigger — mechanical, not a judgment call.** Before your first edit, load the `feature-workflow` skill if ANY of these holds: the work touches 2+ files, has 2+ steps, a plan file exists or is being written, or it's a parallel/multi-agent fan-out. In doubt, load it — loading costs one tool call, skipping it costs the pipeline. I never ask for it by name; recognizing the work is big enough is your job.
 
-It holds the six-stage pipeline (discuss → plan → autoplan → delegated execute → `/codex` challenge → ship), the parallelism mechanism picker, and the token-discipline rules. Genuine one-shot edits outside an active pipeline skip it.
+It holds the six-stage pipeline (discuss → plan in native plan mode → validate + approve → delegated execute → `/codex` challenge → ship), the parallelism mechanism picker, and the token-discipline rules. Genuine one-shot edits outside an active pipeline skip it.
 
 ## Tooling
 
 - **Context7 MCP**: automatically look up current documentation for libraries and frameworks before implementing — don't wait to be told.
 - **gstack** (installed at `~/.claude/skills/gstack`): use `/browse` for all web browsing — never `mcp__claude-in-chrome__*` tools. After implementing a feature or fix, proactively run `/review` (branch diff review, works pre-PR) then `/codex challenge` for cross-model review.
-- **/autoplan gate cap**: at the final approval gate, surface only the materially-divergent taste items (target ≤5); every surfaced item's options include the simplest choice (often "remove it entirely" / "do nothing"). This intentionally overrides the skill's "surface all taste decisions" instruction.
+- **Plan gate cap**: before `ExitPlanMode`, surface only the materially-divergent taste items (target ≤5) in one AskUserQuestion; every surfaced item's options include the simplest choice (often "remove it entirely" / "do nothing").
 
 ## Scope
 
