@@ -154,10 +154,16 @@ is merged, and there is no pane or process to tear down.
      (read-only) to validate it against the code, splices in any blocking
      fixes from a fresh planner spawn, resolves the open decisions with one
      AskUserQuestion, then calls ExitPlanMode.   ← only gate
-   → on approval: copy the plan file to docs/prompts/<feature>-plan.md, commit
+   → on approval: copy the plan file to docs/prompts/<feature>-plan.md, commit,
+     and mirror the units into the native task list (one task per unit, `owner`
+     = the executor that gets it, `addBlockedBy` for any cross-unit ordering;
+     REVIEW/MERGE/CODEX tasks blocked by the units) — the list is the work
+     queue and the progress view (`Ctrl+T`)
 2. PROMPTS   (subagent: team-prompt-smith, sonnet)
    → turns the approved plan into one self-contained spawn prompt per unit
 3. EXECUTE   (background subagents: team-executor)   ← parallel
+   → lead marks each unit's task in_progress as it spawns its executor and
+     completed when the unit's report is ingested (never with red tests);
    → lead spawns one background subagent per independent unit; each gets a
      worktree from team-executor's own `isolation: worktree` frontmatter, not
      from the spawn call; contracts are pre-specified in each prompt
