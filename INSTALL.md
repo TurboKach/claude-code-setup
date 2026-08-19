@@ -77,6 +77,17 @@ for f in "$SRC"/agents/*.md; do
   b=$(basename "$f"); [ -e ~/.claude/agents/$b ] && mkdir -p "$BK/agents" && cp ~/.claude/agents/$b "$BK/agents/"
   cp "$f" ~/.claude/agents/$b
 done
+# retired agents — remove stale copies of agents the kit no longer ships.
+# Reads the exact-filename list straight out of install.sh's RETIRED_AGENTS
+# array so this can't drift from the script's own copy; matches by exact
+# filename only, so it can never touch an agent file the user wrote themselves.
+for name in $(sed -n 's/^RETIRED_AGENTS=(\(.*\))$/\1/p' "$SRC/install.sh"); do
+  if [ -e ~/.claude/agents/$name ]; then
+    mkdir -p "$BK/agents" && cp ~/.claude/agents/$name "$BK/agents/"
+    rm -f ~/.claude/agents/$name
+    echo "  removed retired agents/$name"
+  fi
+done
 # back up + copy rules
 for f in "$SRC"/global/rules/*.md; do
   b=$(basename "$f"); [ -e ~/.claude/rules/$b ] && mkdir -p "$BK/rules" && cp ~/.claude/rules/$b "$BK/rules/"
