@@ -8,7 +8,8 @@ description: Apply a pending claude-code-setup update — fetches upstream, show
 This kit installs by **copying** files into `~/.claude` — once copied, an installed file has
 no link back to the repo. This skill is the manual apply step for the update the SessionStart
 hook noticed: fetch upstream, show what changed, gate on approval, and (critically) reconcile
-`CLAUDE.md`, which `install.sh` never overwrites once it exists.
+`CLAUDE.md`, which `install.sh`'s default ("auto") mode never overwrites once it exists — a
+`--claude-md=replace` run (not used by this skill's step 6) does.
 
 State dir: `${CLAUDE_HOME:-$HOME/.claude}/.claude-code-setup/` — `installed` (SHA that
 skills, agents, and settings are at), `claude-md-installed` (SHA whose `global/CLAUDE.md` the
@@ -75,7 +76,7 @@ no state-dir file is written, until the approval gate in step 4 passes.
 5. **The `CLAUDE.md` three-way diff and approval gate #2 — this is the step that justifies the
    skill.** Step 6 below runs `install.sh` with no flags, so its default (`--claude-md` unset,
    i.e. "auto") mode applies: it deliberately never overwrites an existing `~/.claude/CLAUDE.md`
-   (see `install.sh:137-144`) — it just prints a reminder to merge by hand. So step 6's install
+   (see `install.sh:136-143`) — it just prints a reminder to merge by hand. So step 6's install
    refreshes skills and agents but silently skips the single most important file, and a
    two-way diff can't tell an upstream improvement apart from the user's own customization. Do
    it properly. Use `claude-md-installed` as the base for this diff, not `installed` — it's the

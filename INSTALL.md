@@ -71,10 +71,12 @@ referenced by the workflow; without it, use plain git.
 don't reimplement any of its copy/backup/prune/merge logic here. Its settings
 merge setdefaults `CLAUDE_CODE_ENABLE_TODO_TOOLS` (the task-list feature)
 along with every other key in `settings.example.json`'s `env` block — added
-only if that key isn't already set, never clobbering your existing value,
-whatever flags you pass (except `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, which
-`--no-teammates` skips entirely). Translate the Step 1 answers into flags and
-run it once:
+only if that key isn't already set, never clobbering your existing value.
+Two keys are the exception, both tied to the teammate path, which is *on* by
+default (no flag needed): `install.sh` force-assigns `teammateMode` and
+`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` to the repo's values, overwriting any
+custom value you already had for either — pass `--no-teammates` to leave both
+untouched instead. Translate the Step 1 answers into flags and run it once:
 
 - **Optional add-ons did *not* include the teammate path** → add
   `--no-teammates` (the script's default *forces* the teammate settings, so

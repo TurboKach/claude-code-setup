@@ -113,13 +113,12 @@ case "$CLAUDE_MD_MODE" in
     if [ ! -e "$DEST/CLAUDE.md" ]; then
       cp "$SRC/global/CLAUDE.md" "$DEST/CLAUDE.md"; echo "  installed CLAUDE.md (none existed — nothing to append to)"
       CLAUDE_MD_INSTALLED=1
-    elif awk '
-        { sub(/\r$/, "") }
-        /^```/ { fence = !fence }
-        !fence && /^## Feature workflow$/ { found = 1 }
-        END { exit !found }
-      ' "$DEST/CLAUDE.md" 2>/dev/null; then
-      echo "  $DEST/CLAUDE.md already has a Feature workflow section — append skipped"
+    elif awk '{ sub(/\r$/, "") } /^## Feature workflow$/ { found = 1 } END { exit !found }' \
+        "$DEST/CLAUDE.md" 2>/dev/null; then
+      echo "  $DEST/CLAUDE.md already has a line matching '## Feature workflow' — append skipped." \
+           "(This matches even inside a code fence, so if that line is just an example rather than" \
+           "a real section, the file wasn't actually appended to — remove the false match or use" \
+           "--claude-md=replace instead.)"
     else
       if ! grep -q '^## Feature workflow$' "$SRC/global/CLAUDE.md"; then
         echo "install.sh: couldn't find a '## Feature workflow' section in $SRC/global/CLAUDE.md — aborting append (nothing changed)" >&2
