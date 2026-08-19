@@ -3,12 +3,13 @@
 Written 2026-08-19. This file is standalone — a fresh session needs nothing else
 to start. It carries **two independent items**:
 
-1. **Structured verdict schema for the codex gate** — designed and decided, ready
-   to plan and build. Starts below.
-2. **Task-list blocking is stricter than it needs to be** — an owner
-   observation, not yet investigated. At the end of this file.
+1. **Structured verdict schema for the codex gate** — SHIPPED 2026-08-19, as a
+   tightened prose contract rather than the JSON schema drafted below.
+2. **Task-list blocking is stricter than it needs to be** — RESOLVED 2026-08-19;
+   stage 3 now chains only real dependencies.
 
-Do them in either order; they don't touch the same files.
+Both are closed. This file is kept for the reasoning and the evidence behind
+those two calls, not as a task list.
 
 ---
 
@@ -104,8 +105,8 @@ So there are two places the schema could be enforced:
    computes clean" trustworthy rather than aspirational.
 
 Option 2 is the point of the exercise; option 1 reproduces today's
-trust-the-prose problem in JSON clothing. Confirm with the owner before
-committing to the heavier path.
+trust-the-prose problem in JSON clothing. Neither was built — the owner chose to
+tighten the prose contract instead, so nothing here is a live instruction.
 
 ## Constraints
 
