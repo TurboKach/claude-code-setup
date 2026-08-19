@@ -40,3 +40,50 @@ not through current data — the one retired name today
 (`team-prompt-smith.md`) is not present in `agents/*.md`. Recorded per the
 round-3 `/codex challenge` verdict:
 `/private/tmp/claude-501/-Users-turbokach-Dev-claude-code-setup/5216f638-c3e8-4e76-a319-5478f71e801f/scratchpad/codex-prompt-smith-round3.md`.
+
+### `install.sh:116-117` — append idempotency check requires an exact `## Feature workflow` heading
+
+The `--claude-md=append` mode's idempotency check matches only the literal
+line `## Feature workflow` (CRLF-tolerant, otherwise exact). A hand-edited
+variant — a trailing space, a closing `##`, or any other equivalent heading
+syntax — isn't recognized as "already present," so a re-run appends a second,
+duplicate section instead of skipping.
+
+**Introduced by this feature** — the `--claude-md=append` mode is new.
+**Deferred because:** it needs a deliberate decision about how tolerant the
+match should be, and every previous attempt to make this check cleverer
+(fence-tracking, etc.) produced new edge cases of its own — round 3
+deliberately settled on this exact match as the simple, correct-by-inspection
+version. Recorded per the round-3 `/codex challenge` verdict:
+`/private/tmp/claude-501/-Users-turbokach-Dev-claude-code-setup/5216f638-c3e8-4e76-a319-5478f71e801f/scratchpad/codex-install-consolidation-round3.md`.
+
+### `install.sh:113-132` — `elif awk ...` misreads a missing file as "not found," and the scan/backup/append aren't atomic
+
+The append branch's `elif awk ...; then` treats any nonzero awk exit as
+"heading not found, append is safe" — but awk exits `2`, not `1`, when
+`$DEST/CLAUDE.md` is missing, which this check can't tell apart from "scanned
+the file, found no heading." The existence test (113), the awk scan
+(116-117), the backup, and the append (127-132) are also four separate,
+non-atomic steps. If `CLAUDE.md` is removed between the existence test and
+the scan, or two installs run concurrently, the append branch can recreate
+`CLAUDE.md` containing only the extracted Feature workflow section.
+
+**Introduced by this feature** — the whole `--claude-md=append` code path is
+new. **Deferred because:** only reachable via TOCTOU (a file removed mid-run)
+or concurrent installs, not through the script's normal single-invocation
+use. Recorded per the round-3 `/codex challenge` verdict:
+`/private/tmp/claude-501/-Users-turbokach-Dev-claude-code-setup/5216f638-c3e8-4e76-a319-5478f71e801f/scratchpad/codex-install-consolidation-round3.md`.
+
+### `INSTALL.md:19` — Step 0 detection hardcodes `~/.claude`, not `CLAUDE_HOME`
+
+The wizard's Step 0 detection (`test -f ~/.claude/CLAUDE.md`) always checks
+the default home, while `install.sh` operates on
+`${CLAUDE_HOME:-$HOME/.claude}` (`install.sh:79`). With `CLAUDE_HOME` set,
+the wizard decides its replace/append/leave question against a different
+installation than the one `install.sh` will actually modify.
+
+**Pre-existing** — `CLAUDE_HOME` support predates this feature; this feature
+didn't introduce the mismatch, it just didn't fix it while making
+`install.sh` the single implementation. Recorded per the round-3 `/codex
+challenge` verdict:
+`/private/tmp/claude-501/-Users-turbokach-Dev-claude-code-setup/5216f638-c3e8-4e76-a319-5478f71e801f/scratchpad/codex-install-consolidation-round3.md`.

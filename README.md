@@ -171,10 +171,12 @@ settings `env` block.)
 - **2026-08-18 two paths + task list:** one-shot (≤3 files, no design/UI choice, reversible — no plan ceremony, but `/codex challenge` still runs on the diff) vs pipeline, with the call stated in one line; every spawn pins `model:` (never `fable`); codebase search uses the kit's `explorer` agent (sonnet, medium) instead of built-in `Explore`, which inherits the session's model and effort; at plan approval the master mirrors the plan into Claude's native task list (`CLAUDE_CODE_ENABLE_TODO_TOOLS=1`, merged by the installer) — one task per step + the fixed tail — and marks tasks done as steps land (no Stop hook, deliberately).
 - **2026-08-18 pipeline diet (from the clipsy_ios S1–S4 forensics):** `/codex challenge` runs once per feature (not per step) with P1/P2 priorities and a fix-now / defer-to-tech-debt question for the rest; `/goal` is dropped — plan approval starts the tail; executors and fixers are Sonnet xhigh, Opus only when the plan justifies it. gstack's codex skill needs a local patch on macOS (`mktemp "$TMP_ROOT/codex-err-XXXXXX"` — drop the `.txt` suffix, BSD mktemp rejects it); re-apply after `/gstack-upgrade`.
 - **Native plan mode replaced gstack `/autoplan` on 2026-08-18 (experiment).** Stage 2–3 is now `EnterPlanMode` → `team-planner` returns the draft → lead transcribes → `team-plan-reviewer` validates → one AskUserQuestion for taste items → `ExitPlanMode`. To restore `/autoplan`: `git revert autoplan-off && ./install.sh` (tag `autoplan-off` marks the switch commit).
-- The installer **never overwrites an existing `~/.claude/CLAUDE.md`** and backs
-  up any skill/agent files it replaces (under `~/.claude/.backup-<timestamp>`).
-  It merges only the `settings.example.json` keys, with a `settings.json.bak`
-  safety copy — and never overwrites a model pin you already set.
+- The installer's default (`--claude-md` unset, i.e. "auto") mode **never
+  overwrites an existing `~/.claude/CLAUDE.md`** — a `--claude-md=replace` run
+  backs it up and overwrites it. It backs up any skill/agent files it
+  replaces (under `~/.claude/.backup-<timestamp>`). It merges only the
+  `settings.example.json` keys, with a `settings.json.bak` safety copy — and
+  never overwrites a model pin you already set.
 - `settings.example.json` is intentionally minimal — your real `settings.json`
   is personal; never commit it (it tends to hold emails, tokens, and private
   paths).
