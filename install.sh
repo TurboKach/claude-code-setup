@@ -71,9 +71,8 @@ echo "  installed agents (team-* + step-executor)"
 # by exact match can't touch an agent file the user wrote themselves; ~/.claude/agents
 # is a shared directory and everything else in it is left alone. Add one line
 # here the next time an agent is retired.
-# INSTALL.md's wizard (the recommended install path) parses this exact line
-# with sed to stay in sync — keep it a single line shaped like
-# RETIRED_AGENTS=(name1.md name2.md) or that parse breaks silently.
+# INSTALL.md's wizard (Step 2, "retired agents") keeps its own literal copy of
+# this list — it does not read this array. Update both when retiring an agent.
 RETIRED_AGENTS=(team-prompt-smith.md)
 for name in "${RETIRED_AGENTS[@]}"; do
   base="agents/$name"
