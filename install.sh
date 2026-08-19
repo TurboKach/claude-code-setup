@@ -70,6 +70,11 @@ if [ "$OPUS_PIN_SET" = 1 ] && [ "$OPUS_SKIP" = 1 ]; then
   exit 1
 fi
 
+if [ "$OPUS_PIN_SET" = 1 ] && [ -z "$OPUS_PIN" ]; then
+  echo "install.sh: --opus-pin requires a non-empty MODEL_ID" >&2
+  exit 1
+fi
+
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEST="${CLAUDE_HOME:-$HOME/.claude}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
@@ -108,13 +113,22 @@ case "$CLAUDE_MD_MODE" in
     if [ ! -e "$DEST/CLAUDE.md" ]; then
       cp "$SRC/global/CLAUDE.md" "$DEST/CLAUDE.md"; echo "  installed CLAUDE.md (none existed — nothing to append to)"
       CLAUDE_MD_INSTALLED=1
-    elif grep -q '^## Feature workflow$' "$DEST/CLAUDE.md" 2>/dev/null; then
+    elif awk '
+        { sub(/\r$/, "") }
+        /^```/ { fence = !fence }
+        !fence && /^## Feature workflow$/ { found = 1 }
+        END { exit !found }
+      ' "$DEST/CLAUDE.md" 2>/dev/null; then
       echo "  $DEST/CLAUDE.md already has a Feature workflow section — append skipped"
     else
+      if ! grep -q '^## Feature workflow$' "$SRC/global/CLAUDE.md"; then
+        echo "install.sh: couldn't find a '## Feature workflow' section in $SRC/global/CLAUDE.md — aborting append (nothing changed)" >&2
+        exit 1
+      fi
       backup "CLAUDE.md"
       { printf '\n'; awk '
-          /^## Feature workflow/ {flag=1}
-          flag && /^## / && !/^## Feature workflow/ {exit}
+          /^## Feature workflow$/ {flag=1}
+          flag && /^## / && !/^## Feature workflow$/ {exit}
           flag {print}
         ' "$SRC/global/CLAUDE.md"; } >> "$DEST/CLAUDE.md"
       echo "  appended the Feature workflow section to CLAUDE.md"
@@ -286,13 +300,14 @@ else:
             if not already_present:
                 entries.append({"type": "command", "command": hook_path, "timeout": 10})
 
+merged_desc = "env" + (" + teammateMode" if teammates else "") + " + worktree.baseRef"
 json.dump(d, open(settings, "w"), indent=2)
 if warning:
     print(f"  WARNING: settings.json's {warning} — skipped installing the SessionStart update-check hook.")
     print(f"  Add it by hand: copy the \"hooks\" block from {example} into {settings}.")
-    print("  merged env + teammateMode + worktree.baseRef into settings.json (backup: settings.json.bak)")
+    print(f"  merged {merged_desc} into settings.json (backup: settings.json.bak)")
 else:
-    print("  merged env + teammateMode + worktree.baseRef + SessionStart update-check hook into settings.json (backup: settings.json.bak)")
+    print(f"  merged {merged_desc} + SessionStart update-check hook into settings.json (backup: settings.json.bak)")
 PY
 else
   echo "  python3 not found — add the keys from settings.example.json to $SETTINGS by hand"
@@ -300,11 +315,14 @@ fi
 
 say "Files installed. The default path (background subagents + Workflows) is ready now —"
 say "just restart Claude Code and ask for parallel work."
-cat <<'EOF'
 
-Optional — only if you want the experimental named-teammate (iTerm2 split-pane) path.
-(The installer sets teammateMode: "in-process" = teammates run in-process and show
-in the status bar, NO terminal panes. Opt into split panes by setting it to "iterm2":)
+printf '\nOptional — only if you want the experimental named-teammate (iTerm2 split-pane) path.\n'
+if [ "$TEAMMATES" = 1 ]; then
+  printf '(The installer sets teammateMode: "in-process" = teammates run in-process and show\nin the status bar, NO terminal panes. Opt into split panes by setting it to "iterm2":)\n'
+else
+  printf '(--no-teammates left teammateMode and CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS untouched — set\nboth yourself in ~/.claude/settings.json to use this path; teammateMode: "iterm2" renders split\npanes, "in-process" runs teammates in the status bar with no terminal panes.)\n'
+fi
+cat <<'EOF'
   1. Enable panes:  set "teammateMode": "iterm2" in ~/.claude/settings.json
   2. it2 CLI (iTerm2 split panes):   uv tool install it2      (or: pip install it2)
   3. Enable iTerm2 Python API:       defaults write com.googlecode.iterm2 EnableAPIServer -bool true

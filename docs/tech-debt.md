@@ -7,7 +7,7 @@ gap.
 
 ## Entries
 
-### `install.sh:161` — `RETIRED_AGENTS` entries aren't validated as plain basenames
+### `install.sh:177` — `RETIRED_AGENTS` entries aren't validated as plain basenames
 
 The installer's `RETIRED_AGENTS` array isn't checked for being a bare
 filename. A future entry like `../rules/custom.md` resolves outside
@@ -22,7 +22,7 @@ not through current data — `RETIRED_AGENTS` has exactly one element
 round-3 `/codex challenge` verdict:
 `/private/tmp/claude-501/-Users-turbokach-Dev-claude-code-setup/5216f638-c3e8-4e76-a319-5478f71e801f/scratchpad/codex-prompt-smith-round3.md`.
 
-### `install.sh:148-152` vs `install.sh:161-169` — no disjointness check between shipped and retired agents
+### `install.sh:164-168` vs `install.sh:178-185` — no disjointness check between shipped and retired agents
 
 `install.sh` runs a copy loop over every file in `$SRC/agents/*.md` before
 the retirement-prune loop runs. If a maintainer ever lists a name in

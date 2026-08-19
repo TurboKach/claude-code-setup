@@ -35,12 +35,15 @@ PY
 
 ## Step 1 — Ask what to set up (AskUserQuestion)
 
-Offer **only** items that are missing or are real decisions. Suggested:
+Offer **only** items that are missing or are real decisions. The core kit
+(skills + agents + the `stack-update` check — enables the default
+background-subagent + Workflows path) is always installed: it's the point of
+running this installer, not a choice, and `install.sh` has no flag to skip
+it — so don't offer it as a deselectable option. Suggested:
 
-1. **Components** (multiSelect): core kit (skills + agents + the `stack-update`
-   check — the point, pre-checked, enables the default background-subagent +
-   Workflows path); optional teammate path (settings flag + `teammateMode` +
-   `it2` + iTerm2 — only for live cross-talk); gstack *(if missing)*.
+1. **Optional add-ons** (multiSelect): teammate path (settings flag +
+   `teammateMode` + `it2` + iTerm2 — only for live cross-talk); gstack
+   *(if missing)*.
 2. **CLAUDE.md handling** — only if `~/.claude/CLAUDE.md` already exists:
    *append the feature-workflow pointer section* (recommended — the workflow
    itself lives in the `feature-workflow` skill the core kit installs) /
@@ -66,13 +69,16 @@ referenced by the workflow; without it, use plain git.
 
 **Core kit + settings + `CLAUDE.md`** — all of it is `install.sh`'s job now;
 don't reimplement any of its copy/backup/prune/merge logic here. Its settings
-merge always sets `CLAUDE_CODE_ENABLE_TODO_TOOLS` (the task-list feature)
-along with every other key in `settings.example.json`'s `env` block, whatever
-flags you pass. Translate the Step 1 answers into flags and run it once:
+merge setdefaults `CLAUDE_CODE_ENABLE_TODO_TOOLS` (the task-list feature)
+along with every other key in `settings.example.json`'s `env` block — added
+only if that key isn't already set, never clobbering your existing value,
+whatever flags you pass (except `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, which
+`--no-teammates` skips entirely). Translate the Step 1 answers into flags and
+run it once:
 
-- **Components did *not* include the teammate path** → add `--no-teammates`
-  (the script's default *forces* the teammate settings, so omitting the flag
-  is how you opt in).
+- **Optional add-ons did *not* include the teammate path** → add
+  `--no-teammates` (the script's default *forces* the teammate settings, so
+  omitting the flag is how you opt in).
 - **Opus answer was *claude-opus-5*, or the question was skipped because a
   pin already exists** → pass neither `--opus-pin` nor `--no-opus-pin` (the
   default already `setdefault`s `claude-opus-5` and never clobbers an
