@@ -146,7 +146,26 @@ The plugin's schema, for the fields worth borrowing:
 
 # 2. Task-list blocking is stricter than it needs to be
 
-**Status: owner observation, not investigated. Nothing has been decided.**
+**RESOLVED 2026-08-19 — stage 3 now chains only real dependencies.**
+
+Evidence from the four past arcs: `auto-update` steps 1–2 (disjoint new files)
+and `gate-and-backlog-discipline` steps 1–2 (*different repos*, and the plan
+said so in prose at its line 21) were independent and got serialised anyway;
+`codex-gate-goal-granularity` and `prompt-smith-retirement` were genuinely
+linear. Measured cost of the strict chain: zero — no step ever idled behind a
+bogus dependency. It was relaxed because the information loss was real, not
+because it had hurt yet.
+
+The docs back the looser rule: nothing in them asks for one-unblocked-task,
+teammates self-claim "the next unassigned, unblocked task" with file locking
+against simultaneous claims, and the stated guidance is conditional —
+independent + non-overlapping files parallelise, "for sequential tasks,
+same-file edits, or work with many dependencies, a single session or subagents
+are more effective." Concurrency caps at 20 (`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`).
+Note `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` became *required* in v2.1.233 — the Task
+tools are no longer served by default on Sonnet 5 / Opus 4.8 / Fable 5+.
+
+The original observation follows, unchanged.
 
 ## The observation
 
