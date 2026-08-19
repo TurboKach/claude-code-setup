@@ -230,9 +230,8 @@ judgment roles go **up**, high-volume roles go **down** to save tokens.
 | `team-merger` | subagent | Sonnet | medium | mechanical merge/verify |
 | `explorer` | subagent | Sonnet | medium | codebase search, read-only (built-in `Explore` would inherit the lead's model + effort) |
 
-Pin `model:` on every spawn (unpinned = inherits whatever tier the lead is running; `fable`
-never in a subagent; search → `explorer`, not built-in `Explore`, which inherits the lead's model and effort). Override per spawn only when the plan marks a
-unit Opus with a reason. As background subagents these roles honor their `effort:`
+The global spawn-pin rule applies; the table above is this pipeline's role→model
+mapping. Override per spawn only when the plan marks a unit Opus with a reason. As background subagents these roles honor their `effort:`
 frontmatter; the named-teammate path may ignore per-teammate effort and fall back
 to the session default — harmless.
 

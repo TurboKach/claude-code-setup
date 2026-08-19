@@ -10,7 +10,6 @@
 
 ### 2. Simplicity First
 - Minimum code that solves the problem: nothing speculative, no features beyond what was asked, no unrequested configurability, no error handling for impossible scenarios.
-- Test: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
 
 ### 3. Surgical Changes
 - Every changed line traces directly to the request. Don't "improve" adjacent code, comments, or formatting; don't refactor what isn't broken.
