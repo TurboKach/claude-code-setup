@@ -40,9 +40,18 @@ OpenAI plugin's schema."
 anchoring (`file`, `line_start`, `line_end`) instead of a hand-written
 `file:line — summary` string, plus `confidence` and `recommendation`.
 
+**SHIPPED 2026-08-19 — this section is history, not a spec.** The owner chose
+to tighten the existing prose contract rather than build the JSON schema below:
+counts are recomputed by the master from the finding lines, `confidence` rides
+on the `[P1 conf:0.8]` prefix, and a finding is one line. See commits `739fbb6`
+and `33da61a`. Read the rest for the reasoning, not for instructions.
+
 **Owner decisions, already settled — do not re-gate these:**
 
-- `test-gap` carries **no** priority. Every other class carries one.
+- `test-gap` carries **no** priority. **Superseded:** `theoretical` carries no
+  priority either — the P1/P2 definitions are about reachability, and a
+  theoretical finding is by definition unreachable, so neither label applies.
+  Priority routes the fix loop, which neither class ever enters.
 - `confidence` is **mandatory** on every finding, auto-added by the runner, not
   optional.
 - Priority stays `P1`/`P2` with the existing definitions: P1 = wrong behavior,
