@@ -27,7 +27,6 @@ in parallel, no extra setup).
 | `agents/team-planner.md` | Explores and **returns** the plan as text (headless, read-only); the lead — in native plan mode — writes it to the plan file *(Opus)* |
 | `agents/explorer.md` | Read-only codebase search on Sonnet at effort medium — the pinned stand-in for built-in `Explore` *(Sonnet)* |
 | `agents/team-plan-reviewer.md` | Validates the plan against the code before the lead presents it via `ExitPlanMode` for **your** approval *(Opus)* |
-| `agents/team-prompt-smith.md` | Turns the approved plan into one spawn prompt per executor *(Sonnet)* |
 | `agents/team-executor.md` | Implements one unit of a **parallel** fan-out as a background subagent — carries `isolation: worktree` in its frontmatter, since concurrent writers merge later *(Sonnet xhigh; Opus only when the plan justifies it)* |
 | `agents/step-executor.md` | Implements one **sequential** step on the session's own branch — no worktree, nothing to merge; the feature-workflow counterpart to `team-executor` *(Sonnet xhigh; Opus only when the plan justifies it)* |
 | `agents/team-reviewer.md` | Adversarially verifies each diff before merge — read-only, no worktree *(Opus)* |
@@ -47,8 +46,7 @@ worktree (because they write concurrently and merge later):
 
 ```
 PLAN (lead in plan mode: planner drafts → plan-reviewer validates → ExitPlanMode) → you approve ─┐   ← the only approval gate
-PROMPTS (prompt-smith)                                     │   contracts baked into each prompt
-EXECUTE (N executor subagents, parallel, in worktrees)  ← no cross-talk needed
+EXECUTE (N executor subagents, parallel, in worktrees)  ← contracts baked into each spawn prompt; no cross-talk
 REVIEW (reviewer, read-only — no worktree)                 │
 MERGE (merger) → removes each worktree+branch, reports completion
 CODEX (lead) → one Skill(codex, "challenge <feature-base>..HEAD") ─┘   ← triaged verdict, P1/P2 fixed
@@ -61,7 +59,7 @@ experimental iTerm2 path). Worktree isolation is added **only** where agents
 write in parallel and merge — read-only fan-out (review, research) skips it.
 
 Models follow a simple rule: **Opus for judgment** (plan, review), **Sonnet for
-production work** (prompts, execute, merge), with Opus available per-spawn for
+production work** (execute, merge), with Opus available per-spawn for
 architecturally hard units. Executor spawns are sized to one concern each
 (roughly ≤100 tool calls; the plan splits anything bigger).
 
@@ -169,6 +167,7 @@ settings `env` block.)
 
 ## Notes
 
+- **2026-08-19 prompt-smith retired:** the lead writes each executor's spawn prompt inline while spawning (contract in `skills/agent-teams/SKILL.md` § "Spawn prompt contract"); a separate prompt-writing agent returned the prompts to the lead anyway, so it only added a serial stage and a second copy of the same text.
 - **2026-08-18 two paths + task list:** one-shot (≤3 files, no design/UI choice, reversible — no plan ceremony, but `/codex challenge` still runs on the diff) vs pipeline, with the call stated in one line; every spawn pins `model:` (never `fable`); codebase search uses the kit's `explorer` agent (sonnet, medium) instead of built-in `Explore`, which inherits the session's model and effort; at plan approval the master mirrors the plan into Claude's native task list (`CLAUDE_CODE_ENABLE_TODO_TOOLS=1`, merged by the installer) — one task per step + the fixed tail — and marks tasks done as steps land (no Stop hook, deliberately).
 - **2026-08-18 pipeline diet (from the clipsy_ios S1–S4 forensics):** `/codex challenge` runs once per feature (not per step) with P1/P2 priorities and a fix-now / defer-to-tech-debt question for the rest; `/goal` is dropped — plan approval starts the tail; executors and fixers are Sonnet xhigh, Opus only when the plan justifies it. gstack's codex skill needs a local patch on macOS (`mktemp "$TMP_ROOT/codex-err-XXXXXX"` — drop the `.txt` suffix, BSD mktemp rejects it); re-apply after `/gstack-upgrade`.
 - **Native plan mode replaced gstack `/autoplan` on 2026-08-18 (experiment).** Stage 2–3 is now `EnterPlanMode` → `team-planner` returns the draft → lead transcribes → `team-plan-reviewer` validates → one AskUserQuestion for taste items → `ExitPlanMode`. To restore `/autoplan`: `git revert autoplan-off && ./install.sh` (tag `autoplan-off` marks the switch commit).

@@ -1,6 +1,6 @@
 ---
 name: agent-teams
-description: Orchestration playbook for parallel multi-agent work in Claude Code. Use when fanning out genuinely parallel, independent work — N independent modules, multi-lens review, competing-hypothesis debugging, backend+frontend that must agree on a contract. Defaults to background subagents (with worktree isolation only when they write files in parallel and merge later); covers when to reach for Workflows instead, and the rarely-needed named-teammate (split-pane) escape hatch for live dialogue with a delegated agent. Covers the lead's pipeline (plan → prompts → parallel execute → review → merge), per-role models, worktree/merge flow, and the plan-approval gate.
+description: Orchestration playbook for parallel multi-agent work in Claude Code. Use when fanning out genuinely parallel, independent work — N independent modules, multi-lens review, competing-hypothesis debugging, backend+frontend that must agree on a contract. Defaults to background subagents (with worktree isolation only when they write files in parallel and merge later); covers when to reach for Workflows instead, and the rarely-needed named-teammate (split-pane) escape hatch for live dialogue with a delegated agent. Covers the lead's pipeline (plan → parallel execute → review → merge), per-role models, worktree/merge flow, and the plan-approval gate.
 ---
 
 # Parallel multi-agent playbook (lead-side)
@@ -159,23 +159,21 @@ is merged, and there is no pane or process to tear down.
      = the executor that gets it, `addBlockedBy` for any cross-unit ordering;
      REVIEW/MERGE/CODEX tasks blocked by the units) — the list is the work
      queue and the progress view (`Ctrl+T`)
-2. PROMPTS   (subagent: team-prompt-smith, sonnet)
-   → turns the approved plan into one self-contained spawn prompt per unit
-3. EXECUTE   (background subagents: team-executor)   ← parallel
+2. EXECUTE   (background subagents: team-executor)   ← parallel
    → lead marks each unit's task in_progress as it spawns its executor and
      completed when the unit's report is ingested (never with red tests);
    → lead spawns one background subagent per independent unit; each gets a
      worktree from team-executor's own `isolation: worktree` frontmatter, not
      from the spawn call; contracts are pre-specified in each prompt
-4. REVIEW    (subagent: team-reviewer, opus — read-only, NO worktree)
+3. REVIEW    (subagent: team-reviewer, opus — read-only, NO worktree)
    → adversarially verifies each unit's diff before it lands
-5. MERGE     (subagent: team-merger, sonnet)
+4. MERGE     (subagent: team-merger, sonnet)
    → merges each approved worktree into the base branch; after each successful
      merge removes that worktree + deletes its branch; reports completion
 ```
 
 Every step delegates to a subagent except the lead's own plan-mode transcription
-and gates in step 1; step 3 is the only fan-out (one background subagent per unit).
+and gates in step 1; step 2 is the only fan-out (one background subagent per unit).
 Keep the **lead thin**: it coordinates, runs the gates and the single codex challenge, and ingests summaries — it
 does not read large diffs or implement. If the lead starts implementing, stop and
 delegate.
@@ -188,7 +186,7 @@ auto-picks silently or dies. Gates run in the **lead** (the session you're
 attached to); only headless work goes to subagents. (This is why step 1 splits:
 subagents draft and validate headlessly, the lead transcribes and gates.)
 
-(For the rare named-teammate path, step 3's agents are teammates instead and a
+(For the rare named-teammate path, step 2's agents are teammates instead and a
 TEARDOWN step is required — see §"Named-teammate path".)
 
 ## Approval gate: PLAN ONLY
@@ -199,7 +197,7 @@ subagent, which has no channel to the user. Resolve the open taste-decisions wit
 one AskUserQuestion first, then present the plan and wait.
 After the plan is approved, executors run, review runs, and the merger lands work
 and reports completion.
-6. CODEX     (lead, or a fresh general-purpose runner)
+5. CODEX     (lead, or a fresh general-purpose runner)
    → ONE `Skill(codex, "challenge <feature-base>..<base-HEAD>")` on the merged
      feature diff — full output to a file, triaged verdict shown; P1/P2 → fresh
      Sonnet fixer on the base branch → re-challenge, round N of 3 (feature-workflow
@@ -227,17 +225,52 @@ judgment roles go **up**, high-volume roles go **down** to save tokens.
 | Orchestrator (lead) | main session | Opus | session default | coordination, synthesis, user gate |
 | `team-planner` | subagent | Opus | high | one pass, highest leverage (Opus 5: prior-model effort defaults don't transfer; `high` is the sweet spot); returns text, lead transcribes |
 | `team-plan-reviewer` | subagent | Opus | high | validates the plan against the code before the gate; read-only |
-| `team-prompt-smith` | subagent | Sonnet | medium | structured prompt writing |
 | `team-executor` | **background subagent** | Sonnet (Opus only when the plan justifies it) | xhigh | token-heavy fan-out; Sonnet 5 guide: xhigh for coding |
 | `team-reviewer` | subagent | Opus | high | adversarial bug-hunting (Opus 5 review stays accurate at lower effort) |
 | `team-merger` | subagent | Sonnet | medium | mechanical merge/verify |
 | `explorer` | subagent | Sonnet | medium | codebase search, read-only (built-in `Explore` would inherit the lead's model + effort) |
 
-Pin `model:` on every spawn (unpinned = inherits the lead's Fable tier; `fable`
+Pin `model:` on every spawn (unpinned = inherits whatever tier the lead is running; `fable`
 never in a subagent; search → `explorer`, not built-in `Explore`, which inherits the lead's model and effort). Override per spawn only when the plan marks a
 unit Opus with a reason. As background subagents these roles honor their `effort:`
 frontmatter; the named-teammate path may ignore per-teammate effort and fall back
 to the session default — harmless.
+
+## Spawn prompt contract (the lead writes these inline)
+
+Each executor is a background subagent with **no inherited context** — it never
+sees this conversation, the plan file's surrounding discussion, or its siblings.
+So each spawn prompt must stand alone. Write it yourself as you spawn: it's a
+handful of tool calls' worth of text per unit, and routing it through a separate
+prompt-writing agent only puts the same words through another context on the way
+back to you.
+
+State the unit's **goal and its boundaries**, then stop — don't enumerate
+procedure. Sonnet 5 takes an explicit scope statement literally, which is what
+earns it its place; step-by-step instructions written for prior models reduce
+quality on current ones.
+
+Every prompt carries:
+- **Scope + ownership** — what the unit is for, the files it owns, and the files
+  it must not touch. Ownership is disjoint across units by construction; a hub
+  file belongs to exactly one unit.
+- **The full cross-unit contract** it must honor (API shapes, types, names),
+  baked in. Background subagents don't talk to each other, so anything it needs
+  from a sibling has to be in the text; only flag a sibling to coordinate with if
+  the lead is using the named-teammate path.
+- **Acceptance criteria and how to verify them** — the tests or commands that
+  prove the unit is done. State them once; no "re-verify" or "double-check"
+  rituals.
+- **The worktree/branch** it works in, and the retirement budget verbatim: "if
+  you exceed ~200k context or ~250 turns — commit WIP, write a handoff file to
+  the scratchpad, and stop".
+- **The model pin** from the table above (`sonnet`, or `opus` only where the
+  approved plan marks that unit Opus with a reason).
+
+One concern per prompt, sized so the executor finishes in roughly ≤100 tool
+calls — a unit bigger than that was planned too large; split it. A fixer prompt
+carries exactly one finding set, never several. Nothing in a prompt goes beyond
+the approved plan.
 
 ## Spawn recipes
 
@@ -251,7 +284,7 @@ Fan out execution (background subagents that write + merge → worktree), after 
 > Spawn one team-executor as a background subagent per unit in the approved plan,
 > with **no name** (team-executor's `background: true` and `isolation: worktree`
 > frontmatter already handle backgrounding and the per-unit worktree).
-> Give each the prompt-smith's self-contained spawn prompt (the cross-unit
+> Give each a self-contained spawn prompt per the contract above (the cross-unit
 > contract is baked in, so they don't message each other). Notify me when each
 > completes.
 
@@ -298,7 +331,7 @@ Hard constraints (documented, except where marked observed):
 
 Spawn (only if cross-talk is genuinely required):
 > Spawn one team-executor teammate per unit, named for its unit (backend,
-> frontend, …). Give each the prompt-smith's spawn prompt. Have backend and
+> frontend, …). Give each its self-contained spawn prompt. Have backend and
 > frontend message each other to agree the API contract. Wait for all to finish.
 
 **Immediately after spawning, record the roster map** so teardown is
