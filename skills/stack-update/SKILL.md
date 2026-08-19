@@ -73,8 +73,9 @@ no state-dir file is written, until the approval gate in step 4 passes.
    - Only *Apply* proceeds past this point.
 
 5. **The `CLAUDE.md` three-way diff and approval gate #2 — this is the step that justifies the
-   skill.** `install.sh` deliberately never overwrites an existing `~/.claude/CLAUDE.md` (see
-   `install.sh:35-39`) — it just prints a reminder to merge by hand. So step 6's install
+   skill.** Step 6 below runs `install.sh` with no flags, so its default (`--claude-md` unset,
+   i.e. "auto") mode applies: it deliberately never overwrites an existing `~/.claude/CLAUDE.md`
+   (see `install.sh:121-128`) — it just prints a reminder to merge by hand. So step 6's install
    refreshes skills and agents but silently skips the single most important file, and a
    two-way diff can't tell an upstream improvement apart from the user's own customization. Do
    it properly. Use `claude-md-installed` as the base for this diff, not `installed` — it's the

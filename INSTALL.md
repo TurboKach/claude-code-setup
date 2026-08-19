@@ -64,105 +64,38 @@ referenced by the workflow; without it, use plain git.
 
 ## Step 2 — Execute (only chosen + only missing)
 
-**Core kit** (always, if chosen):
+**Core kit + settings + `CLAUDE.md`** — all of it is `install.sh`'s job now;
+don't reimplement any of its copy/backup/prune/merge logic here. Its settings
+merge always sets `CLAUDE_CODE_ENABLE_TODO_TOOLS` (the task-list feature)
+along with every other key in `settings.example.json`'s `env` block, whatever
+flags you pass. Translate the Step 1 answers into flags and run it once:
+
+- **Components did *not* include the teammate path** → add `--no-teammates`
+  (the script's default *forces* the teammate settings, so omitting the flag
+  is how you opt in).
+- **Opus answer was *claude-opus-5*, or the question was skipped because a
+  pin already exists** → pass neither `--opus-pin` nor `--no-opus-pin` (the
+  default already `setdefault`s `claude-opus-5` and never clobbers an
+  existing value).
+- **Opus answer was *claude-opus-4-8* or a custom ID** → `--opus-pin=<that id>`.
+- **Opus answer was *don't pin*** → `--no-opus-pin`.
+- **`~/.claude/CLAUDE.md` didn't exist** → pass no `--claude-md` flag (the
+  default installs it).
+- **CLAUDE.md handling was *append*** → `--claude-md=append`.
+- **CLAUDE.md handling was *replace*** → `--claude-md=replace`.
+- **CLAUDE.md handling was *leave mine untouched*** → `--claude-md=leave`.
+
+For example, a user who skipped the teammate path and wants to append the
+Feature workflow section to their existing `CLAUDE.md`:
 ```bash
-mkdir -p ~/.claude/agents ~/.claude/skills ~/.claude/hooks ~/.claude/rules
-STAMP=$(date +%Y%m%d-%H%M%S); BK=~/.claude/.backup-$STAMP
-# back up + copy skills and agents
-for s in agent-teams feature-workflow stack-update; do
-  [ -e ~/.claude/skills/$s ] && mkdir -p "$BK/skills" && cp -R ~/.claude/skills/$s "$BK/skills/"
-  rm -rf ~/.claude/skills/$s && cp -R "$SRC/skills/$s" ~/.claude/skills/$s
-done
-for f in "$SRC"/agents/*.md; do
-  b=$(basename "$f"); [ -e ~/.claude/agents/$b ] && mkdir -p "$BK/agents" && cp ~/.claude/agents/$b "$BK/agents/"
-  cp "$f" ~/.claude/agents/$b
-done
-# retired agents — remove stale copies of agents the kit no longer ships.
-# Exact filenames listed here by hand, kept in sync with install.sh's
-# RETIRED_AGENTS array (see the comment there) — update both when retiring an
-# agent. Matches by exact filename only, so it can never touch an agent file
-# the user wrote themselves.
-for name in team-prompt-smith.md; do
-  if [ -e ~/.claude/agents/$name ]; then
-    mkdir -p "$BK/agents" && cp ~/.claude/agents/$name "$BK/agents/" && rm -f ~/.claude/agents/$name && echo "  removed retired agents/$name"
-  fi
-done
-# back up + copy rules
-for f in "$SRC"/global/rules/*.md; do
-  b=$(basename "$f"); [ -e ~/.claude/rules/$b ] && mkdir -p "$BK/rules" && cp ~/.claude/rules/$b "$BK/rules/"
-  cp "$f" ~/.claude/rules/$b
-done
-# update-check hook
-[ -e ~/.claude/hooks/stack-update-check.sh ] && mkdir -p "$BK/hooks" && cp ~/.claude/hooks/stack-update-check.sh "$BK/hooks/"
-cp "$SRC/hooks/stack-update-check.sh" ~/.claude/hooks/stack-update-check.sh
-chmod +x ~/.claude/hooks/stack-update-check.sh
-# stamp the state dir so the update check has a SHA to compare against —
-# skip if $SRC isn't a git checkout (e.g. a tarball); the check then stays
-# permanently silent, which is correct with nothing to compare against
-if INSTALLED_SHA=$(git -C "$SRC" rev-parse HEAD 2>/dev/null); then
-  mkdir -p ~/.claude/.claude-code-setup
-  echo "$INSTALLED_SHA" > ~/.claude/.claude-code-setup/installed
-  # only on the branch where CLAUDE.md was actually copied, see below
-else
-  echo "  $SRC is not a git checkout — skipping update-check stamp (check stays disabled)"
-fi
-```
-Then merge settings keys per the user's choices (preserve everything else).
-The teammate flag + `teammateMode` go in **only if they chose the teammate
-path**; `ANTHROPIC_DEFAULT_OPUS_MODEL` is set to **the Opus version they picked
-in Step 1** (never overwritten if already present; leave it out entirely if
-they chose *don't pin*). Skip entirely if they chose neither:
-```bash
-python3 - "$SRC/settings.example.json" <<'PY'
-import json, os, sys
-WANT_TEAMMATES = True            # set per the user's Step 1 answers
-OPUS_PIN = "claude-opus-5"       # their chosen version, or None for "don't pin"
-ex = json.load(open(sys.argv[1]))
-p = os.path.expanduser("~/.claude/settings.json")
-d = json.load(open(p)) if os.path.exists(p) else {}
-if os.path.exists(p): json.dump(d, open(p+".bak","w"), indent=2)
-env = d.setdefault("env", {})
-if WANT_TEAMMATES:
-    env["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"] = ex["env"]["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"]
-    d["teammateMode"] = ex["teammateMode"]
-if OPUS_PIN:
-    env.setdefault("ANTHROPIC_DEFAULT_OPUS_MODEL", OPUS_PIN)
-# Not teammate-gated: any worktree fan-out needs it, or executor worktrees
-# branch from the remote default instead of the session's in-progress work.
-d.setdefault("worktree", {}).setdefault("baseRef", ex["worktree"]["baseRef"])
-# SessionStart update-check hook — append into the existing matcher-"" group
-# (creating it if absent) rather than replacing the array, and match on the
-# command string so a second install doesn't add a duplicate entry.
-hook_path = os.path.expanduser("~/.claude/hooks/stack-update-check.sh")
-hooks = d.setdefault("hooks", {})
-session_start = hooks.setdefault("SessionStart", [])
-group = next((g for g in session_start if g.get("matcher") == ""), None)
-if group is None:
-    group = {"matcher": "", "hooks": []}
-    session_start.append(group)
-entries = group.setdefault("hooks", [])
-if not any(e.get("command") == hook_path for e in entries):
-    entries.append({"type": "command", "command": hook_path, "timeout": 10})
-json.dump(d, open(p,"w"), indent=2)
-print("settings.json updated (backup: settings.json.bak)")
-PY
+"$SRC/install.sh" --no-teammates --claude-md=append
 ```
 
-**CLAUDE.md** (per the chosen handling):
-- *none exists* → `cp "$SRC/global/CLAUDE.md" ~/.claude/CLAUDE.md`
-- *append* → add this repo's `## Feature workflow` pointer section to
-  the end of the user's `~/.claude/CLAUDE.md` (copy it verbatim from
-  `$SRC/global/CLAUDE.md`; the full workflow lives in the installed
-  `feature-workflow` skill). Don't duplicate it if already present.
-- *replace* → back up to `$BK`, then copy.
-- *leave* → do nothing.
-
-Only on the *none exists* and *replace* branches (a full copy, not the
-partial *append*), and only if `INSTALLED_SHA` was set above, also stamp
-`echo "$INSTALLED_SHA" > ~/.claude/.claude-code-setup/claude-md-installed` —
-this is the SHA whose `global/CLAUDE.md` the user actually accepted, distinct
-from `installed`, so a later declined `/stack-update` merge doesn't get
-silently marked as applied.
+Run it and show the output — it reports what it backed up, installed,
+pruned, and merged (skills, agents, rules, the update-check hook and its
+stamp, retired-agent removal, and the `settings.json` merge). **If it exits
+non-zero, stop** — report exactly what it printed; nothing after that point
+in its output was applied.
 
 **it2** (if chosen):
 ```bash
