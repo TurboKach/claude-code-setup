@@ -265,7 +265,8 @@ Every prompt carries:
   you exceed ~200k context or ~250 turns — commit WIP, write a handoff file to
   the scratchpad, and stop".
 - **The model pin** from the table above (`sonnet`, or `opus` only where the
-  approved plan marks that unit Opus with a reason).
+  approved plan marks that unit Opus with a reason) — set via the Agent tool's
+  `model:` parameter on the spawn call, not text inside the prompt.
 
 One concern per prompt, sized so the executor finishes in roughly ≤100 tool
 calls — a unit bigger than that was planned too large; split it. A fixer prompt

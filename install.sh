@@ -66,6 +66,21 @@ for f in "$SRC"/agents/*.md; do
 done
 echo "  installed agents (team-* + step-executor)"
 
+# Retired agents — exact-filename removal so a re-run doesn't leave a stale
+# copy behind. These names only ever shipped from this kit, so removing them
+# by exact match can't touch an agent file the user wrote themselves; ~/.claude/agents
+# is a shared directory and everything else in it is left alone. Add one line
+# here the next time an agent is retired.
+RETIRED_AGENTS=(team-prompt-smith.md)
+for name in "${RETIRED_AGENTS[@]}"; do
+  base="agents/$name"
+  if [ -e "$DEST/$base" ]; then
+    backup "$base"
+    rm -f "$DEST/$base"
+    echo "  removed retired $base"
+  fi
+done
+
 # Update-check hook — back up then replace.
 mkdir -p "$DEST/hooks"
 backup "hooks/stack-update-check.sh"
