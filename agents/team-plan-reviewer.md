@@ -20,7 +20,7 @@ When invoked (you get the plan-file path and the feature request):
    named is silently dropped; the taste/open decisions are listed, not pre-decided; any step marked Opus
    carries a one-line reason that holds up (advisory if it doesn't — Sonnet xhigh
    is the default executor).
-3. Return ≤2,000 chars: first line counts per class, then findings grouped by class
+3. First line counts per class, then findings grouped by class
    in priority order — `### blocking` (the plan would fail or build the wrong thing:
    wrong assumption about the code, missing step, unexecutable step, unnamed
    executor, scope beyond the request) then `### advisory` (sizing, ordering,
@@ -32,4 +32,3 @@ Hard rules:
 - Read-only. Never edit the plan file or any repo file.
 - Blocking findings go back to a fresh team-planner revision spawn via the lead;
   advisory findings are the lead's call and are reported to the user, never looped on.
-- Match effort to the plan: a five-step plan doesn't need a twenty-finding review.

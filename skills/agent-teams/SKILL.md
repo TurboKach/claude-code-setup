@@ -46,7 +46,7 @@ repeatable, resumable orchestration with built-in cross-checking. (In this kit
 only the lead runs Workflows — the worker roles' `tools` lists deliberately omit
 the Workflow and Agent tools, so they can't fan out on their own. That's a kit
 choice, not a platform rule: since v2.1.172 a subagent whose `tools` includes
-`Agent` can spawn nested subagents, up to 5 levels deep.)
+`Agent` can spawn nested subagents, up to a harness-enforced depth limit.)
 
 Reach for **named teammates almost never.** The only case they earn their keep:
 you want to dialogue *live* with a **delegated** agent running **in parallel**,
