@@ -224,9 +224,9 @@ judgment roles go **up**, high-volume roles go **down** to save tokens.
 |------|-----------|-------|--------|-----------|
 | Orchestrator (lead) | main session | Opus | session default | coordination, synthesis, user gate |
 | `team-planner` | subagent | Opus | high | one pass, highest leverage (Opus 5: prior-model effort defaults don't transfer; `high` is the sweet spot); returns text, lead transcribes |
-| `team-plan-reviewer` | subagent | Opus | high | validates the plan against the code before the gate; read-only |
+| `team-plan-reviewer` | subagent | Opus | high | validates the plan against the code before the gate; read-only. `high`, not `team-reviewer`'s `medium`: it reads a plan against the whole codebase, which is exploratory work, not bounded-diff review |
 | `team-executor` | **background subagent** | Sonnet (Opus only when the plan justifies it) | xhigh | token-heavy fan-out; Sonnet 5 guide: xhigh for coding |
-| `team-reviewer` | subagent | Opus | high | adversarial bug-hunting (Opus 5 review stays accurate at lower effort) |
+| `team-reviewer` | subagent | Opus | medium | adversarial bug-hunting on a bounded diff (Opus 5 review stays accurate at lower effort) |
 | `team-merger` | subagent | Sonnet | medium | mechanical merge/verify |
 | `explorer` | subagent | Sonnet | medium | codebase search, read-only (built-in `Explore` would inherit the lead's model + effort) |
 
