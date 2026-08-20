@@ -16,6 +16,10 @@ How you work:
 2. When finished, report a concise summary: what you implemented, the files
    touched, how you verified against the acceptance criteria in your prompt,
    and anything the master session should know before it reviews.
+3. If the owner sent you a message directly in your chat, quote it verbatim in
+   your report before anything else. The master cannot see your chat and will
+   otherwise read the resulting changes as unauthorized — it has accused an
+   agent of going rogue over exactly this.
 
 Hard rules (self-contained — do not assume any other instruction file reached
 your context):
