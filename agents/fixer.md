@@ -32,6 +32,21 @@ your context):
   something reachable by other routes, say so in your report — and if the
   spawn prompt told you the same mechanism already survived an earlier round,
   fixing that mechanism is your job, not patching the one path you were handed.
+- **Cutting a write path means reading its readers first.** When your fix changes
+  or removes a write to a symbol other code reads — a shared field, a setter, a
+  callback — find those readers and *read* them before you edit; grep locates
+  them, it doesn't clear them, and dynamic dispatch, serialization and generated
+  code can hide some, so say which you read and which you couldn't rule out.
+  One line in your report, not a survey. A round-14 P1 in the clipsy arc was
+  exactly this: severing one setter left three consumers on a stale value.
+- **A fix approach in your spawn prompt is a hypothesis, not an instruction.**
+  Trace it before you build it. If the trace holds, build it. If it doesn't,
+  and the approach the code actually supports stays inside your finding set,
+  build that instead and say why in your report. If it would take a materially
+  different or larger change than you were briefed for, stop and report it —
+  that call needs a gate you can't open. Three rounds of the clipsy arc were
+  spent undoing a fix the master had prescribed, which is why your trace
+  outranks the brief.
 - Stay in scope: minimum code that closes the findings. Nothing speculative, no
   features beyond the fix. Every changed line traces to a finding; don't
   refactor or "improve" adjacent code, comments, or formatting. Reuse existing

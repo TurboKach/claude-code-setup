@@ -133,3 +133,22 @@ over-specified CLAUDE.md as a failure mode: *"If Claude already does something
 correctly without the instruction, delete it."* Recorded so a future session
 doesn't re-litigate it. Round-1 verdict:
 `/private/tmp/claude-501/-Users-turbokach-Dev-claude-code-setup/a4bff32a-75bb-4ec0-b24d-7d092e902147/scratchpad/codex-consolidation-round1.md`.
+
+### `skills/feature-workflow/SKILL.md:18` — the ship gate's diff range is probably ignored
+
+Stage 5 and the `global/CLAUDE.md` ship gate both invoke
+`Skill(codex, "challenge <feature-base-sha>..HEAD")`. But gstack's codex skill
+parses `/codex challenge <text>` with everything after `challenge` as a **focus
+area**, not a scope (`~/.claude/skills/gstack/codex/SKILL.md`, Step 1 mode
+detection). The range string is then interpolated into the adversarial prompt as
+a focus area, while the prompt itself still tells codex to run
+`git diff origin/<base>` against the base branch detected in Step 0. So the gate
+likely reviews the branch-vs-base diff rather than the recorded feature range,
+and a range narrower or wider than the branch diff is silently not honored.
+
+**Deferred because:** the fix belongs in gstack, not this kit — either a scope
+flag on challenge mode, or a documented "challenge takes no range" contract that
+stage 5 is then written against. Guessing gstack's intended argument shape from
+this side would encode the wrong contract. Surfaced by the round-1 codex
+challenge on the 2026-08-21 wall-clock doctrine edits, while verifying an
+unrelated claim about challenge-mode diff scoping; not yet reported upstream.
