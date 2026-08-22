@@ -165,7 +165,7 @@ for f in "$SRC"/agents/*.md; do
   backup "$base"
   cp "$f" "$DEST/$base"
 done
-echo "  installed agents (team-* + step-executor + fixer)"
+echo "  installed agents (team-* + step-executor + fixer + codex-runner)"
 
 # Retired agents — exact-filename removal so a re-run doesn't leave a stale
 # copy behind. These names only ever shipped from this kit, so removing them
@@ -183,12 +183,16 @@ for name in "${RETIRED_AGENTS[@]}"; do
   fi
 done
 
-# Update-check hook — back up then replace.
+# Hooks — back up then replace, one loop over every hooks/*.sh (the glob
+# doesn't descend into hooks/tests/, so those never get installed).
 mkdir -p "$DEST/hooks"
-backup "hooks/stack-update-check.sh"
-cp "$SRC/hooks/stack-update-check.sh" "$DEST/hooks/stack-update-check.sh"
-chmod +x "$DEST/hooks/stack-update-check.sh"
-echo "  installed hooks/stack-update-check.sh"
+for f in "$SRC"/hooks/*.sh; do
+  base="hooks/$(basename "$f")"
+  backup "$base"
+  cp "$f" "$DEST/$base"
+  chmod +x "$DEST/$base"
+  echo "  installed $base"
+done
 
 # Stamp the state dir so the update check has a SHA to compare against.
 # Skipped for a non-git checkout (e.g. a downloaded tarball) — with no stamp

@@ -197,7 +197,7 @@ subagent, which has no channel to the user. Resolve the open taste-decisions wit
 one AskUserQuestion first, then present the plan and wait.
 After the plan is approved, executors run, review runs, and the merger lands work
 and reports completion.
-5. CODEX     (lead, or a fresh general-purpose runner)
+5. CODEX     (lead, or the codex-runner agent)
    → ONE `Skill(codex, "challenge <feature-base>..<base-HEAD>")` on the merged
      feature diff — full output to a file, triaged verdict shown; P1/P2 → fresh
      Sonnet fixer on the base branch → re-challenge, round N of 3 (feature-workflow
