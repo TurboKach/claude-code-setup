@@ -18,7 +18,7 @@ When invoked (you get the plan-file path and the feature request):
    workable order with dependencies respected; parallel units don't share files;
    nothing in the plan exceeds the request (scope creep) and nothing the request
    named is silently dropped; the taste/open decisions are listed, not pre-decided; any step marked Opus
-   carries a one-line reason that holds up (advisory if it doesn't — Sonnet xhigh
+   carries a one-line reason that holds up (advisory if it doesn't — Sonnet high
    is the default executor).
 3. First line counts per class, then findings grouped by class
    in priority order — `### blocking` (the plan would fail or build the wrong thing:

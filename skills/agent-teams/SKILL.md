@@ -197,7 +197,7 @@ subagent, which has no channel to the user. Resolve the open taste-decisions wit
 one AskUserQuestion first, then present the plan and wait.
 After the plan is approved, executors run, review runs, and the merger lands work
 and reports completion.
-5. CODEX     (lead, or the codex-runner agent)
+5. CODEX     (lead launches `codex exec` as one background Bash; `codex-triage` agent triages)
    → ONE `Skill(codex, "challenge <feature-base>..<base-HEAD>")` on the merged
      feature diff — full output to a file, triaged verdict shown; P1/P2 → fresh
      Sonnet fixer on the base branch → re-challenge, round N of 3 (feature-workflow
@@ -225,7 +225,7 @@ judgment roles go **up**, high-volume roles go **down** to save tokens.
 | Orchestrator (lead) | main session | Opus | session default | coordination, synthesis, user gate |
 | `team-planner` | subagent | Opus | high | one pass, highest leverage (Opus 5: prior-model effort defaults don't transfer; `high` is the sweet spot); returns text, lead transcribes |
 | `team-plan-reviewer` | subagent | Opus | high | validates the plan against the code before the gate; read-only. `high`, not `team-reviewer`'s `medium`: it reads a plan against the whole codebase, which is exploratory work, not bounded-diff review |
-| `team-executor` | **background subagent** | Sonnet (Opus only when the plan justifies it) | xhigh | token-heavy fan-out; Sonnet 5 guide: xhigh for coding |
+| `team-executor` | **background subagent** | Sonnet (Opus only when the plan justifies it) | high | token-heavy fan-out; Sonnet 5 guide: high for most work, xhigh only for the hardest |
 | `team-reviewer` | subagent | Opus | medium | adversarial bug-hunting on a bounded diff (Opus 5 review stays accurate at lower effort) |
 | `team-merger` | subagent | Sonnet | medium | mechanical merge/verify |
 | `explorer` | subagent | Sonnet | medium | codebase search, read-only (built-in `Explore` would inherit the lead's model + effort) |

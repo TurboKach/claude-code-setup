@@ -165,7 +165,7 @@ for f in "$SRC"/agents/*.md; do
   backup "$base"
   cp "$f" "$DEST/$base"
 done
-echo "  installed agents (team-* + step-executor + fixer + codex-runner)"
+echo "  installed agents (team-* + explorer + step-executor + fixer + codex-triage)"
 
 # Retired agents — exact-filename removal so a re-run doesn't leave a stale
 # copy behind. These names only ever shipped from this kit, so removing them
@@ -173,7 +173,7 @@ echo "  installed agents (team-* + step-executor + fixer + codex-runner)"
 # is a shared directory and everything else in it is left alone. Add one line
 # here the next time an agent is retired. This is the only copy of the list —
 # INSTALL.md's wizard invokes this script rather than keeping its own.
-RETIRED_AGENTS=(team-prompt-smith.md)
+RETIRED_AGENTS=(team-prompt-smith.md codex-runner.md)
 for name in "${RETIRED_AGENTS[@]}"; do
   base="agents/$name"
   if [ -e "$DEST/$base" ]; then
@@ -192,6 +192,15 @@ for f in "$SRC"/hooks/*.sh; do
   cp "$f" "$DEST/$base"
   chmod +x "$DEST/$base"
   echo "  installed $base"
+done
+# Retired hooks — same exact-filename rule as retired agents.
+for name in codex-runner-hooks.sh; do
+  base="hooks/$name"
+  if [ -e "$DEST/$base" ]; then
+    backup "$base"
+    rm -f "$DEST/$base"
+    echo "  removed retired $base"
+  fi
 done
 
 # Stamp the state dir so the update check has a SHA to compare against.

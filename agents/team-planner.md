@@ -21,7 +21,9 @@ When invoked for a **first draft**:
    execution step names the subagent that executes it (`step-executor` for
    sequential steps, `team-executor` for parallel units) — the lead never
    implements. Size each step so its executor finishes in roughly ≤100 tool calls;
-   split anything bigger. Executors are Sonnet by default (the agent's frontmatter);
+   split anything bigger. Per-step verification is the build plus the targeted
+   suites the step touches; the full test suite is its own final step after the
+   last code step, never a per-step requirement. Executors are Sonnet by default (the agent's frontmatter);
    mark a step Opus only with a one-line reason (cross-file algorithmic invariants,
    concurrency, measured layout math…) — an unjustified Opus step is a defect the
    plan-reviewer flags. For a parallel run, make units genuinely independent —
