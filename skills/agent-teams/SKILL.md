@@ -199,10 +199,12 @@ After the plan is approved, executors run, review runs, and the merger lands wor
 and reports completion.
 5. CODEX     (lead launches `codex exec` as one background Bash; `codex-triage` agent triages)
    → ONE `Skill(codex, "challenge <feature-base>..<base-HEAD>")` on the merged
-     feature diff — full output to a file, triaged verdict shown; P1/P2 → fresh
-     Sonnet fixer on the base branch → re-challenge, round N of 3 (feature-workflow
-     stage 5 rules: P1 open at round 3 → ask; test-gap/theoretical → one
-     fix-now / defer-to-tech-debt question). No further user gates before that.
+     feature diff — full output to a file, triaged verdict shown; P0/P1 (plus
+     adjacent P2s) → fresh Sonnet fixer on the base branch → re-challenge until
+     convergence (feature-workflow stage 5 rules: a non-decreasing P0/P1 round
+     forces the structural branch, two non-decreasing rounds end the loop;
+     standalone-P2/test-gap/theoretical → one fix-now / defer-to-tech-debt
+     question). No further user gates before that.
 
 ## No `/goal`
 
@@ -378,7 +380,7 @@ default: no pane, no separate process, no handshake, nothing to orphan.
 
 ## Relationship to the feature workflow
 
-This is the parallel-execution variant of the `feature-workflow` skill's pipeline; its stage-5 codex rules (per-feature range, P1/P2, rounds, tech-debt deferral) apply verbatim.
+This is the parallel-execution variant of the `feature-workflow` skill's pipeline; its stage-5 codex rules (per-feature range, P0/P1 convergence loop, tech-debt deferral) apply verbatim.
 Planning (`/office-hours`, native plan mode) and shipping (`/ship`,
 `/land-and-deploy`) are unchanged; fan-out only replaces the execute phase's
 sequential per-step subagents with parallel agents when the steps are
