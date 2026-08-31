@@ -11,27 +11,13 @@
 Run these and show the user a short status summary:
 
 ```bash
-uname -s                                          # Darwin = macOS (needed for iTerm2 split panes)
-claude --version                                  # need >= 2.1.186 (background permission prompts, teammateMode "iterm2")
-ls -d /Applications/iTerm.app 2>/dev/null || echo "iTerm2: missing"
-which brew uv it2 2>/dev/null
+claude --version                                  # need >= 2.1.186 (background permission prompts)
 ls -d ~/.claude/skills/gstack 2>/dev/null && echo "gstack: present" || echo "gstack: missing"
 test -f ~/.claude/CLAUDE.md && echo "CLAUDE.md: exists" || echo "CLAUDE.md: none"
-python3 - <<'PY'
-import json, os
-p = os.path.expanduser("~/.claude/settings.json")
-d = json.load(open(p)) if os.path.exists(p) else {}
-print("flag set:", d.get("env", {}).get("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"))
-print("teammateMode:", d.get("teammateMode"))
-PY
 ```
 
-- If `uname -s` is **not** `Darwin`: tell the user split panes need macOS+iTerm2
-  (or tmux); they can still use `teammateMode: in-process`. Skip the iTerm2/it2
-  offers below and continue with the core kit.
 - If `claude --version` is older than 2.1.186: suggest updating Claude Code —
-  before 2.1.186 background subagents silently auto-denied permission prompts,
-  and split panes / `teammateMode: "iterm2"` may not work.
+  before 2.1.186 background subagents silently auto-denied permission prompts.
 
 ## Step 1 — Ask what to set up (AskUserQuestion)
 
@@ -41,9 +27,7 @@ background-subagent + Workflows path) is always installed: it's the point of
 running this installer, not a choice, and `install.sh` has no flag to skip
 it — so don't offer it as a deselectable option. Suggested:
 
-1. **Optional add-ons** (multiSelect): teammate path (settings flag +
-   `teammateMode` + `it2` + iTerm2 — only for live cross-talk); gstack
-   *(if missing)*.
+1. **Optional add-ons**: gstack *(if missing)*.
 2. **CLAUDE.md handling** — only if `~/.claude/CLAUDE.md` already exists:
    *append the feature-workflow pointer section* (recommended — the workflow
    itself lives in the `feature-workflow` skill the core kit installs) /
@@ -60,9 +44,8 @@ it — so don't offer it as a deselectable option. Suggested:
    - custom: any full model ID the user types (the "Other" answer)
 
 Explain briefly: the **default path** (background subagents + Workflows) needs
-nothing beyond the skill + agents — no flag, no iTerm2. The settings flag +
-iTerm2 + `it2` are **only** for the optional named-teammate split-pane path
-(almost never needed — live dialogue with a delegated agent). gstack is optional — it powers `/office-hours`, `/codex`, `/ship`, `/context-save`
+nothing beyond the skill + agents — no flags, no extra tools. gstack is
+optional — it powers `/office-hours`, `/codex`, `/ship`, `/context-save`
 referenced by the workflow; without it, use plain git.
 
 ## Step 2 — Execute (only chosen + only missing)
@@ -72,15 +55,8 @@ don't reimplement any of its copy/backup/prune/merge logic here. Its settings
 merge setdefaults `CLAUDE_CODE_ENABLE_TODO_TOOLS` (the task-list feature)
 along with every other key in `settings.example.json`'s `env` block — added
 only if that key isn't already set, never clobbering your existing value.
-Two keys are the exception, both tied to the teammate path, which is *on* by
-default (no flag needed): `install.sh` force-assigns `teammateMode` and
-`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` to the repo's values, overwriting any
-custom value you already had for either — pass `--no-teammates` to leave both
-untouched instead. Translate the Step 1 answers into flags and run it once:
+Translate the Step 1 answers into flags and run it once:
 
-- **Optional add-ons did *not* include the teammate path** → add
-  `--no-teammates` (the script's default *forces* the teammate settings, so
-  omitting the flag is how you opt in).
 - **Opus answer was *claude-opus-5*, or the question was skipped because a
   pin already exists** → pass neither `--opus-pin` nor `--no-opus-pin` (the
   default already `setdefault`s `claude-opus-5` and never clobbers an
@@ -93,10 +69,10 @@ untouched instead. Translate the Step 1 answers into flags and run it once:
 - **CLAUDE.md handling was *replace*** → `--claude-md=replace`.
 - **CLAUDE.md handling was *leave mine untouched*** → `--claude-md=leave`.
 
-For example, a user who skipped the teammate path and wants to append the
-Feature workflow section to their existing `CLAUDE.md`:
+For example, a user who wants to append the Feature workflow section to
+their existing `CLAUDE.md`:
 ```bash
-"$SRC/install.sh" --no-teammates --claude-md=append
+"$SRC/install.sh" --claude-md=append
 ```
 
 Run it and show the output — it reports what it backed up, installed,
@@ -104,23 +80,6 @@ pruned, and merged (skills, agents, rules, the update-check hook and its
 stamp, retired-agent removal, and the `settings.json` merge). **If it exits
 non-zero, stop** — report exactly what it printed; nothing after that point
 in its output was applied.
-
-**it2** (if chosen):
-```bash
-if command -v uv >/dev/null; then uv tool install it2
-elif command -v pip >/dev/null; then pip install it2
-else echo "Install uv first (https://docs.astral.sh/uv/) or pip, then: uv tool install it2"; fi
-```
-
-**iTerm2** (if chosen):
-```bash
-if command -v brew >/dev/null; then brew install --cask iterm2
-else echo "Homebrew not found — download iTerm2 from https://iterm2.com/downloads.html"; fi
-```
-Then enable its Python API (needed for split panes):
-```bash
-defaults write com.googlecode.iterm2 EnableAPIServer -bool true
-```
 
 **gstack** (if chosen):
 ```bash
@@ -139,18 +98,6 @@ Also mention: a `SessionStart` hook now checks once a day for a newer
 `claude-code-setup` and prints one line if there's an update — `/stack-update`
 applies it, and nothing is written without approval. Opt out with
 `touch ~/.claude/.claude-code-setup/disabled`.
-
-**Optional teammate path only** (skip unless they installed it — cannot be automated):
-1. **Enable panes:** set `"teammateMode": "iterm2"` in `~/.claude/settings.json`.
-   The installer leaves it at `"in-process"` (teammates in the status bar, no
-   panes); `"iterm2"` is what renders them as split panes. (Panes don't
-   self-close — `Cmd-W` a pane's tab to close it when done.)
-2. **Quit iTerm2 (Cmd+Q) and reopen** — activates the API server. Approve the
-   one-time "allow Python API" dialog on first team spawn.
-3. **Restart Claude Code** — cold start, inside iTerm2, so the flag,
-   `teammateMode`, skill, and agents all load. Don't `--resume`.
-4. **`/config` → Default teammate model → Sonnet** (token-efficient floor;
-   per-role models in the agent files override it).
 
 ## Rules
 

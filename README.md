@@ -8,10 +8,7 @@ subagents** (the default — in-process, isolated worktrees only where they writ
 in parallel, no extra setup).
 
 > The default path uses ordinary background subagents and (optionally) Workflows —
-> no experimental flags, no iTerm2. **Named teammates in iTerm2 split panes** are
-> an **experimental** extra that's **almost never needed** — only to dialogue live
-> with a delegated agent running in parallel; that's the only part that needs the
-> feature flag + iTerm2 setup.
+> no experimental flags, no extra setup.
 >
 > Fan-out uses significantly more tokens than a single session — use it for
 > parallel research, review, and feature work, not routine tasks.
@@ -23,7 +20,7 @@ in parallel, no extra setup).
 | `global/CLAUDE.md` | Lean always-on layer: principles (think-before-coding, simplicity, surgical changes), the hard gates (push approval, `/codex` merge gate, AFK-not-approval), and a pointer to the feature-workflow skill. Lives under `global/` so working sessions in this repo don't load it twice alongside `~/.claude/CLAUDE.md` |
 | `global/rules/` | Path-scoped user rules, installed to `~/.claude/rules/` — load only when a matching file is touched, so they don't add to every session's always-on context |
 | `skills/feature-workflow/SKILL.md` | The six-stage single-master feature pipeline, the parallel-multi-agent mechanism picker, and the token-discipline rules. Loads on demand when a pipeline or fan-out starts (extracted from CLAUDE.md per 5-gen progressive disclosure). |
-| `skills/agent-teams/SKILL.md` | The orchestration playbook — when to fan out, how to pick the mechanism (subagents / Workflows / teammates), the pipeline, models, worktree/merge flow, the plan-approval gate. Loads on demand. |
+| `skills/agent-teams/SKILL.md` | The orchestration playbook — when to fan out, how to pick the mechanism (subagents / Workflows), the pipeline, models, worktree/merge flow, the plan-approval gate. Loads on demand. |
 | `agents/team-planner.md` | Explores and **returns** the plan as text (headless, read-only); the lead — in native plan mode — writes it to the plan file *(Opus)* |
 | `agents/explorer.md` | Read-only codebase search on Sonnet at effort medium — the pinned stand-in for built-in `Explore` *(Sonnet)* |
 | `agents/team-plan-reviewer.md` | Validates the plan against the code before the lead presents it via `ExitPlanMode` for **your** approval *(Opus)* |
@@ -34,11 +31,13 @@ in parallel, no extra setup).
 | `agents/spec-reviewer.md` | At the final gate, checks the feature's whole diff against the approved plan file — missing requirements, scope creep, wrong-logic-vs-spec; gaps only, in parallel with the whole-range codex challenge *(Sonnet medium)* |
 | `agents/team-reviewer.md` | Adversarially verifies each diff before merge — read-only, no worktree *(Opus)* |
 | `agents/team-merger.md` | Merges approved worktrees into the base branch, removes each worktree + branch after landing, reports done *(Sonnet)* |
-| `settings.example.json` | The teammate-feature keys (the flag + `teammateMode`, defaults to `in-process` — teammates in the status bar, **no panes**; set to `"iterm2"` to opt into split panes), the model pin (`ANTHROPIC_DEFAULT_OPUS_MODEL` — see [Model pinning](#model-pinning)), `worktree.baseRef: "head"` so executor worktrees branch from your in-progress branch rather than the remote default, and the `SessionStart` update-check hook |
+| `settings.example.json` | The model pin (`ANTHROPIC_DEFAULT_OPUS_MODEL` — see [Model pinning](#model-pinning)), `worktree.baseRef: "head"` so executor worktrees branch from your in-progress branch rather than the remote default, `CLAUDE_CODE_ENABLE_TODO_TOOLS` (the task-list feature), and the `SessionStart` update-check hook |
 | `hooks/stack-update-check.sh` | Runs once per session start: at most once a day, checks whether this repo's `master` differs from the SHA you installed, and prints one line if so — silent otherwise (no update, no network, disabled, cached) |
 | `skills/stack-update/SKILL.md` | Applies a pending update: clones the repo, summarizes what changed, asks for your approval before writing anything, re-runs `install.sh`, and re-stamps |
 | `install.sh` | Copies everything into `~/.claude` (with backups) and merges the settings keys above |
-| `docs/agent-teams-setup.md` | macOS + iTerm2 walkthrough — only needed for the optional named-teammate path |
+| `docs/decision-flow.md` | Mermaid map of the gates: who executes each kind of work, in which checkout, reviewed by whom — a reading aid; the authoritative text stays in the files it points at |
+| `docs/tech-debt.md` | Known gaps deliberately left unfixed, each with the site, the reasoning, and the review that surfaced it |
+| `docs/prompts/` | The approved plan files behind each doctrine change, mirrored for history — the "why" behind the Notes below |
 
 ## How it works
 
@@ -56,10 +55,9 @@ CODEX (lead) → one Skill(codex, "challenge <feature-base>..HEAD") ─┘   ←
 ```
 
 Pick the fan-out mechanism by need: **background subagents** by default;
-**Workflows** for large/deterministic/resumable fan-outs; **named teammates**
-almost never (only to dialogue live with a delegated parallel agent — the
-experimental iTerm2 path). Worktree isolation is added **only** where agents
-write in parallel and merge — read-only fan-out (review, research) skips it.
+**Workflows** for large/deterministic/resumable fan-outs. Worktree isolation
+is added **only** where agents write in parallel and merge — read-only
+fan-out (review, research) skips it.
 
 Models follow a simple rule: **Opus for judgment** (plan, review), **Sonnet for
 production work** (execute, merge), with Opus available per-spawn for
@@ -75,8 +73,8 @@ Open Claude Code and paste this:
 > Set up the Claude Code parallel-multi-agent kit from https://github.com/TurboKach/claude-code-setup — clone it to a temp directory, read INSTALL.md, and run it as an interactive install wizard. Detect what I already have and only install what's missing.
 
 Claude checks your machine and walks you through it step by step: it offers to
-install only what you're missing (iTerm2, `it2`, gstack), enables the required
-settings, and copies the skill + agents with backups. Exactly what it does:
+install only what you're missing (gstack), enables the required settings, and
+copies the skill + agents with backups. Exactly what it does:
 [`INSTALL.md`](INSTALL.md).
 
 ### Alternative — non-interactive script
@@ -89,19 +87,6 @@ cd claude-code-setup
 
 The default path (background subagents + Workflows) needs **no manual steps** —
 once the files are copied, ask for parallel work and it fans out.
-
-### Manual steps — only for the optional named-teammate path
-
-Skip these unless you want the experimental iTerm2 split-pane teammates. (The
-installer sets `teammateMode: "in-process"` — status-bar teammates, no panes; step 1
-opts into panes. Panes don't self-close: `Cmd-W` a pane's tab to close it.)
-
-1. **Enable panes:** set `"teammateMode": "iterm2"` in `~/.claude/settings.json`.
-2. **Restart iTerm2** (Cmd+Q, reopen) and approve the one-time API permission dialog.
-3. **Restart Claude Code** — cold start, inside iTerm2 (the mode is read at startup).
-4. **`/config` → Default teammate model → Sonnet.**
-
-Full walkthrough: [`docs/agent-teams-setup.md`](docs/agent-teams-setup.md).
 
 ## Staying up to date
 
@@ -151,12 +136,7 @@ settings `env` block.)
   v2.1.186 is the practical floor: from there, background subagents surface
   permission prompts in your session (earlier versions silently auto-denied
   them). Workflows shipped in v2.1.154; no install required.
-- That's it — no flags, no iTerm2.
-
-**Optional named-teammate (iTerm2 split-pane) path adds:**
-- macOS + iTerm2 (split panes need tmux or iTerm2)
-- `uv` or `pip` (for `it2`)
-- the teammate keys from `settings.example.json` (the installer merges them)
+- That's it — no flags, no extra tools.
 
 **Recommended for the full workflow:**
 - **gstack** *(optional)* — the workflow references `/office-hours`, `/codex`,

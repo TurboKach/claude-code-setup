@@ -5,14 +5,13 @@ set -euo pipefail
 # Copies CLAUDE.md, the agent-teams skill, and the team-* agents into ~/.claude,
 # backing up anything it would overwrite. The kit's default path (background
 # subagents + Workflows) needs nothing else. This also merges the settings keys
-# from settings.example.json: the teammate-path pair (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
-# + teammateMode, only matter for the optional iTerm2 path), the model pin
-# (ANTHROPIC_DEFAULT_OPUS_MODEL — keeps the "opus" alias on a fixed version;
-# added only if you haven't set your own value), and every other key in that
-# file's "env" block the same way (currently just CLAUDE_CODE_ENABLE_TODO_TOOLS,
-# which enables the task-list feature). It also installs a SessionStart
-# hook that checks once a day whether this repo has moved past the SHA you
-# installed, and stamps that SHA so the check has something to compare against.
+# from settings.example.json: the model pin (ANTHROPIC_DEFAULT_OPUS_MODEL —
+# keeps the "opus" alias on a fixed version; added only if you haven't set your
+# own value), and every other key in that file's "env" block the same way
+# (currently just CLAUDE_CODE_ENABLE_TODO_TOOLS, which enables the task-list
+# feature). It also installs a SessionStart hook that checks once a day
+# whether this repo has moved past the SHA you installed, and stamps that SHA
+# so the check has something to compare against.
 #
 # Flags (all optional — no flags reproduces the behavior above exactly; see
 # --help). INSTALL.md's interactive wizard drives this script with them instead
@@ -20,12 +19,11 @@ set -euo pipefail
 
 usage() {
   cat <<EOF
-Usage: install.sh [--no-teammates] [--opus-pin=MODEL_ID | --no-opus-pin] [--claude-md=append|replace|leave]
+Usage: install.sh [--opus-pin=MODEL_ID | --no-opus-pin] [--claude-md=append|replace|leave]
 
-No flags: force the teammate settings, setdefault the Opus pin from
-settings.example.json, and install CLAUDE.md only if none exists yet.
+No flags: setdefault the Opus pin from settings.example.json, and install
+CLAUDE.md only if none exists yet.
 
-  --no-teammates        Don't force CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS / teammateMode.
   --opus-pin=MODEL_ID    Setdefault ANTHROPIC_DEFAULT_OPUS_MODEL to MODEL_ID instead of
                          the repo default (never clobbers an existing value).
   --no-opus-pin          Don't set ANTHROPIC_DEFAULT_OPUS_MODEL at all.
@@ -36,7 +34,6 @@ settings.example.json, and install CLAUDE.md only if none exists yet.
 EOF
 }
 
-TEAMMATES=1
 OPUS_PIN=""
 OPUS_PIN_SET=0
 OPUS_SKIP=0
@@ -44,7 +41,6 @@ CLAUDE_MD_MODE="auto"
 
 for arg in "$@"; do
   case "$arg" in
-    --no-teammates) TEAMMATES=0 ;;
     --opus-pin=*) OPUS_PIN="${arg#--opus-pin=}"; OPUS_PIN_SET=1 ;;
     --no-opus-pin) OPUS_SKIP=1 ;;
     --claude-md=*) CLAUDE_MD_MODE="${arg#--claude-md=}" ;;
@@ -219,20 +215,18 @@ else
 fi
 
 # settings.json — merge the example keys, preserving everything else.
-# Teammate-path pair is forced to the example values unless --no-teammates was
-# passed; the Opus pin env var is added only when absent (never clobbering a
+# The Opus pin env var is added only when absent (never clobbering a
 # user's own pin), using --opus-pin's value if given, or skipped entirely if
 # --no-opus-pin was given.
 SETTINGS="$DEST/settings.json"
 HOOK_PATH="$DEST/hooks/stack-update-check.sh"
 if command -v python3 >/dev/null 2>&1; then
-  python3 - "$SETTINGS" "$SRC/settings.example.json" "$HOOK_PATH" "$DEST" "$TEAMMATES" "$OPUS_PIN_SET" "$OPUS_PIN" "$OPUS_SKIP" <<'PY'
+  python3 - "$SETTINGS" "$SRC/settings.example.json" "$HOOK_PATH" "$DEST" "$OPUS_PIN_SET" "$OPUS_PIN" "$OPUS_SKIP" <<'PY'
 import json, os, sys
 settings, example, hook_path, dest = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
-teammates = sys.argv[5] == "1"
-opus_pin_set = sys.argv[6] == "1"
-opus_pin = sys.argv[7]
-opus_skip = sys.argv[8] == "1"
+opus_pin_set = sys.argv[5] == "1"
+opus_pin = sys.argv[6]
+opus_skip = sys.argv[7] == "1"
 ex = json.load(open(example))
 if os.path.exists(settings):
     d = json.load(open(settings))
@@ -240,13 +234,7 @@ if os.path.exists(settings):
 else:
     d = {}
 env = d.setdefault("env", {})
-if teammates:
-    env["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"] = \
-        ex["env"]["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"]
-    d["teammateMode"] = ex["teammateMode"]
 for k, v in ex["env"].items():
-    if k == "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS" and not teammates:
-        continue  # user opted out of the teammate path
     if k == "ANTHROPIC_DEFAULT_OPUS_MODEL":
         if opus_skip:
             continue  # user chose not to pin the "opus" alias
@@ -312,7 +300,7 @@ else:
             if not already_present:
                 entries.append({"type": "command", "command": hook_path, "timeout": 10})
 
-merged_desc = "env" + (" + teammateMode" if teammates else "") + " + worktree.baseRef"
+merged_desc = "env + worktree.baseRef"
 json.dump(d, open(settings, "w"), indent=2)
 if warning:
     print(f"  WARNING: settings.json's {warning} — skipped installing the SessionStart update-check hook.")
@@ -328,23 +316,10 @@ fi
 say "Files installed. The default path (background subagents + Workflows) is ready now —"
 say "just restart Claude Code and ask for parallel work."
 
-printf '\nOptional — only if you want the experimental named-teammate (iTerm2 split-pane) path.\n'
-if [ "$TEAMMATES" = 1 ]; then
-  printf '(The installer sets teammateMode: "in-process" = teammates run in-process and show\nin the status bar, NO terminal panes. Opt into split panes by setting it to "iterm2":)\n'
-else
-  printf '(--no-teammates left teammateMode and CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS untouched — set\nboth yourself in ~/.claude/settings.json to use this path; teammateMode: "iterm2" renders split\npanes, "in-process" runs teammates in the status bar with no terminal panes.)\n'
-fi
 cat <<'EOF'
-  1. Enable panes:  set "teammateMode": "iterm2" in ~/.claude/settings.json
-  2. it2 CLI (iTerm2 split panes):   uv tool install it2      (or: pip install it2)
-  3. Enable iTerm2 Python API:       defaults write com.googlecode.iterm2 EnableAPIServer -bool true
-  4. Quit & reopen iTerm2 (Cmd+Q); approve the one-time API permission dialog on first use.
-  5. Restart Claude Code (inside iTerm2), then: /config -> Default teammate model -> Sonnet.
 
 Recommended for the full workflow:
   - gstack for /office-hours, /codex, /ship, /context-save, etc.:
       git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack \
         && cd ~/.claude/skills/gstack && ./setup
-
-Named-teammate walkthrough: docs/agent-teams-setup.md
 EOF

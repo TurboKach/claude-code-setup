@@ -1,6 +1,6 @@
 ---
 name: agent-teams
-description: Orchestration playbook for parallel multi-agent work in Claude Code. Use when fanning out genuinely parallel, independent work — N independent modules, multi-lens review, competing-hypothesis debugging, backend+frontend that must agree on a contract. Defaults to background subagents (with worktree isolation only when they write files in parallel and merge later); covers when to reach for Workflows instead, and the rarely-needed named-teammate (split-pane) escape hatch for live dialogue with a delegated agent. Covers the lead's pipeline (plan → parallel execute → review → merge), per-role models, worktree/merge flow, and the plan-approval gate.
+description: Orchestration playbook for parallel multi-agent work in Claude Code. Use when fanning out genuinely parallel, independent work — N independent modules, multi-lens review, competing-hypothesis debugging, backend+frontend that must agree on a contract. Defaults to background subagents (with worktree isolation only when they write files in parallel and merge later); covers when to reach for Workflows instead. Covers the lead's pipeline (plan → parallel execute → review → merge), per-role models, worktree/merge flow, and the plan-approval gate.
 ---
 
 # Parallel multi-agent playbook (lead-side)
@@ -30,13 +30,12 @@ branch. The value here is the parallel **execution** phase only.
 |-----------|----------|--------------|-----------------|
 | **Background subagents** *(DEFAULT)* | independent units; contracts known up front | none — contract pre-specified in each prompt | low; in-process, no setup |
 | **Workflows** | large fan-out (10s+), deterministic/repeatable orchestration, cross-checking/voting, resumable runs | script variables | medium; you write/run a script |
-| **Named teammates** *(experimental, almost never needed)* | you must dialogue *live* with a delegated agent running in parallel, off the master tab, AND a shared tree is acceptable | live `SendMessage` cross-talk | high; iTerm2 panes, separate processes, manual teardown |
 
 Default to **background subagents** (`Agent` tool, no `name`). `team-executor`
 sets `background: true` in its frontmatter — the documented way to make a
 subagent always run in the background; for ad-hoc spawns say "in the background"
 (`run_in_background: true` on the Agent call also works on current builds). They
-run **in-process** under the lead (no separate OS process, no iTerm2 pane), need
+run **in-process** under the lead (no separate OS process), need
 **no shutdown handshake**, and deliver a clean completion notification.
 Pre-specify any cross-unit contract in each spawn prompt so they never need to
 talk to each other.
@@ -47,26 +46,6 @@ only the lead runs Workflows — the worker roles' `tools` lists deliberately om
 the Workflow and Agent tools, so they can't fan out on their own. That's a kit
 choice, not a platform rule: since v2.1.172 a subagent whose `tools` includes
 `Agent` can spawn nested subagents, up to a harness-enforced depth limit.)
-
-Reach for **named teammates almost never.** The only case they earn their keep:
-you want to dialogue *live* with a **delegated** agent running **in parallel**,
-off the master tab — and you accept that **teammates are not isolated in
-worktrees** (Claude Code does not honor `isolation: worktree` for teammates; they
-share the lead's checkout, so you must partition files by hand). Note what does
-NOT qualify: a planning gate. `ExitPlanMode` and `AskUserQuestion` run in the lead,
-and any input a delegated subagent needs is bubbled up to the lead — so the
-master already funnels approvals to you. Agent-to-agent contract negotiation
-doesn't qualify either: pre-specify the contract in each spawn prompt instead.
-This is the heaviest path; see §"Named-teammate path".
-
-> Documented: teammates are **not** worktree-isolated. `isolation: worktree` is
-> a **subagent** feature; a definition spawned as a *teammate* keeps only its
-> `tools` and `model`, and the isolation is silently dropped ([docs](https://code.claude.com/docs/en/agents):
-> "Agent teams don't isolate teammates in worktrees, so partition the work so
-> each teammate owns a different set of files"). Spawning the executors as
-> named teammates once put all four in the same checkout committing to `main`,
-> clobbering each other. Background subagents are the safe default precisely
-> because they CAN get real worktrees when they need them.
 
 ## 3. Worktree isolation: every concurrent writer gets one
 
@@ -186,9 +165,6 @@ auto-picks silently or dies. Gates run in the **lead** (the session you're
 attached to); only headless work goes to subagents. (This is why step 1 splits:
 subagents draft and validate headlessly, the lead transcribes and gates.)
 
-(For the rare named-teammate path, step 2's agents are teammates instead and a
-TEARDOWN step is required — see §"Named-teammate path".)
-
 ## Approval gate: PLAN ONLY
 
 The lead must get the **user's** approval on the plan (step 1) before any
@@ -234,8 +210,7 @@ judgment roles go **up**, high-volume roles go **down** to save tokens.
 
 The global spawn-pin rule applies; the table above is this pipeline's role→model
 mapping. Override per spawn only when the plan marks a unit Opus with a reason. As background subagents these roles honor their `effort:`
-frontmatter; the named-teammate path may ignore per-teammate effort and fall back
-to the session default — harmless.
+frontmatter.
 
 ## Spawn prompt contract (the lead writes these inline)
 
@@ -257,8 +232,7 @@ Every prompt carries:
   file belongs to exactly one unit.
 - **The full cross-unit contract** it must honor (API shapes, types, names),
   baked in. Background subagents don't talk to each other, so anything it needs
-  from a sibling has to be in the text; only flag a sibling to coordinate with if
-  the lead is using the named-teammate path.
+  from a sibling has to be in the text.
 - **Acceptance criteria and how to verify them** — the tests or commands that
   prove the unit is done. State them once; no "re-verify" or "double-check"
   rituals.
@@ -302,81 +276,6 @@ Read-only fan-out (no worktree) — e.g. multi-lens review with no executors:
 For a large or repeatable fan-out, consider a **Workflow** instead of hand-
 spawning subagents: a deterministic script (plan → fan-out → review → merge) that
 scales to many units, cross-checks results, and resumes if interrupted.
-
-## Named-teammate path (almost never needed — live dialogue only)
-
-Use this ONLY when you must dialogue live with a delegated agent running in
-parallel and a shared checkout is acceptable. A planning gate is NOT such a case:
-`ExitPlanMode` runs in the lead, and subagent input bubbles up to the lead, so
-approvals already reach you in the master tab. It is the heaviest path:
-separate processes, iTerm2 panes, and manual teardown. Requirements: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, `teammateMode:
-auto` (or `iterm2` to force iTerm2 native panes; the default is `in-process`),
-iTerm2 with the Python API enabled, and the `it2` CLI (see
-`docs/agent-teams-setup.md`).
-
-Hard constraints (documented, except where marked observed):
-- **One team per session; the lead is fixed.** Only the lead spawns — teammates
-  can't spawn teammates (no nested teams).
-- **Teammates are NOT isolated in worktrees** — `isolation: worktree` is dropped
-  for teammates. Partition files by hand so no two teammates edit the same file.
-- **A teammate needs `SendMessage` in its `tools` allowlist to report back** —
-  a teammate's plain final text is never delivered to the lead. The `team-*`
-  definitions omit `SendMessage` because they're written for the subagent path;
-  add it to the definition before spawning one as a teammate, or the report is
-  lost.
-- **Layout is auto** — each teammate gets its own iTerm2 pane. Name teammates
-  (`backend`, `frontend`) so they're identifiable by name, not position.
-- CLAUDE.md + skills load for every teammate, but a definition's
-  `skills`/`mcpServers` frontmatter is ignored for a teammate; `tools` and
-  `model` carry over.
-- `/resume` and `/rewind` don't restore in-process teammates.
-
-Spawn (only if cross-talk is genuinely required):
-> Spawn one team-executor teammate per unit, named for its unit (backend,
-> frontend, …). Give each its self-contained spawn prompt. Have backend and
-> frontend message each other to agree the API contract. Wait for all to finish.
-
-**Immediately after spawning, record the roster map** so teardown is
-deterministic — `ps -axo pid,tty,command | grep -- '--agent-name'` and
-`COLUMNS=400 it2 session list` → save `name → {agent-id, PID, iTerm UUID, TTY,
-worktree}`. Match every later teardown action by UUID/PID, never by pane position.
-
-### Teardown (teammates only — order matters)
-
-When a teammate's work is landed and eyeballed, tear it down **handshake first,
-pane-close second**. A teammate leaves the roster ONLY when the shutdown
-handshake completes — closing its pane does NOT deregister it and can orphan its
-process. (The docs describe shutdown only as "lead sends a shutdown request,
-teammate approves or rejects"; the JSON shapes below are the observed wire
-format.)
-
-Per teammate, in order:
-1. `SendMessage` a `{type:"shutdown_request", reason:"…"}`.
-2. **Wait for `shutdown_response{approve:true}`** — that is what cleanly
-   terminates the process AND removes it from the roster. Don't proceed on a bare
-   "sent" ack.
-3. ONLY THEN close the empty pane: `it2 session close -s <UUID> -f` (UUID from
-   the roster map). **Never** close the lead's pane or a session you didn't spawn.
-4. After all teammates are down, prune merged worktrees + delete merged branches.
-
-The handshake can fail two ways:
-1. **Context-exhausted zombie.** A teammate at its context limit (pane shows
-   `Context limit reached · /compact or /clear`) CANNOT process any message —
-   including `shutdown_request`. It emits stale `idle` pings but never
-   `shutdown_response`, so the handshake can never complete. Bound your wait:
-   after ~one cycle with no ACK, treat it as unreachable.
-2. **Unreachable teammate whose work is already merged → kill the tree.** Verify
-   liveness with a TESTED ps pattern matching the real arg (`ps -axo pid,command
-   | grep -- '--agent-name <name>'`, cross-checked by PID — note the real string
-   is `--agent-id X@team … --agent-name X`, so an untested grep can falsely read
-   "all dead"). Kill the agent PID **and its MCP children** (uv/npm/node, via `ps
-   -axo pid,ppid`), SIGTERM then SIGKILL, confirm by PID, then close the pane by
-   recorded UUID.
-
-Closing a pane is cosmetic and never deregisters a live agent; killing the
-process is the real teardown when the handshake is impossible. This entire class
-of problem — orphans, zombies, pane-mapping — is why background subagents are the
-default: no pane, no separate process, no handshake, nothing to orphan.
 
 ## Relationship to the feature workflow
 

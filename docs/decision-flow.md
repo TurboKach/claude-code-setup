@@ -26,7 +26,6 @@ flowchart TD
     LOADAT --> G1{"<b>Gate 1</b> — mechanism §2<br/>how big / how deterministic?"}
     G1 -->|"default"| SUB["background subagents"]
     G1 -->|"10s+ units, resumable"| WF["Workflows"]
-    G1 -->|"live dialogue needed<br/>(almost never)"| TM["named teammates<br/>⚠ NO worktree isolation<br/>⚠ needs SendMessage in tools<br/>⚠ manual teardown"]
 
     SUB --> G3{"<b>Gate 3</b> — isolation §3<br/>how many concurrent <i>writers</i>?"}
     G3 -->|"0 — read-only"| RO["review / research / multi-lens<br/>NO worktree"]
@@ -42,7 +41,6 @@ flowchart TD
     MERGE --> CODEX
     RO --> CODEX
     WF --> CODEX
-    TM --> TEARDOWN["manual teardown:<br/>shutdown handshake → close pane"] --> CODEX
 
     CODEX["Stage 5 — ONE <b>/codex challenge</b> on the feature diff<br>(&lt;feature-base-sha&gt;..HEAD) — P1/P2 fixed, rounds ≤3<br>⛔ hard gate: no ship without a triaged verdict"] --> SHIP["Stage 6 — /ship → /land-and-deploy<br/>⛔ hard gate: push needs user approval"]
     SHIP --> DONE([Done])
@@ -55,7 +53,7 @@ flowchart TD
 |---|---|---|---|
 | 0 | one-shot or pipeline? | `global/CLAUDE.md` → "Feature workflow" trigger | master session, before its first edit |
 | 2 | sequential or parallel? | `skills/feature-workflow/SKILL.md` → "When to offer (lead only)" | stage 4, after plan approval |
-| 1 | subagents / Workflows / teammates? | `skills/agent-teams/SKILL.md` §2 | after gate 2 answers "parallel" |
+| 1 | subagents / Workflows? | `skills/agent-teams/SKILL.md` §2 | after gate 2 answers "parallel" |
 | 3 | worktree or not? | `skills/agent-teams/SKILL.md` §3 | after gate 1 answers "subagents" |
 
 Gate 1 is numbered out of order on purpose: it is *inside* the parallel branch,
@@ -70,7 +68,6 @@ so gate 2 always precedes it. Gates fire 0 → 2 → 1 → 3.
 | L3 | gate 3 = 2+ writers | `team-executor` ×N | **yes** (frontmatter) | `baseRef: head` | `team-merger` | `team-merger`, explicitly |
 | L4 | gate 3 = read-only | ad-hoc subagents | no | session | n/a — nothing written | n/a |
 | L5 | gate 1 = Workflows | workflow script agents | per script | per script | master | script / master |
-| L6 | gate 1 = teammates | any, spawned named | **no — dropped** | session (shared!) | master | n/a — manual teardown |
 | E1 | gate 3 = exactly 1 writer | — | — | — | — | redirects to **L2** |
 
 ## Invariants to check against
@@ -78,9 +75,7 @@ so gate 2 always precedes it. Gates fire 0 → 2 → 1 → 3.
 These are what a logic review should test. Each should hold on every path above.
 
 1. **No two concurrent writers share a checkout.** Holds on L3 (worktree each).
-   Vacuous on L1/L2/L4. **Violated by design on L6** — teammates share the lead's
-   checkout, which is why L6 requires hand-partitioning files and is marked
-   almost-never.
+   Vacuous on L1/L2/L4.
 2. **Worktree ⟹ something explicitly removes it.** Holds on L3 only, via
    `team-merger`. Neither platform mechanism (no-change auto-removal, the
    `cleanupPeriodDays` sweep) ever fires on an executor worktree, because it has
@@ -97,7 +92,7 @@ These are what a logic review should test. Each should hold on every path above.
 5. **Every executor is named by the plan.** Global CLAUDE.md requires each plan
    step to name its subagent; L2 → `step-executor`, L3 → `team-executor`.
 6. **Once the pipeline is active, the master writes no product code.** Applies
-   from `LOAD` onward — L2 through L6. L1 is the only path where the master
+   from `LOAD` onward — L2 through L5. L1 is the only path where the master
    edits, and it is by definition outside the pipeline.
 7. **Nothing ships without `/codex`, nothing pushes without the user.** Both
    paths converge on one challenge of the whole feature diff after the last
@@ -115,6 +110,3 @@ These are what a logic review should test. Each should hold on every path above.
   can serialize in practice (units colliding on a hub file — observed twice in
   the audit). §3's mitigation is to give a hub file to one unit and prefer
   fewer, larger units.
-- **L6 violates invariant 1 by construction** and is retained only for live
-  dialogue. Every other property it needs (contracts, approvals) is available on
-  L3 without the violation.
