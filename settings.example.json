@@ -1,7 +1,8 @@
 {
   "env": {
     "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5",
-    "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1"
+    "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet"
   },
   "worktree": {
     "baseRef": "head"
