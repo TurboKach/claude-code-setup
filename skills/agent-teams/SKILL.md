@@ -200,7 +200,7 @@ moderate effort; high-volume roles run on Sonnet.
 
 | Role | Spawned as | Model | Effort | Rationale |
 |------|-----------|-------|--------|-----------|
-| Orchestrator (lead) | main session | Fable 5.1 | medium (`/effort medium`, persisted per model) | coordination, transcription, gates; cache re-reads at a quarter of Fable 5's price and half Opus 5's — experiment from 2026-09-02, reviewed after one arc (before: Opus 5, session default) |
+| Orchestrator (lead) | main session | whatever the owner picked at session start — Fable 5.1 recommended | the session's effort — `medium` recommended on Fable 5.1 (persisted per model) | coordination, transcription, gates; Fable's cache re-reads are half Opus 5's price — the Fable-at-medium recommendation is an experiment from 2026-09-02, reviewed after one arc |
 | `team-planner` | subagent | Fable 5.1 | medium | one pass, highest leverage; Fable 5.1 guide: `medium` ≈ Fable 5 quality, and lower effort often beats prior-tier models on cost per task — experiment from 2026-09-02, reviewed after one arc (before: Opus 5 high); returns text, lead transcribes |
 | `team-plan-reviewer` | subagent | Fable 5.1 | medium | validates the plan against the code before the gate; read-only. Same experiment as the planner — the whole-codebase read that justified `high` on Opus is re-tested at Fable's `medium` |
 | `team-executor` | **background subagent** | Sonnet (Opus only when the plan justifies it) | high | token-heavy fan-out; Sonnet 5 guide: high for most work, xhigh only for the hardest |
