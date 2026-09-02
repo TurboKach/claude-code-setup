@@ -153,8 +153,9 @@ settings `env` block.)
   them). Workflows shipped in v2.1.154; no install required.
 - That's it for the pipeline itself — no flags, no extra tools. The
   always-on codex gate (hard gate in global CLAUDE.md) is separate: it needs
-  `codex` (codex-cli) and `gtimeout` (`brew install coreutils`) installed
-  before your first push — the non-interactive installer installs neither.
+  `codex` (codex-cli with `--ephemeral` support, measured on 0.152.0), `gtimeout`
+  (`brew install coreutils`), and `pgrep` installed before your first push —
+  the non-interactive installer installs none of them.
 
 **Recommended for the full workflow:**
 - **gstack** *(optional)* — the workflow references `/office-hours`, `/ship`,

@@ -180,7 +180,8 @@ and reports completion.
      adjacent P2s) → fresh Sonnet fixer on the base branch → re-challenge until
      convergence (feature-workflow stage 5 rules: a P0/P1 round hitting the
      mechanism an earlier round already patched forces the structural branch,
-     two consecutive same-mechanism rounds end the loop;
+     two consecutive same-mechanism rounds end the loop; a third consecutive
+     round of only new mechanisms gets one fix and one final challenge;
      standalone-P2/test-gap/theoretical → one fix-now / defer-to-tech-debt
      question). No further user gates before that.
 ```
