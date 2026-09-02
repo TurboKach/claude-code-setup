@@ -164,7 +164,9 @@ gstack scope-vs-focus-area ambiguity.
 ### Deferred from the codex-challenge arc — 2026-09-02
 
 The stage-5 gate was clean at `ac1424d`; these are the standalone P2/test-gap/theoretical
-lines the owner deferred rather than looped on.
+lines the owner deferred rather than looped on. Round 3 at `5acce42` (exit 0, 1000s) found
+one new P1 in INSTALL.md's readiness line, fixed in the commit that recorded this entry,
+after round 2 had been clean.
 
 1. `[P2 conf:0.5] skills/feature-workflow/scripts/codex-challenge.sh:68 — a pre-planted symlink at the --out path is followed by codex -o and the final redirect → F2 #1`
 2. `[P2 conf:0.5] global/CLAUDE.md:27 — gate hard-codes ~/.claude/… while install.sh honours CLAUDE_HOME (same mismatch as the INSTALL.md Step 0 entry above) → F2 #2`
@@ -176,6 +178,11 @@ lines the owner deferred rather than looped on.
 8. `[conf:0.4] skills/feature-workflow/scripts/codex-challenge.sh:60 — theoretical: no --ephemeral (present on codex-cli 0.152.0, semantics unverified); sessions accumulate on disk → S1 / F2 theoretical #2`
 9. `[conf:0.4] skills/feature-workflow/SKILL.md:18 — theoretical: the unpinned stage-5 launch reads stray uncommitted working-tree state as final code → S2 theoretical #2`
 10. `[conf:0.3] skills/feature-workflow/SKILL.md:22 — theoretical: unpinned slices read the final tree while triage verifies against git show <head>; consistent only while stage 5 has no writer → S2 theoretical #3`
+
+11. `[P2 conf:0.4] skills/feature-workflow/scripts/codex-challenge.sh:47 — the pin's worktree add runs outside the gtimeout wrapper; a hung LFS/smudge filter blocks --pin with no verdict → F3 #2`
+12. `[P2 conf:0.4] skills/feature-workflow/scripts/codex-challenge.sh:45 — the fixed 10 GiB preflight ignores actual checkout and LFS size → F3 #3`
+13. `[P2 conf:0.3] INSTALL.md:16 — readiness checks that codex exists, not that it is authenticated; an unauthenticated codex reads "ready" until the gate fails → F3 #4`
+14. `[conf:0.3] global/CLAUDE.md:49 — theoretical: the one-shot path does not say to commit before gating; an uncommitted one-shot makes <pre-change-sha>..HEAD collapse and the script exits 64 (loud, not silent) → F3 theoretical #1`
 
 Not deferred, because triage itself found it did not reproduce or was already documented: the
 oversized single commit (fallback sentence added in `ac1424d`), "one background Bash" vs split
