@@ -10,7 +10,7 @@ files named in the "Owned by" column. Keep it in sync when those change.
 
 ```mermaid
 flowchart TD
-    START([User request]) --> G0{"<b>Gate 0</b> — master session, before first edit<br/>2+ files OR 2+ steps OR plan file exists OR fan-out?<br/><i>in doubt → yes</i>"}
+    START([User request]) --> G0{"<b>Gate 0</b> — master session, before first edit<br/>design/product/UI/architectural choice OR 4+ files OR irreversible OR plan file exists OR multi-step arc OR fan-out?<br/><i>in doubt → ask in one line</i>"}
 
     G0 -->|no| ONESHOT["<b>One-shot</b><br/>master edits directly<br/>no plan file, no executor, no review cycle"]
     G0 -->|yes| LOAD[["load <b>feature-workflow</b><br/>⇒ pipeline is now ACTIVE"]]
@@ -42,7 +42,7 @@ flowchart TD
     RO --> CODEX
     WF --> CODEX
 
-    CODEX["Stage 5 — ONE <b>codex-challenge.sh</b> &lt;feature-base-sha&gt;..HEAD — P1/P2 fixed, rounds ≤3<br>⛔ hard gate: no ship without a triaged verdict"] --> SHIP["Stage 6 — /ship → /land-and-deploy<br/>⛔ hard gate: push needs user approval"]
+    CODEX["Stage 5 — ONE <b>codex-challenge.sh</b> &lt;feature-base-sha&gt;..HEAD — P1/P2 fixed to convergence<br>⛔ hard gate: no ship without a triaged verdict"] --> SHIP["Stage 6 — /ship → /land-and-deploy<br/>⛔ hard gate: push needs user approval"]
     SHIP --> DONE([Done])
     ONESHOT --> DONE
 ```

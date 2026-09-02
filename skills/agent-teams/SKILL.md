@@ -153,7 +153,7 @@ is merged, and there is no pane or process to tear down.
 
 Every step delegates to a subagent except the lead's own plan-mode transcription
 and gates in step 1; step 2 is the only fan-out (one background subagent per unit).
-Keep the **lead thin**: it coordinates, runs the gates and the codex gate, and ingests summaries — it
+The lead runs the gates and the codex gate, and ingests summaries — it
 does not read large diffs or implement. If the lead starts implementing, stop and
 delegate.
 
@@ -173,20 +173,23 @@ subagent, which has no channel to the user. Resolve the open taste-decisions wit
 one AskUserQuestion first, then present the plan and wait.
 After the plan is approved, executors run, review runs, and the merger lands work
 and reports completion.
+```
 5. CODEX     (lead launches `codex-challenge.sh` as one background Bash; `codex-triage` agent triages)
    → ONE `~/.claude/skills/feature-workflow/scripts/codex-challenge.sh <feature-base-sha>..HEAD`
      on the merged feature diff — full output to a file, triaged verdict shown; P0/P1 (plus
      adjacent P2s) → fresh Sonnet fixer on the base branch → re-challenge until
-     convergence (feature-workflow stage 5 rules: a non-decreasing P0/P1 round
-     forces the structural branch, two non-decreasing rounds end the loop;
+     convergence (feature-workflow stage 5 rules: a P0/P1 round hitting the
+     mechanism an earlier round already patched forces the structural branch,
+     two consecutive same-mechanism rounds end the loop;
      standalone-P2/test-gap/theoretical → one fix-now / defer-to-tech-debt
      question). No further user gates before that.
+```
 
 ## No `/goal`
 
 The approved tail (EXECUTE → REVIEW → MERGE → CODEX) runs unprompted from plan
 approval: the lead spawns, ingests summaries, and moves on without returning to
-the user except at the real gates (a P1 still open at a non-decreasing P0/P1 round, the
+the user except at the real gates (a P1 still open at a same-mechanism-repeat round, the
 test-gap/theoretical fix-or-defer question, push approval). Roles still return
 machine-checkable proof — test exit code + output tail, `git worktree list` /
 `git status`, structured per-unit verdicts — because the lead judges completion
@@ -236,9 +239,9 @@ Every prompt carries:
 - **Acceptance criteria and how to verify them** — the tests or commands that
   prove the unit is done. State them once; no "re-verify" or "double-check"
   rituals.
-- **The worktree/branch** it works in, and the retirement budget verbatim: "if
-  you exceed ~200k context or ~250 turns — commit WIP, write a handoff file to
-  the scratchpad, and stop".
+- **The worktree/branch** it works in. (Retirement is mechanical — each agent's
+  `maxTurns` frontmatter cap; spawn prompts carry no budget line, per
+  feature-workflow's token-discipline rule.)
 - **The model pin** from the table above (`sonnet`, or `opus` only where the
   approved plan marks that unit Opus with a reason) — set via the Agent tool's
   `model:` parameter on the spawn call, not text inside the prompt.
