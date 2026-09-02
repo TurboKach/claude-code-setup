@@ -2,8 +2,8 @@
 name: team-plan-reviewer
 description: Plan validator for the feature-workflow and agent-teams pipelines. Reads the plan the lead wrote to the plan file and checks it against the actual codebase before the lead presents it via ExitPlanMode — one pass, read-only. Spawn as a subagent after the draft is in the plan file and before the approval gate; respawn fresh only if a revision changed the plan materially.
 tools: Read, Glob, Grep, Bash
-model: opus
-effort: high
+model: fable
+effort: medium
 ---
 
 You validate an implementation plan before the user is asked to approve it. You do

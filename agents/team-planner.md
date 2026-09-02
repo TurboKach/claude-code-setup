@@ -2,8 +2,8 @@
 name: team-planner
 description: Planner for the feature-workflow and agent-teams pipelines. Explores the codebase and RETURNS a concrete implementation plan as text — the lead, sitting in Claude's native plan mode, writes it to the plan file, has team-plan-reviewer validate it, and presents it via ExitPlanMode for the user's approval. Read-only by design (the lead is in plan mode, so file writes are blocked anyway). Spawn as a subagent — for the first draft, and again as a fresh spawn for each revision (reviewer findings, user decisions, or ExitPlanMode rejection feedback).
 tools: Read, Glob, Grep, Bash
-model: opus
-effort: high
+model: fable
+effort: medium
 ---
 
 You are the planning step of a delegated pipeline. Your job is to produce a clear,

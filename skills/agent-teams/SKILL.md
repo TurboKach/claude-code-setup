@@ -126,7 +126,7 @@ is merged, and there is no pane or process to tear down.
 
 ```
 1. PLAN      (LEAD in native plan mode; subagents draft + validate)
-   → the LEAD calls EnterPlanMode, then spawns team-planner (opus), which
+   → the LEAD calls EnterPlanMode, then spawns team-planner (fable, medium), which
      RETURNS the plan as text (units, file boundaries, shared contracts, open
      decisions) — subagents can't write files while the lead is in plan mode
    → the LEAD writes it verbatim to the plan file, spawns team-plan-reviewer
@@ -195,18 +195,18 @@ from those, not from prose "done".
 ## Models + effort per role
 
 Per-role `model:` and `effort:` come from the agent definition files and are
-honored when the role runs as a subagent. Effort deviates from the model default:
-judgment roles go **up**, high-volume roles go **down** to save tokens.
+honored when the role runs as a subagent. Judgment roles run on the top tier at
+moderate effort; high-volume roles run on Sonnet.
 
 | Role | Spawned as | Model | Effort | Rationale |
 |------|-----------|-------|--------|-----------|
-| Orchestrator (lead) | main session | Opus | session default | coordination, synthesis, user gate |
-| `team-planner` | subagent | Opus | high | one pass, highest leverage (Opus 5: prior-model effort defaults don't transfer; `high` is the sweet spot); returns text, lead transcribes |
-| `team-plan-reviewer` | subagent | Opus | high | validates the plan against the code before the gate; read-only. `high`, not `team-reviewer`'s `medium`: it reads a plan against the whole codebase, which is exploratory work, not bounded-diff review |
+| Orchestrator (lead) | main session | Fable 5.1 | medium (`/effort medium`, persisted per model) | coordination, transcription, gates; cache re-reads at a quarter of Fable 5's price and half Opus 5's — experiment from 2026-09-02, reviewed after one arc (before: Opus 5, session default) |
+| `team-planner` | subagent | Fable 5.1 | medium | one pass, highest leverage; Fable 5.1 guide: `medium` ≈ Fable 5 quality, and lower effort often beats prior-tier models on cost per task — experiment from 2026-09-02, reviewed after one arc (before: Opus 5 high); returns text, lead transcribes |
+| `team-plan-reviewer` | subagent | Fable 5.1 | medium | validates the plan against the code before the gate; read-only. Same experiment as the planner — the whole-codebase read that justified `high` on Opus is re-tested at Fable's `medium` |
 | `team-executor` | **background subagent** | Sonnet (Opus only when the plan justifies it) | high | token-heavy fan-out; Sonnet 5 guide: high for most work, xhigh only for the hardest |
 | `team-reviewer` | subagent | Opus | medium | adversarial bug-hunting on a bounded diff (Opus 5 review stays accurate at lower effort) |
 | `team-merger` | subagent | Sonnet | medium | mechanical merge/verify |
-| `explorer` | subagent | Sonnet | medium | codebase search, read-only (built-in `Explore` would inherit the lead's model + effort) |
+| `explorer` | subagent | Sonnet | medium | codebase search, read-only (built-in `Explore` runs on the lead's model capped at Opus since 2.1.257) |
 
 The global spawn-pin rule applies; the table above is this pipeline's role→model
 mapping. Override per spawn only when the plan marks a unit Opus with a reason. As background subagents these roles honor their `effort:`

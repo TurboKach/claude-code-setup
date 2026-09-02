@@ -21,9 +21,9 @@ in parallel, no extra setup).
 | `global/rules/` | Path-scoped user rules, installed to `~/.claude/rules/` — load only when a matching file is touched, so they don't add to every session's always-on context |
 | `skills/feature-workflow/SKILL.md` | The six-stage single-master feature pipeline, the parallel-multi-agent mechanism picker, and the token-discipline rules. Loads on demand when a pipeline or fan-out starts (extracted from CLAUDE.md per 5-gen progressive disclosure). |
 | `skills/agent-teams/SKILL.md` | The orchestration playbook — when to fan out, how to pick the mechanism (subagents / Workflows), the pipeline, models, worktree/merge flow, the plan-approval gate. Loads on demand. |
-| `agents/team-planner.md` | Explores and **returns** the plan as text (headless, read-only); the lead — in native plan mode — writes it to the plan file *(Opus)* |
+| `agents/team-planner.md` | Explores and **returns** the plan as text (headless, read-only); the lead — in native plan mode — writes it to the plan file *(Fable 5.1 medium — experiment since 2026-09-02)* |
 | `agents/explorer.md` | Read-only codebase search on Sonnet at effort medium — the pinned stand-in for built-in `Explore` *(Sonnet)* |
-| `agents/team-plan-reviewer.md` | Validates the plan against the code before the lead presents it via `ExitPlanMode` for **your** approval *(Opus)* |
+| `agents/team-plan-reviewer.md` | Validates the plan against the code before the lead presents it via `ExitPlanMode` for **your** approval *(Fable 5.1 medium — experiment since 2026-09-02)* |
 | `agents/team-executor.md` | Implements one unit of a **parallel** fan-out as a background subagent — carries `isolation: worktree` in its frontmatter, since concurrent writers merge later *(Sonnet high; Opus only when the plan justifies it)* |
 | `agents/step-executor.md` | Implements one **sequential** step on the session's own branch — no worktree, nothing to merge; the feature-workflow counterpart to `team-executor` *(Sonnet high; Opus only when the plan justifies it)* |
 | `agents/fixer.md` | Fixes one review round's finding set (P0/P1 plus adjacent P2s) on the session's own branch, test-first red-then-green — a bounded task at a known `file:line`, so it runs cheaper than a plan step *(Sonnet medium; Opus only for a same-mechanism structural fix)* |
@@ -60,10 +60,11 @@ Pick the fan-out mechanism by need: **background subagents** by default;
 is added **only** where agents write in parallel and merge — read-only
 fan-out (review, research) skips it.
 
-Models follow a simple rule: **Opus for judgment** (plan, review), **Sonnet for
-production work** (execute, merge), with Opus available per-spawn for
-architecturally hard units. Executor spawns are sized to one concern each
-(roughly ≤100 tool calls; the plan splits anything bigger).
+Models follow a simple rule: **Fable 5.1 at medium** for the one-pass planning
+roles (plan, plan review), **Opus for diff review**, **Sonnet for production
+work** (execute, merge), with Opus available per-spawn where the plan
+justifies it. Executor spawns are sized to one concern each (roughly ≤100
+tool calls; the plan splits anything bigger).
 
 ## Install
 
@@ -109,12 +110,14 @@ Opt out with `touch ~/.claude/.claude-code-setup/disabled`.
 
 ## Model pinning
 
-The agent files pin models by **alias** (`model: opus` / `model: sonnet`), so
-they keep their semantic tiers — "heavy role" vs "cheap role" — while one env
-var decides which concrete version each alias means. Claude Code resolves the
-aliases through `ANTHROPIC_DEFAULT_OPUS_MODEL` / `ANTHROPIC_DEFAULT_SONNET_MODEL` /
-`ANTHROPIC_DEFAULT_HAIKU_MODEL` everywhere: the main session, agent frontmatter,
-and per-spawn model choices.
+The agent files pin models by **alias** (`model: fable` / `model: opus` /
+`model: sonnet`), so they keep their semantic tiers — "heavy role" vs "cheap
+role" — while one env var decides which concrete version each alias means.
+Claude Code resolves the aliases through `ANTHROPIC_DEFAULT_OPUS_MODEL` /
+`ANTHROPIC_DEFAULT_SONNET_MODEL` / `ANTHROPIC_DEFAULT_HAIKU_MODEL` /
+`ANTHROPIC_DEFAULT_FABLE_MODEL` everywhere: the main session, agent
+frontmatter, and per-spawn model choices. The `fable` alias moved from Fable 5
+to Fable 5.1 in 2.1.257 and is deliberately left unpinned.
 
 `settings.example.json` pins Opus to `claude-opus-5` so a new Opus release
 never silently changes (or re-prices) your agents:
@@ -159,6 +162,7 @@ settings `env` block.)
 
 ## Notes
 
+- **2026-09-02 Fable 5.1 read + planning-role migration:** Claude Code 2.1.252→2.1.258 changelog read; Fable 5.1 became the `fable` default (cache reads $0.25/MTok); master and the two planning roles moved to Fable 5.1 at medium as a one-arc experiment (before: Opus 5 high); `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` recorded as never-set; subagents auto-continue after mid-stream cutoffs since 2.1.257; built-in `Explore` now capped at Opus.
 - **2026-08-25 per-step review + convergence rule (from the clipsy_ios carousel arcs 2–3 + backend forensics):** the end-of-arc codex loop was the dominant cost — arc-2 ran 12 rounds (~1.0M output tokens, as much as the 11-step build) after round 1 met 14 P1s at once; arc-3's loop was 60% of active time with P1s *regressing* 8→8→10 under instance patches until an Opus structural fixer broke the plateau, and the owner had to invent a stop rule live at hour 6. Changes: a per-step codex challenge (backgrounded, pinned worktree, overlapping the next executor) so steps stop building on unreviewed bugs, while the whole-range challenge stays the only gate; a P0/P1/P2 taxonomy (P0 = crash/data-loss/security/core-flow regression, always blocks ship); the fix loop keyed to convergence, not a round count — a non-decreasing P0/P1 round forces the structural branch, two non-decreasing rounds end the loop; adjacent P2s ride with their P1's fixer; one `codex-triage` spawn per round ingests all slices (the arc-2 master hand-deduped slices twice on its way to ~460k context); a `spec-reviewer` pass checks the final range against the plan (per Anthropic's adversarial-review-against-plan practice); test-first red-then-green (the revert dance becomes the fallback — it cost 2 extra xcodebuild runs per fix); worktrees removed at triage-return with a `df` preflight (an ENOSPC burned a round launch); backgrounded long runs get `gtimeout 3600` + a 3-attempt/5-min retry wrapper (a 529 outage cost 3h17m; an unbounded `xcodebuild test` "ran" 6.4h); wake-after-gap drains the notification queue first (an 8.5h-idle session answered "Not sleeping" and re-ran a suite whose finished result sat unconsumed). No char caps anywhere, per eac1896.
 - **2026-08-23 codex run moved into the master (from the clipsy_ios text-as-elements arc, 19 h 53 m):** the `codex-runner` agent lost 3.4 h over two rounds. Its foreground `codex exec` was a compound pipeline with `timeout: 600000`, so the harness *stopped* it at the cap instead of backgrounding it (docs: only simple commands auto-background); its rule then polled a marker file for a run that was already dead, and `ps | grep codex` matched the owner's own interactive `codex` TUI, reading "still alive" for 41 and 103 minutes. A real challenge on the range took 14–22 min, above both the Bash cap and gstack's absolute `gtimeout 600`. Every round that finished ran bare `codex exec` detached. Now the master launches that pipeline as one `run_in_background` Bash on a pinned worktree (the master is the one context re-woken on completion) and spawns `codex-triage` on the notification; the runner agent, its hooks and hook tests are retired. Same session: executors pinned at xhigh ran 514k–627k peak context past a prose budget none obeyed → `effort: high` (Sonnet 5 guide) and `maxTurns` in frontmatter; the plan's full-suite-per-step rule cost 282 `xcodebuild` runs / 207 min → targeted tests per step, full suite once after the last step.
 - **2026-08-22 runner wake-up (from the clipsy_ios Media-Photos session):** a Sonnet runner backgrounded `codex exec`, armed a Monitor, and ended its turn; the completion event was enqueued and never dequeued for nine minutes until the owner typed `?`. Docs confirm `TaskOutput` is gone from subagents (and deprecated everywhere), and a timed-out foreground Bash is moved to the background rather than killed. The rule already in `feature-workflow` ("runner runs codex in the foreground") never reached the session because the one-shot path doesn't load the skill — so it now lives in a `codex-runner` agent whose frontmatter hooks enforce it (`agents/codex-runner.md`, `hooks/codex-runner-hooks.sh`).

@@ -3,7 +3,7 @@
 Sources this kit's doctrine is built on. Facts you can't infer from the code —
 not a reading list.
 
-> **Doctrine validated against Claude Code v2.1.252 — 2026-09-01.**
+> **Doctrine validated against Claude Code v2.1.258 — 2026-09-02.**
 > Re-check when `claude --version` has moved: read the changelog from the stamped
 > version forward, decide what it means for the pipeline, then re-stamp this line.
 > The claims in *Harness* below are version-dependent; the rest are not.
@@ -30,6 +30,11 @@ frontmatter, worktrees, permissions) comes from here and nowhere else.
 | Subagent concurrency caps at 20 | 2.1.217 | `global/CLAUDE.md`, `skills/agent-teams/` |
 | A `maxTurns` stop returns partial output, resumable via `SendMessage` | 2.1.246 | `global/CLAUDE.md` |
 | `CLAUDE_CODE_SUBAGENT_MODEL` is a default; pins and agent `model:` win | 2.1.251 | `settings.example.json`, `global/CLAUDE.md` |
+| Claude Fable 5.1 is the default `fable` model; the alias is deliberately unpinned | 2.1.257 | `agents/team-planner.md`, `agents/team-plan-reviewer.md`, `README.md` |
+| `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` overrides every pin — never set it | 2.1.257 | `global/CLAUDE.md` |
+| Subagents auto-continue after a mid-stream cutoff (sleep, dropped connection, server error) | 2.1.257 | `global/CLAUDE.md` |
+| Built-in `Explore` runs on the session model capped at Opus | 2.1.257 | `agents/explorer.md`, `skills/agent-teams/SKILL.md` |
+| Auto mode prompts once before the first file read outside the working directories (`permissions.blockReadsOutsideWorkingDirectories`, changelog only, untested against pinned review worktrees) | 2.1.257 | nothing yet — hypothesis |
 
 ## Model behavior — what the pipeline is tuned against
 
@@ -38,6 +43,22 @@ frontmatter, worktrees, permissions) comes from here and nowhere else.
   Over-verifies when the prompt also demands verification; delegates to subagents
   readily (cap it); review accuracy holds at medium/low effort; review prompts
   should ask for everything and filter in triage.
+- Prompting Claude Fable 5.1 —
+  <https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-1>
+  Start at `high`; `medium` ≈ Fable 5; `low` often beats Opus/Sonnet on cost per
+  task (untested here — the planning-role experiment is the first measurement).
+  Fable 5 prompts carry over unchanged. Claude Code already injects this guide's
+  snippets (progress updates, tool-call batching, finish-the-whole-task,
+  delivering-work scope), so the kit does not repeat them.
+- What's new in Claude Fable 5.1 —
+  <https://platform.claude.com/docs/en/models/fable-5-1/whats-new-fable-5-1>
+  Cache reads $0.25/MTok; behavior shifts vs Fable 5 (fewer progress updates,
+  one tool call per turn in coding loops, whole-file rewrites, extra tests and
+  scope).
+- Deliberate deviation: the Fable guides favor long-lived subagents for
+  cache-read savings; this kit keeps per-unit disposable agents because
+  measured burn grows with agent lifetime (see the token-discipline rules).
+  Evidence-backed, not an oversight.
 - The new rules of context engineering for Claude 5 —
   <https://claude.com/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models>
   Trust the model's judgment over prescriptive style rules; keep `CLAUDE.md` to
@@ -70,7 +91,7 @@ subagent setting. (No `llms.txt`; fetch the index page.)
 
 ## Checking these links
 
-All URLs above returned 200 on 2026-09-01. A 404 in a references file is worse
+All URLs above returned 200 on 2026-09-02. A 404 in a references file is worse
 than no references file, so re-check with the stamp:
 
 ```sh
