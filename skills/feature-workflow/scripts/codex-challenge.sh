@@ -10,12 +10,18 @@ usage="usage: codex-challenge.sh <base>..<head> [--pin] [--trace] [--out FILE]"
 if [ $# -eq 0 ]; then echo "$usage" >&2; exit 64; fi
 range=$1; shift
 case "$range" in *..*) ;; *) echo "$usage" >&2; exit 64;; esac
+case "${range#*..}" in *..*) echo "$usage" >&2; exit 64;; esac
 pin=0; trace=(); out=""
-while [ $# -gt 0 ]; do case "$1" in --pin) pin=1;; --trace) trace=(--json);; --out) out=$2; shift;; *) echo "unknown arg $1" >&2; exit 64;; esac; shift; done
+while [ $# -gt 0 ]; do case "$1" in
+  --pin) pin=1;;
+  --trace) trace=(--json);;
+  --out) [ $# -ge 2 ] || { echo "$usage" >&2; exit 64; }; case "$2" in --*) echo "$usage" >&2; exit 64;; esac; out=$2; shift;;
+  *) echo "unknown arg $1" >&2; exit 64;;
+esac; shift; done
 repo=$(git rev-parse --show-toplevel)
 base=$(git -C "$repo" rev-parse --verify "${range%%..*}^{commit}")
 head=$(git -C "$repo" rev-parse --verify "${range##*..}^{commit}")
-out=${out:-$(mktemp "${TMPDIR:-/tmp}/codex-challenge-${head:0:8}-XXXXXX.md")}
+out=${out:-$(mktemp -d "${TMPDIR:-/tmp}/codex-challenge-${head:0:8}-XXXXXX")/verdict.md}
 case "$out" in /*) ;; *) out="$repo/$out";; esac
 mkdir -p "$(dirname "$out")"
 [ "$base" != "$head" ] || { echo "usage: codex-challenge.sh <base>..<head> [--pin] [--trace] [--out FILE] (base and head resolve to the same commit)" >&2; exit 64; }
@@ -23,7 +29,7 @@ git -C "$repo" merge-base --is-ancestor "$base" "$head" || { echo "base is not a
 to=$(command -v gtimeout || command -v timeout) || { echo "gtimeout missing: brew install coreutils" >&2; exit 67; }
 dir=$repo
 if [ "$pin" = 1 ]; then
-  repo_id=$(printf '%s' "$repo" | shasum -a 256 | cut -c1-12)
+  repo_id=$(printf '%s' "$repo" | git hash-object --stdin | cut -c1-12)
   scratch=${TMPDIR:-/tmp}/codex-challenge/$repo_id
   mkdir -p "$scratch"
   # A SIGKILLed run never reaches the trap: drop worktrees git no longer tracks, then any review-* dir
