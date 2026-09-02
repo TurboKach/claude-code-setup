@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # codex-challenge.sh <base>..<head> [--pin] [--trace] [--out FILE]
 # Adversarial cross-model review of exactly one commit range. Needs: codex, git, gtimeout.
-# --out must be an absolute path: codex -o resolves against the process cwd (this script never cd's; -C does not change it).
+# --out may be relative: it is resolved against the repo root (git rev-parse --show-toplevel) at parse time,
+# because codex -o resolves against the process cwd (this script never cd's; -C does not change it) and a caller's cwd is not guaranteed.
 # --pin   review a detached worktree at <head> (use whenever a writer is in flight in the live tree).
 # --trace pass --json to codex; the event stream lands in <out>.log.
 set -euo pipefail
@@ -16,6 +17,7 @@ head=$(git -C "$repo" rev-parse --verify "${range##*..}^{commit}")
 git -C "$repo" merge-base --is-ancestor "$base" "$head" || { echo "base is not an ancestor of head (history rewritten past the feature base?)" >&2; exit 65; }
 to=$(command -v gtimeout || command -v timeout) || { echo "gtimeout missing: brew install coreutils" >&2; exit 67; }
 out=${out:-${TMPDIR:-/tmp}/codex-challenge-${head:0:8}-$$.md}
+case "$out" in /*) ;; *) out="$repo/$out";; esac
 dir=$repo
 if [ "$pin" = 1 ]; then
   repo_id=$(printf '%s' "$repo" | shasum -a 256 | cut -c1-12)
