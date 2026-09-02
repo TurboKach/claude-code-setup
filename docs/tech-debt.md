@@ -184,6 +184,8 @@ after round 2 had been clean.
 13. `[conf:0.4] skills/feature-workflow/scripts/codex-challenge.sh — no committed self-test; fixers rebuild throwaway stubs each arc, and one accidentally started a real codex invocation → B5`
 14. `[P2 conf:0.3] skills/feature-workflow/scripts/codex-challenge.sh:33,49 — the pin scratch directory and worktree are created under the default umask, world-readable on a shared machine → F2 (never triaged)`
 15. `global/CLAUDE.md:26 — push-approval gate is prose-only, no PreToolUse hook. Considered and rejected: no push-without-approval incident is recorded; gstack's question-preference hook shows marker-based gating is feasible if one ever occurs → C5`
+16. `[P2 conf:0.4] codex-challenge.sh:69 — rm -f "$out" then >"$out" leaves a symlink TOCTOU window for a local attacker sharing the directory → evaluation round 1`
+17. `[conf:0.5] SKILL.md:18 — theoretical: convergence keys on mechanism identity across rounds, but triage spawns see one round and verdicts carry no stable mechanism id; the master matches by text → evaluation round 1`
 
 Not deferred, because triage itself found it did not reproduce or was already documented: the
 oversized single commit (fallback sentence added in `ac1424d`), "one background Bash" vs split

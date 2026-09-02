@@ -3,3 +3,5 @@ settings.local.json
 .backup-*
 *.bak
 .DS_Store
+docs/reviews/**/*.log
+docs/reviews/**/*.msg

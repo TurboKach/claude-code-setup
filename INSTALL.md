@@ -13,7 +13,7 @@ Run these and show the user a short status summary:
 ```bash
 claude --version                                  # need >= 2.1.186 (background permission prompts)
 ls -d ~/.claude/skills/gstack 2>/dev/null && echo "gstack: present" || echo "gstack: missing"
-command -v codex >/dev/null && { command -v gtimeout || command -v timeout; } >/dev/null && echo "codex gate: ready" || echo "codex gate: needs codex-cli + GNU timeout (macOS: brew install coreutils)"
+command -v codex >/dev/null && { command -v gtimeout || command -v timeout; } >/dev/null && codex exec --help 2>/dev/null | grep -q -- --ephemeral && echo "codex gate: ready" || echo "codex gate: needs codex-cli + GNU timeout (macOS: brew install coreutils)"
 test -f ~/.claude/CLAUDE.md && echo "CLAUDE.md: exists" || echo "CLAUDE.md: none"
 ```
 

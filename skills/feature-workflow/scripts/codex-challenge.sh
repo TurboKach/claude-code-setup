@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # codex-challenge.sh <base>..<head> [--pin] [--trace] [--out FILE]
-# Adversarial cross-model review of exactly one commit range. Needs: codex, git, gtimeout.
+# Adversarial cross-model review of exactly one commit range. Needs: codex, git, gtimeout, pgrep (--pin only).
 # --out may be relative: it is resolved against the repo root (git rev-parse --show-toplevel) at parse time,
 # because codex -o resolves against the process cwd (this script never cd's; -C does not change it) and a caller's cwd is not guaranteed.
 # --pin   review a detached worktree at <head> (use whenever a writer is in flight in the live tree).
@@ -29,6 +29,7 @@ git -C "$repo" merge-base --is-ancestor "$base" "$head" || { echo "base is not a
 to=$(command -v gtimeout || command -v timeout) || { echo "gtimeout missing: brew install coreutils" >&2; exit 67; }
 dir=$repo
 if [ "$pin" = 1 ]; then
+  command -v pgrep >/dev/null || { echo "pgrep missing" >&2; exit 67; }
   repo_id=$(printf '%s' "$repo" | git hash-object --stdin | cut -c1-12)
   scratch=${TMPDIR:-/tmp}/codex-challenge/$repo_id
   mkdir -p "$scratch"
@@ -38,9 +39,11 @@ if [ "$pin" = 1 ]; then
   for d in "$scratch"/review-*; do
     [ -d "$d" ] || continue
     pid=${d##*-}
-    # pgrep -f matches process argv against a regex; the scratch path is hex and slashes only
-    # (no regex metacharacters), so treating it as a literal pattern here is safe.
-    { kill -0 "$pid" 2>/dev/null || pgrep -qf -- "$d"; } && continue
+    # pgrep -f matches process argv against a regex. $d itself embeds $TMPDIR, which is caller-controlled
+    # and may hold metacharacters, so match on the known-safe tail instead: repo_id is a hex hash-object
+    # digest and the review-<headshort>-<pid> suffix is hex, digits and dashes only, no regex metachars.
+    suffix="codex-challenge/$repo_id/review-${d##*/review-}"
+    { kill -0 "$pid" 2>/dev/null || pgrep -qf -- "$suffix"; } && continue
     git -C "$repo" worktree remove --force "$d" >/dev/null 2>&1 || true
     rm -rf "$d"
   done
