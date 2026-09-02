@@ -17,7 +17,7 @@ in parallel, no extra setup).
 
 | Path | What it is |
 |------|-----------|
-| `global/CLAUDE.md` | Lean always-on layer: principles (think-before-coding, simplicity, surgical changes), the hard gates (push approval, `/codex` merge gate, AFK-not-approval), and a pointer to the feature-workflow skill. Lives under `global/` so working sessions in this repo don't load it twice alongside `~/.claude/CLAUDE.md` |
+| `global/CLAUDE.md` | Lean always-on layer: principles (think-before-coding, simplicity, surgical changes), the hard gates (push approval, codex gate, AFK-not-approval), and a pointer to the feature-workflow skill. Lives under `global/` so working sessions in this repo don't load it twice alongside `~/.claude/CLAUDE.md` |
 | `global/rules/` | Path-scoped user rules, installed to `~/.claude/rules/` — load only when a matching file is touched, so they don't add to every session's always-on context |
 | `skills/feature-workflow/SKILL.md` | The six-stage single-master feature pipeline, the parallel-multi-agent mechanism picker, and the token-discipline rules. Loads on demand when a pipeline or fan-out starts (extracted from CLAUDE.md per 5-gen progressive disclosure). |
 | `skills/agent-teams/SKILL.md` | The orchestration playbook — when to fan out, how to pick the mechanism (subagents / Workflows), the pipeline, models, worktree/merge flow, the plan-approval gate. Loads on demand. |
@@ -27,7 +27,7 @@ in parallel, no extra setup).
 | `agents/team-executor.md` | Implements one unit of a **parallel** fan-out as a background subagent — carries `isolation: worktree` in its frontmatter, since concurrent writers merge later *(Sonnet high; Opus only when the plan justifies it)* |
 | `agents/step-executor.md` | Implements one **sequential** step on the session's own branch — no worktree, nothing to merge; the feature-workflow counterpart to `team-executor` *(Sonnet high; Opus only when the plan justifies it)* |
 | `agents/fixer.md` | Fixes one review round's finding set (P0/P1 plus adjacent P2s) on the session's own branch, test-first red-then-green — a bounded task at a known `file:line`, so it runs cheaper than a plan step *(Sonnet medium; Opus only for a same-mechanism structural fix)* |
-| `agents/codex-triage.md` | Reads one round's `/codex challenge` output file(s) — all slices of a split round — checks each finding against the pinned checkout, and returns the single ≤2k deduped verdict; the run itself is a background Bash in the master, the only context the harness re-wakes on completion *(Sonnet medium)* |
+| `agents/codex-triage.md` | Reads one round's `codex-challenge.sh` output file(s) — all slices of a split round — verifies each finding against `git show <head>:<path>` and `git diff <base> <head>`, and returns the single ≤2k deduped verdict; the run itself is a background Bash in the master, the only context the harness re-wakes on completion *(Sonnet medium)* |
 | `agents/spec-reviewer.md` | At the final gate, checks the feature's whole diff against the approved plan file — missing requirements, scope creep, wrong-logic-vs-spec; gaps only, in parallel with the whole-range codex challenge *(Sonnet medium)* |
 | `agents/team-reviewer.md` | Adversarially verifies each diff before merge — read-only, no worktree *(Opus)* |
 | `agents/team-merger.md` | Merges approved worktrees into the base branch, removes each worktree + branch after landing, reports done *(Sonnet)* |
@@ -53,7 +53,7 @@ PLAN (lead in plan mode: planner drafts → plan-reviewer validates → ExitPlan
 EXECUTE (N executor subagents, parallel, in worktrees)  ← contracts baked into each spawn prompt; no cross-talk
 REVIEW (reviewer, read-only — no worktree)                 │
 MERGE (merger) → removes each worktree+branch, reports completion
-CODEX (lead) → one Skill(codex, "challenge <feature-base>..HEAD") ─┘   ← triaged verdict, P0/P1 fixed
+CODEX (lead) → one codex-challenge.sh <feature-base>..HEAD ─┘   ← triaged verdict, P0/P1 fixed
 ```
 
 Pick the fan-out mechanism by need: **background subagents** by default;
@@ -152,17 +152,19 @@ settings `env` block.)
 - That's it — no flags, no extra tools.
 
 **Recommended for the full workflow:**
-- **gstack** *(optional)* — the workflow references `/office-hours`, `/codex`,
-  `/ship`, `/context-save`, etc. Install:
+- **gstack** *(optional)* — the workflow references `/office-hours`, `/ship`,
+  `/context-save`, `/browse`, etc. Install:
   ```bash
   git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack \
     && cd ~/.claude/skills/gstack && ./setup
   ```
-  Without gstack the team still works — skip the codex gate (say so) and use
-  plain git/PR commands for the ship steps.
+  Without gstack the team still works — use plain git/PR commands for the ship
+  steps. The codex gate needs `codex` (codex-cli) and `gtimeout`
+  (`brew install coreutils`), not gstack.
 
 ## Notes
 
+- **2026-09-02 `codex-challenge.sh` replaces the gstack codex path (from the 2026-09-01 backend and clipsy session transcripts and 111 verdict files):** the `Skill(codex, "challenge <range>")` path never ran — gstack would have treated the range as a focus area and diffed `origin/<default>`, so each master loaded the 102 KB skill once and then hand-assembled every launch (14 in the backend arc, three parser variants, 13 without the `[codex ran]` audit lines); every recorded run did diff the explicit range anyway. Replaced by the kit-owned `codex-challenge.sh`: one deterministic call, range in the prompt, `--trace` for the audit trail, pin/timeout/retry encoded.
 - **2026-09-02 Fable 5.1 read + planning-role migration:** Claude Code 2.1.252→2.1.258 changelog read; Fable 5.1 became the `fable` default (cache reads $0.25/MTok); master and the two planning roles moved to Fable 5.1 at medium as a one-arc experiment (before: Opus 5 high); `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` recorded as never-set; subagents auto-continue after mid-stream cutoffs since 2.1.257; built-in `Explore` now capped at Opus.
 - **2026-08-25 per-step review + convergence rule (from the clipsy_ios carousel arcs 2–3 + backend forensics):** the end-of-arc codex loop was the dominant cost — arc-2 ran 12 rounds (~1.0M output tokens, as much as the 11-step build) after round 1 met 14 P1s at once; arc-3's loop was 60% of active time with P1s *regressing* 8→8→10 under instance patches until an Opus structural fixer broke the plateau, and the owner had to invent a stop rule live at hour 6. Changes: a per-step codex challenge (backgrounded, pinned worktree, overlapping the next executor) so steps stop building on unreviewed bugs, while the whole-range challenge stays the only gate; a P0/P1/P2 taxonomy (P0 = crash/data-loss/security/core-flow regression, always blocks ship); the fix loop keyed to convergence, not a round count — a non-decreasing P0/P1 round forces the structural branch, two non-decreasing rounds end the loop; adjacent P2s ride with their P1's fixer; one `codex-triage` spawn per round ingests all slices (the arc-2 master hand-deduped slices twice on its way to ~460k context); a `spec-reviewer` pass checks the final range against the plan (per Anthropic's adversarial-review-against-plan practice); test-first red-then-green (the revert dance becomes the fallback — it cost 2 extra xcodebuild runs per fix); worktrees removed at triage-return with a `df` preflight (an ENOSPC burned a round launch); backgrounded long runs get `gtimeout 3600` + a 3-attempt/5-min retry wrapper (a 529 outage cost 3h17m; an unbounded `xcodebuild test` "ran" 6.4h); wake-after-gap drains the notification queue first (an 8.5h-idle session answered "Not sleeping" and re-ran a suite whose finished result sat unconsumed). No char caps anywhere, per eac1896.
 - **2026-08-23 codex run moved into the master (from the clipsy_ios text-as-elements arc, 19 h 53 m):** the `codex-runner` agent lost 3.4 h over two rounds. Its foreground `codex exec` was a compound pipeline with `timeout: 600000`, so the harness *stopped* it at the cap instead of backgrounding it (docs: only simple commands auto-background); its rule then polled a marker file for a run that was already dead, and `ps | grep codex` matched the owner's own interactive `codex` TUI, reading "still alive" for 41 and 103 minutes. A real challenge on the range took 14–22 min, above both the Bash cap and gstack's absolute `gtimeout 600`. Every round that finished ran bare `codex exec` detached. Now the master launches that pipeline as one `run_in_background` Bash on a pinned worktree (the master is the one context re-woken on completion) and spawns `codex-triage` on the notification; the runner agent, its hooks and hook tests are retired. Same session: executors pinned at xhigh ran 514k–627k peak context past a prose budget none obeyed → `effort: high` (Sonnet 5 guide) and `maxTurns` in frontmatter; the plan's full-suite-per-step rule cost 282 `xcodebuild` runs / 207 min → targeted tests per step, full suite once after the last step.

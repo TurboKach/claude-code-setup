@@ -319,7 +319,7 @@ say "just restart Claude Code and ask for parallel work."
 cat <<'EOF'
 
 Recommended for the full workflow:
-  - gstack for /office-hours, /codex, /ship, /context-save, etc.:
+  - gstack for /office-hours, /ship, /context-save, etc.:
       git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack \
         && cd ~/.claude/skills/gstack && ./setup
 EOF

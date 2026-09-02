@@ -94,7 +94,7 @@ units over more, smaller colliding ones.
 
 **Why review needs a separable diff.** `team-reviewer` reviews "its worktree
 diff" and `team-merger` merges each unit in turn after approval; the global
-`/codex` ship gate challenges the merged feature diff once, but the reviewer
+codex gate challenges the merged feature diff once, but the reviewer
 still needs a per-unit diff. With 2+ concurrent writers sharing one checkout there is no per-unit
 diff to review or merge independently, and a unit that fails review can't be
 dropped without untangling it from the others it shares a tree with.
@@ -153,7 +153,7 @@ is merged, and there is no pane or process to tear down.
 
 Every step delegates to a subagent except the lead's own plan-mode transcription
 and gates in step 1; step 2 is the only fan-out (one background subagent per unit).
-Keep the **lead thin**: it coordinates, runs the gates and the single codex challenge, and ingests summaries — it
+Keep the **lead thin**: it coordinates, runs the gates and the codex gate, and ingests summaries — it
 does not read large diffs or implement. If the lead starts implementing, stop and
 delegate.
 
@@ -173,9 +173,9 @@ subagent, which has no channel to the user. Resolve the open taste-decisions wit
 one AskUserQuestion first, then present the plan and wait.
 After the plan is approved, executors run, review runs, and the merger lands work
 and reports completion.
-5. CODEX     (lead launches `codex exec` as one background Bash; `codex-triage` agent triages)
-   → ONE `Skill(codex, "challenge <feature-base>..<base-HEAD>")` on the merged
-     feature diff — full output to a file, triaged verdict shown; P0/P1 (plus
+5. CODEX     (lead launches `codex-challenge.sh` as one background Bash; `codex-triage` agent triages)
+   → ONE `~/.claude/skills/feature-workflow/scripts/codex-challenge.sh <feature-base-sha>..HEAD`
+     on the merged feature diff — full output to a file, triaged verdict shown; P0/P1 (plus
      adjacent P2s) → fresh Sonnet fixer on the base branch → re-challenge until
      convergence (feature-workflow stage 5 rules: a non-decreasing P0/P1 round
      forces the structural branch, two non-decreasing rounds end the loop;
@@ -186,7 +186,7 @@ and reports completion.
 
 The approved tail (EXECUTE → REVIEW → MERGE → CODEX) runs unprompted from plan
 approval: the lead spawns, ingests summaries, and moves on without returning to
-the user except at the real gates (a P1 still open at codex round 3, the
+the user except at the real gates (a P1 still open at a non-decreasing P0/P1 round, the
 test-gap/theoretical fix-or-defer question, push approval). Roles still return
 machine-checkable proof — test exit code + output tail, `git worktree list` /
 `git status`, structured per-unit verdicts — because the lead judges completion
@@ -279,7 +279,7 @@ scales to many units, cross-checks results, and resumes if interrupted.
 
 ## Relationship to the feature workflow
 
-This is the parallel-execution variant of the `feature-workflow` skill's pipeline; its stage-5 codex rules (per-feature range, P0/P1 convergence loop, tech-debt deferral) apply verbatim.
+This is the parallel-execution variant of the `feature-workflow` skill's pipeline; its stage-5 codex gate rules (per-feature range, P0/P1 convergence loop, tech-debt deferral) apply verbatim.
 Planning (`/office-hours`, native plan mode) and shipping (`/ship`,
 `/land-and-deploy`) are unchanged; fan-out only replaces the execute phase's
 sequential per-step subagents with parallel agents when the steps are

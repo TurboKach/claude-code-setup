@@ -42,7 +42,7 @@ flowchart TD
     RO --> CODEX
     WF --> CODEX
 
-    CODEX["Stage 5 — ONE <b>/codex challenge</b> on the feature diff<br>(&lt;feature-base-sha&gt;..HEAD) — P1/P2 fixed, rounds ≤3<br>⛔ hard gate: no ship without a triaged verdict"] --> SHIP["Stage 6 — /ship → /land-and-deploy<br/>⛔ hard gate: push needs user approval"]
+    CODEX["Stage 5 — ONE <b>codex-challenge.sh</b> &lt;feature-base-sha&gt;..HEAD — P1/P2 fixed, rounds ≤3<br>⛔ hard gate: no ship without a triaged verdict"] --> SHIP["Stage 6 — /ship → /land-and-deploy<br/>⛔ hard gate: push needs user approval"]
     SHIP --> DONE([Done])
     ONESHOT --> DONE
 ```
@@ -94,7 +94,7 @@ These are what a logic review should test. Each should hold on every path above.
 6. **Once the pipeline is active, the master writes no product code.** Applies
    from `LOAD` onward — L2 through L5. L1 is the only path where the master
    edits, and it is by definition outside the pipeline.
-7. **Nothing ships without `/codex`, nothing pushes without the user.** Both
+7. **Nothing ships without the codex gate, nothing pushes without the user.** Both
    paths converge on one challenge of the whole feature diff after the last
    step/merge.
 

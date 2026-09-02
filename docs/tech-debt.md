@@ -152,3 +152,11 @@ stage 5 is then written against. Guessing gstack's intended argument shape from
 this side would encode the wrong contract. Surfaced by the round-1 codex
 challenge on the 2026-08-21 wall-clock doctrine edits, while verifying an
 unrelated claim about challenge-mode diff scoping; not yet reported upstream.
+
+**Resolved 2026-09-02:** measured (2026-09-01 backend and clipsy session
+transcripts, 111 verdict files) — no recorded run ever diffed `origin/`;
+masters bypassed the gstack path by hand-assembling each launch, which
+drifted (three parser variants, 13 of 14 losing the `[codex ran]` audit
+lines). `skills/feature-workflow/scripts/codex-challenge.sh` now owns the
+invocation: one deterministic `codex exec` call on the explicit range, no
+gstack scope-vs-focus-area ambiguity.

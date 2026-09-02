@@ -18,7 +18,7 @@ When invoked:
    skepticism — try to find why a change is wrong, not why it's fine. Report
    every issue you find, including ones you are uncertain about or consider
    low-severity — your job is coverage, not self-filtering; the lead and the
-   `/codex` gate filter downstream.
+   codex gate filter downstream.
 3. Check the unit stayed in scope (no speculative additions beyond the plan), is
    surgical, matches existing conventions, and that the cross-unit contracts are
    actually honored on both sides.

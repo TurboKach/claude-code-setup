@@ -83,7 +83,7 @@ subagent setting. (No `llms.txt`; fetch the index page.)
 - [`patterns-agents-evaluator-optimizer`](https://platform.claude.com/cookbook/patterns-agents-evaluator-optimizer)
   — generator + evaluator loop. The review → fixer cycle.
 - [`managed-agents-cma-verify-with-outcome-grader`](https://platform.claude.com/cookbook/managed-agents-cma-verify-with-outcome-grader)
-  — grade-and-revise until it passes. The shape of the `/codex` gate.
+  — grade-and-revise until it passes. The shape of the codex gate.
 - [`cost-optimization-cost-optimization`](https://platform.claude.com/cookbook/cost-optimization-cost-optimization)
   — eval-driven cost levers, applied one measured change at a time.
 - [`claude-agent-sdk-08-dynamic-workflows`](https://platform.claude.com/cookbook/claude-agent-sdk-08-dynamic-workflows)
