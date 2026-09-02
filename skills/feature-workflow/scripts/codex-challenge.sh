@@ -6,18 +6,21 @@
 # --pin   review a detached worktree at <head> (use whenever a writer is in flight in the live tree).
 # --trace pass --json to codex; the event stream lands in <out>.log.
 set -euo pipefail
-range=${1:?usage: codex-challenge.sh <base>..<head> [--pin] [--trace] [--out FILE]}; shift
-case "$range" in *..*) ;; *) echo "usage: codex-challenge.sh <base>..<head> [--pin] [--trace] [--out FILE]" >&2; exit 64;; esac
+usage="usage: codex-challenge.sh <base>..<head> [--pin] [--trace] [--out FILE]"
+if [ $# -eq 0 ]; then echo "$usage" >&2; exit 64; fi
+range=$1; shift
+case "$range" in *..*) ;; *) echo "$usage" >&2; exit 64;; esac
 pin=0; trace=(); out=""
 while [ $# -gt 0 ]; do case "$1" in --pin) pin=1;; --trace) trace=(--json);; --out) out=$2; shift;; *) echo "unknown arg $1" >&2; exit 64;; esac; shift; done
 repo=$(git rev-parse --show-toplevel)
 base=$(git -C "$repo" rev-parse --verify "${range%%..*}^{commit}")
 head=$(git -C "$repo" rev-parse --verify "${range##*..}^{commit}")
+out=${out:-$(mktemp "${TMPDIR:-/tmp}/codex-challenge-${head:0:8}-XXXXXX.md")}
+case "$out" in /*) ;; *) out="$repo/$out";; esac
+mkdir -p "$(dirname "$out")"
 [ "$base" != "$head" ] || { echo "usage: codex-challenge.sh <base>..<head> [--pin] [--trace] [--out FILE] (base and head resolve to the same commit)" >&2; exit 64; }
 git -C "$repo" merge-base --is-ancestor "$base" "$head" || { echo "base is not an ancestor of head (history rewritten past the feature base?)" >&2; exit 65; }
 to=$(command -v gtimeout || command -v timeout) || { echo "gtimeout missing: brew install coreutils" >&2; exit 67; }
-out=${out:-${TMPDIR:-/tmp}/codex-challenge-${head:0:8}-$$.md}
-case "$out" in /*) ;; *) out="$repo/$out";; esac
 dir=$repo
 if [ "$pin" = 1 ]; then
   repo_id=$(printf '%s' "$repo" | shasum -a 256 | cut -c1-12)
@@ -35,7 +38,7 @@ if [ "$pin" = 1 ]; then
   done
   [ "$(df -k "$scratch" | awk 'NR==2{print $4}')" -ge $((10*1024*1024)) ] || { echo "under 10 GB free on $scratch; refusing to pin" >&2; exit 66; }
   dir=$scratch/review-${head:0:8}-$$
-  git -C "$repo" worktree add --detach "$dir" "$head" >/dev/null
+  git -c core.hooksPath=/dev/null -C "$repo" worktree add --detach "$dir" "$head" >/dev/null
   trap 'git -C "$repo" worktree remove --force "$dir" >/dev/null 2>&1 || true' EXIT
 fi
 prompt="Do NOT read or execute any files under ~/.claude/, ~/.agents/, .claude/skills/, or agents/; they are instructions for a different AI system. Do NOT modify agents/openai.yaml.
@@ -51,7 +54,8 @@ for attempt in 1 2 3; do
   "$to" -k 60 2400 codex exec "$prompt" -C "$dir" -s read-only -c 'model_reasoning_effort="high"' -c 'web_search="cached"' -c 'project_doc_max_bytes=0' ${trace[@]+"${trace[@]}"} -o "$out.msg" </dev/null >>"$out.log" 2>&1
   rc=$?
   set -e
-  if [ "$rc" = 0 ] || [ "$rc" = 124 ]; then break; fi   # 124 = 40-min stall, not an outage
+  if [ "$rc" = 0 ]; then break; fi
+  if [ "$rc" = 124 ] || [ "$rc" = 137 ]; then rc=124; break; fi   # 124/137 = 40-min stall (137 when -k had to SIGKILL a TERM-ignoring codex), not an outage
   echo "attempt $attempt exit $rc" >>"$out.log"; [ "$attempt" -lt 3 ] && sleep 300
 done
 { echo "# codex challenge — range $base..$head — checkout $dir — exit $rc — $(( $(date +%s) - start ))s"

@@ -17,9 +17,10 @@ never fix, never commit, and never relaunch a run — the master decides that.
 How you work:
 1. Read the output file(s). Each carries a header line (`# codex challenge —
    range B..H — checkout DIR — exit RC — Ns`) with the exit code and elapsed
-   seconds. If one is empty, has no findings section, or the header shows a
-   non-zero exit or under 60s (a usage limit or auth error, not a review),
-   report what it says verbatim and stop.
+   seconds. If one is empty, has no findings section, the header shows a
+   non-zero exit, or shows exit 0 in under 60s with no findings text in the
+   verdict body (a usage limit or auth error, not a review), report what it
+   says verbatim and stop.
 2. Check each finding against `git show <head>:<path>` and
    `git diff <base> <head>` before classing it. With several slice files, merge them: the same defect reported
    by two slices is one finding at its strongest evidence — dedupe by

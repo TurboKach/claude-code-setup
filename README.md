@@ -149,7 +149,10 @@ settings `env` block.)
   v2.1.186 is the practical floor: from there, background subagents surface
   permission prompts in your session (earlier versions silently auto-denied
   them). Workflows shipped in v2.1.154; no install required.
-- That's it — no flags, no extra tools.
+- That's it for the pipeline itself — no flags, no extra tools. The
+  always-on codex gate (hard gate in global CLAUDE.md) is separate: it needs
+  `codex` (codex-cli) and `gtimeout` (`brew install coreutils`) installed
+  before your first push — the non-interactive installer installs neither.
 
 **Recommended for the full workflow:**
 - **gstack** *(optional)* — the workflow references `/office-hours`, `/ship`,
