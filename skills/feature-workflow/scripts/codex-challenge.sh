@@ -38,11 +38,13 @@ if [ "$pin" = 1 ]; then
   for d in "$scratch"/review-*; do
     [ -d "$d" ] || continue
     pid=${d##*-}
-    kill -0 "$pid" 2>/dev/null && continue
+    # pgrep -f matches process argv against a regex; the scratch path is hex and slashes only
+    # (no regex metacharacters), so treating it as a literal pattern here is safe.
+    { kill -0 "$pid" 2>/dev/null || pgrep -qf -- "$d"; } && continue
     git -C "$repo" worktree remove --force "$d" >/dev/null 2>&1 || true
     rm -rf "$d"
   done
-  [ "$(df -k "$scratch" | awk 'NR==2{print $4}')" -ge $((10*1024*1024)) ] || { echo "under 10 GB free on $scratch; refusing to pin" >&2; exit 66; }
+  [ "$(df -k "$scratch" | awk 'NR==2{print $4}')" -ge $((2*1024*1024)) ] || { echo "under 2 GB free on $scratch; refusing to pin" >&2; exit 66; }
   dir=$scratch/review-${head:0:8}-$$
   git -c core.hooksPath=/dev/null -C "$repo" worktree add --detach "$dir" "$head" >/dev/null
   trap 'git -C "$repo" worktree remove --force "$dir" >/dev/null 2>&1 || true' EXIT
@@ -57,13 +59,14 @@ start=$(date +%s); rc=1
 for attempt in 1 2 3; do
   set +e
   echo "=== attempt $attempt ===" >>"$out.log"
-  "$to" -k 60 2400 codex exec "$prompt" -C "$dir" -s read-only -c 'model_reasoning_effort="high"' -c 'web_search="cached"' -c 'project_doc_max_bytes=0' ${trace[@]+"${trace[@]}"} -o "$out.msg" </dev/null >>"$out.log" 2>&1
+  "$to" -k 60 2400 codex exec "$prompt" -C "$dir" -s read-only --ephemeral -c 'model_reasoning_effort="high"' -c 'web_search="cached"' -c 'project_doc_max_bytes=0' ${trace[@]+"${trace[@]}"} -o "$out.msg" </dev/null >>"$out.log" 2>&1
   rc=$?
   set -e
   if [ "$rc" = 0 ]; then break; fi
   if [ "$rc" = 124 ] || [ "$rc" = 137 ]; then rc=124; break; fi   # 124/137 = 40-min stall (137 when -k had to SIGKILL a TERM-ignoring codex), not an outage
   echo "attempt $attempt exit $rc" >>"$out.log"; [ "$attempt" -lt 3 ] && sleep 300
 done
+rm -f "$out"
 { echo "# codex challenge — range $base..$head — checkout $dir — exit $rc — $(( $(date +%s) - start ))s"
   cat "$out.msg" 2>/dev/null || echo "(no final message; see $out.log)"; } >"$out"
 echo "$out"; exit "$rc"
