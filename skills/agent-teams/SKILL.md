@@ -206,7 +206,7 @@ moderate effort; high-volume roles run on Sonnet.
 | `team-executor` | **background subagent** | Sonnet (Opus only when the plan justifies it) | high | token-heavy fan-out; Sonnet 5 guide: high for most work, xhigh only for the hardest |
 | `team-reviewer` | subagent | Opus | medium | adversarial bug-hunting on a bounded diff (Opus 5 review stays accurate at lower effort) |
 | `team-merger` | subagent | Sonnet | medium | mechanical merge/verify |
-| `explorer` | subagent | Sonnet | medium | codebase search, read-only (built-in `Explore` runs on the lead's model capped at Opus since 2.1.257) |
+| `explorer` | subagent | Sonnet | medium | codebase search, read-only, effort pinned by frontmatter (built-in `Explore` floats with the session's effort and runs on Opus under a Fable or Opus master) |
 
 The global spawn-pin rule applies; the table above is this pipeline's role→model
 mapping. Override per spawn only when the plan marks a unit Opus with a reason. As background subagents these roles honor their `effort:`

@@ -1,6 +1,6 @@
 ---
 name: explorer
-description: Read-only codebase search for the pipelines — the pinned stand-in for the built-in Explore agent (which runs on the session's model capped at Opus since 2.1.257, at the session's effort). Use to locate files, symbols, patterns and call sites when the caller needs the conclusion, not the file dumps. Reads excerpts, never edits.
+description: Read-only codebase search for the pipelines — the pinned stand-in for the built-in Explore agent (which floats with the session's effort and runs on Opus under a Fable or Opus master; this agent is pinned to Sonnet at medium regardless of the session). Use to locate files, symbols, patterns and call sites when the caller needs the conclusion, not the file dumps. Reads excerpts, never edits.
 tools: Read, Glob, Grep, Bash
 model: sonnet
 effort: medium
