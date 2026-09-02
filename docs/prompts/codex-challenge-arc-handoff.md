@@ -42,9 +42,11 @@ verdict per item and one combined summary before any edit.
    decision-flow, references. gstack stays for office-hours, ship, browse,
    context-save; it no longer touches the codex path.
 5. **Dogfooded the loop on itself**: 2 per-step rounds, 3 whole-range rounds,
-   4 fixers, 17 findings closed red-then-green, TRACE PASS on every run
-   (codex ran `git diff <base> <head>` with full shas, never `origin/`).
-   Gate clean at `ac1424d`; round 3 at `5acce42` found one new P1 (INSTALL.md
+   4 fixers, 17 findings closed red-then-green; the master read the five trace
+   logs in-session, but the sidecars did not survive, and the only surviving
+   log is a plain-text transcript from a fixer's orphaned test run, so the
+   claim is not re-verifiable. Gate clean at `ac1424d`; round 3 at `5acce42`
+   found one new P1 (INSTALL.md
    readiness line), fixed in `3eba442`. 14 standalone items deferred as index
    lines in `docs/tech-debt.md` ("Deferred from the codex-challenge arc").
    Verdicts: `docs/reviews/codex-challenge-arc/codex-step1.md`, `codex-step2.md`,
@@ -66,16 +68,18 @@ plan-reviewer 86k/2.3 min, planner revision 33k/1.8 min; executors 34k/1 min,
 116k/6.4 min, 91k/4.2 min; fixers 56k/6.1 min, 52k/2.5 min, 67k/3.4 min,
 33k/2.5 min; triages 27k, 71k, 41k, 53k, 45k (1.6–2.4 min each); spec-reviewer
 109k/2.3 min. Audit workflow: 204 agents, 10.9M tokens, 58 min. Master context
-at close: roughly 250k. Session transcript for exact numbers (dedupe by
-`message.id`):
+peak: 566k (last assistant usage block; above the 400k defect line). Session
+transcript for exact numbers (dedupe by `message.id`):
 `~/.claude/projects/-Users-turbokach-Dev-claude-code-setup/0ad60543-195a-457c-b542-2b2e4fea00a6.jsonl`
-and its `subagents/` directory (39 agent transcripts).
+and its `subagents/` directory (19 agent transcripts; the audit workflow's 204
+live under subagents/workflows/).
 
 ## What the arc showed (facts, not yet doctrine)
 
-- **A codex run costs about 10 minutes regardless of diff size.** Stage 4's
-  new sentence "waiting costs a step-sized codex run" is optimistic; a blocked
-  dependency boundary waited about 14 min (run + triage + fixer) for step 3.
+- **A codex run's duration is not size-invariant.** Runs measured 551–1000 s
+  here and 237–1670 s per step on the 2026-09-01 backend arc; launch-to-
+  triaged-verdict ran 11.5–18.7 min; the step-3 boundary wait measured 21.5
+  min; no per-step diff sizes exist to correlate.
 - **Codex varies between rounds.** Round 3 flagged a line rounds 1 and 2 had
   passed. The convergence rule ("a non-decreasing P0/P1 round forces the
   structural branch") fired on a one-liner and needed a user gate.
@@ -127,6 +131,11 @@ per-run duration, whether per-step rounds catch anything the whole-range gate
 would not, how often codex re-reports deferred items, and whether the
 dependency-aware boundary blocks more than it helps. Compare against the
 2026-09-01 backend arc numbers in memory.
+
+**E. Installed-kit drift**: the installed kit under `~/.claude` was 14 commits
+stale at evaluation time (stamp `60ad075`); the live gate named the retired
+gstack skill and the script path did not exist. `install.sh`'s default mode
+leaves an existing `CLAUDE.md` untouched.
 
 ## Ground rules that apply (from `~/.claude/CLAUDE.md` and memory)
 
