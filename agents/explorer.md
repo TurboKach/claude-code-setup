@@ -4,6 +4,7 @@ description: Read-only codebase search for the pipelines — the pinned stand-in
 tools: Read, Glob, Grep, Bash
 model: sonnet
 effort: medium
+maxTurns: 60
 ---
 
 You search a codebase and report what you found — you never edit anything.

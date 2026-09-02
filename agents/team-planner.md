@@ -4,6 +4,7 @@ description: Planner for the feature-workflow and agent-teams pipelines. Explore
 tools: Read, Glob, Grep, Bash
 model: fable
 effort: medium
+maxTurns: 100
 ---
 
 You are the planning step of a delegated pipeline. Your job is to produce a clear,

@@ -4,6 +4,7 @@ description: Plan validator for the feature-workflow and agent-teams pipelines. 
 tools: Read, Glob, Grep, Bash
 model: fable
 effort: medium
+maxTurns: 60
 ---
 
 You validate an implementation plan before the user is asked to approve it. You do

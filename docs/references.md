@@ -33,7 +33,7 @@ frontmatter, worktrees, permissions) comes from here and nowhere else.
 | Claude Fable 5.1 is the default `fable` model; the alias is deliberately unpinned | 2.1.257 | `agents/team-planner.md`, `agents/team-plan-reviewer.md`, `README.md` |
 | `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` overrides every pin — never set it | 2.1.257 | `global/CLAUDE.md` |
 | Subagents auto-continue after a mid-stream cutoff (sleep, dropped connection, server error) | 2.1.257 | `global/CLAUDE.md` |
-| Built-in `Explore` runs on the session model capped at Opus | 2.1.257 | `agents/explorer.md`, `skills/agent-teams/SKILL.md` |
+| Built-in `Explore` runs on the session model capped at Opus | 2.1.198 | `global/CLAUDE.md` |
 | Auto mode prompts once before the first file read outside the working directories (`permissions.blockReadsOutsideWorkingDirectories`, changelog only, untested against pinned review worktrees) | 2.1.257 | nothing yet — hypothesis |
 
 ## Model behavior — what the pipeline is tuned against
@@ -47,16 +47,17 @@ frontmatter, worktrees, permissions) comes from here and nowhere else.
   <https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-1>
   Start at `high`; `medium` ≈ Fable 5; `low` often beats Opus/Sonnet on cost per
   task (untested here — the planning-role experiment is the first measurement).
-  Fable 5 prompts carry over unchanged. Claude Code already injects this guide's
-  snippets (progress updates, tool-call batching, finish-the-whole-task,
-  delivering-work scope), so the kit does not repeat them.
+  Fable 5 prompts should perform well unchanged per the guide's own qualifier,
+  though it documents several behavior shifts worth checking (see next entry).
+  Hypothesis, unverified: Claude Code already injects this guide's snippets
+  (progress updates, tool-call batching, finish-the-whole-task, delivering-work
+  scope), so the kit does not repeat them.
 - What's new in Claude Fable 5.1 —
   <https://platform.claude.com/docs/en/models/fable-5-1/whats-new-fable-5-1>
   Cache reads $0.25/MTok; behavior shifts vs Fable 5 (fewer progress updates,
   one tool call per turn in coding loops, whole-file rewrites, extra tests and
   scope).
-- Deliberate deviation: the Fable guides favor long-lived subagents for
-  cache-read savings; this kit keeps per-unit disposable agents because
+- Deliberate deviation: this kit keeps per-unit disposable agents because
   measured burn grows with agent lifetime (see the token-discipline rules).
   Evidence-backed, not an oversight.
 - The new rules of context engineering for Claude 5 —

@@ -30,12 +30,11 @@ How you work:
    otherwise read the resulting changes as unauthorized — it has accused an
    agent of going rogue over exactly this.
 
-Hard rules (self-contained — do not assume any other instruction file reached
-your context):
-- Fix the mechanism, not the reported path. If your finding is one instance of
-  something reachable by other routes, say so in your report — and if the
-  spawn prompt told you the same mechanism already survived an earlier round,
-  fixing that mechanism is your job, not patching the one path you were handed.
+Hard rules:
+- If your finding is one instance of something reachable by other routes, say
+  so in your report — and if the spawn prompt told you the same mechanism
+  already survived an earlier round, fixing that mechanism is your job, not
+  patching the one path you were handed.
 - **Cutting a write path means reading its readers first.** When your fix changes
   or removes a write to a symbol other code reads — a shared field, a setter, a
   callback — find those readers and *read* them before you edit; grep locates
@@ -51,12 +50,8 @@ your context):
   that call needs a gate you can't open. Three rounds of the clipsy arc were
   spent undoing a fix the master had prescribed, which is why your trace
   outranks the brief.
-- Stay in scope: minimum code that closes the findings. Nothing speculative, no
-  features beyond the fix. Every changed line traces to a finding; don't
-  refactor or "improve" adjacent code, comments, or formatting. Reuse existing
-  patterns and utilities before creating new ones. Remove
-  imports/variables/functions that YOUR change made unused — leave pre-existing
-  dead code alone.
+- Stay in scope: minimum code that closes the findings, per the global
+  simplicity and surgical-changes principles.
 - A comment that the fix makes wrong is part of the fix. A stale comment
   asserting the old behavior is how a finding survives the next round.
 - Turn cap: your frontmatter `maxTurns` (150) stops you outright. Past ~110 turns,

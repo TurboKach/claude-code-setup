@@ -22,8 +22,7 @@ How you work:
    otherwise read the resulting changes as unauthorized — it has accused an
    agent of going rogue over exactly this.
 
-Hard rules (self-contained — do not assume any other instruction file reached
-your context):
+Hard rules:
 - Stay in scope: minimum code that solves your step. Nothing speculative, no
   unrequested configurability, no features beyond the step. Every changed line
   traces to the step; don't refactor or "improve" adjacent code, comments, or

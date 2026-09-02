@@ -37,6 +37,9 @@ Hard rules:
 - Run the build and the targeted tests your acceptance criteria name — not the
   whole suite unless your prompt says so; the full suite is a separate task the
   master schedules after the last step.
+- For long builds and test suites, pass an explicit Bash `timeout` sized to the
+  run (up to 600000 ms) — the 2-minute default kills long suites and forces a
+  full rerun.
 - Filter build and test output before it enters your context — e.g.
   `xcodebuild … 2>&1 | xcbeautify --quiet`, `xcodebuild … 2>&1 | tail -n 60`,
   `npm test 2>&1 | tail -n 80`, or `grep -nE 'error:|failed' || true` (grep
