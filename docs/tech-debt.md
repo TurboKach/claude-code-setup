@@ -160,3 +160,25 @@ drifted (three parser variants, 13 of 14 losing the `[codex ran]` audit
 lines). `skills/feature-workflow/scripts/codex-challenge.sh` now owns the
 invocation: one deterministic `codex exec` call on the explicit range, no
 gstack scope-vs-focus-area ambiguity.
+
+### Deferred from the codex-challenge arc — 2026-09-02
+
+The stage-5 gate was clean at `ac1424d`; these are the standalone P2/test-gap/theoretical
+lines the owner deferred rather than looped on.
+
+1. `[P2 conf:0.5] skills/feature-workflow/scripts/codex-challenge.sh:68 — a pre-planted symlink at the --out path is followed by codex -o and the final redirect → F2 #1`
+2. `[P2 conf:0.5] global/CLAUDE.md:27 — gate hard-codes ~/.claude/… while install.sh honours CLAUDE_HOME (same mismatch as the INSTALL.md Step 0 entry above) → F2 #2`
+3. `[P2 conf:0.4] skills/feature-workflow/scripts/codex-challenge.sh:41 — pin liveness keys on the wrapper shell PID, not the codex child; PID reuse can read a dead run as live → F1 #7`
+4. `[P2 conf:0.4] skills/feature-workflow/scripts/codex-challenge.sh:60 — -s read-only bounds shell writes, not MCP/connector side effects reachable from reviewed content → F1 #6`
+5. `[conf:0.5] skills/feature-workflow/scripts/codex-challenge.sh:52 — test-gap: no self-check that codex actually ran the range diff; the --trace log is the only evidence → S1 test-gap #1`
+6. `[conf:0.5] skills/feature-workflow/scripts/codex-challenge.sh:68 — test-gap: exit 0 with an empty .msg reports success; the stage-5 parking rule covers it only at the doctrine level → S1 test-gap #2`
+7. `[conf:0.4] skills/feature-workflow/scripts/codex-challenge.sh:65 — theoretical: every non-zero exit retries, including permanent auth/config errors (two 5-min sleeps) → S1 (dropped-for-cap line)`
+8. `[conf:0.4] skills/feature-workflow/scripts/codex-challenge.sh:60 — theoretical: no --ephemeral (present on codex-cli 0.152.0, semantics unverified); sessions accumulate on disk → S1 / F2 theoretical #2`
+9. `[conf:0.4] skills/feature-workflow/SKILL.md:18 — theoretical: the unpinned stage-5 launch reads stray uncommitted working-tree state as final code → S2 theoretical #2`
+10. `[conf:0.3] skills/feature-workflow/SKILL.md:22 — theoretical: unpinned slices read the final tree while triage verifies against git show <head>; consistent only while stage 5 has no writer → S2 theoretical #3`
+
+Not deferred, because triage itself found it did not reproduce or was already documented: the
+oversized single commit (fallback sentence added in `ac1424d`), "one background Bash" vs split
+provision (reconciled in the skill), the unpinned live-tree tradeoff (documented in Token
+discipline), the split-slice verification premise, verdict-commit-postdates-range (inherent),
+and the stage-5 `--pin` premise mismatch.
