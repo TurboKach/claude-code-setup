@@ -3,7 +3,7 @@
 Sources this kit's doctrine is built on. Facts you can't infer from the code —
 not a reading list.
 
-> **Doctrine validated against Claude Code v2.1.258 — 2026-09-02.**
+> **Doctrine validated against Claude Code v2.1.259 — 2026-09-03.**
 > Re-check when `claude --version` has moved: read the changelog from the stamped
 > version forward, decide what it means for the pipeline, then re-stamp this line.
 > The claims in *Harness* below are version-dependent; the rest are not.
@@ -35,6 +35,7 @@ frontmatter, worktrees, permissions) comes from here and nowhere else.
 | Subagents auto-continue after a mid-stream cutoff (sleep, dropped connection, server error) | 2.1.257 | `global/CLAUDE.md` |
 | Built-in `Explore` runs on the session model capped at Opus | 2.1.198 | `global/CLAUDE.md` |
 | Auto mode prompts once before the first file read outside the working directories (`permissions.blockReadsOutsideWorkingDirectories`, changelog only, untested against pinned review worktrees) | 2.1.257 | nothing yet — hypothesis |
+| Frontmatter `model:` on skills and commands is honored in interactive sessions (was silently ignored); no kit skill sets one | 2.1.259 | nothing yet — lever, not doctrine |
 
 ## Model behavior — what the pipeline is tuned against
 
