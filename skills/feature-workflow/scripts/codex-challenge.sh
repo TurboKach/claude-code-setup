@@ -79,10 +79,14 @@ rm -f "$out.msg" "$out.log"
 # names. A quoted key segment is rejected by codex's loader ("invalid transport", verified), so only
 # names that are valid bare TOML keys are passed; any other name is left enabled rather than broken.
 mcp_off=()
+set +e; mcp_json=$(cd "$dir" && "$to" -k 10 30 codex mcp list --json 2>>"$out.log"); mcp_rc=$?; set -e
+if [ "$mcp_rc" != 0 ] || [ -z "$mcp_json" ]; then
+  echo "warning: codex mcp list failed (exit $mcp_rc) — MCP servers stay enabled for this run" | tee -a "$out.log" >&2
+fi
 while IFS= read -r name; do
   case $name in *[!A-Za-z0-9_-]*|'') continue;; esac
   mcp_off+=(-c "mcp_servers.${name}.enabled=false")
-done < <(cd "$dir" && "$to" 30 codex mcp list --json 2>/dev/null | sed -nE 's/^[[:space:]]*"name":[[:space:]]*"(.*)",?$/\1/p' | sort -u)
+done < <(printf '%s\n' "$mcp_json" | sed -nE 's/^[[:space:]]*"name":[[:space:]]*"(.*)",?$/\1/p' | sort -u)
 # approval_policy=never: the read-only sandbox denies writes outside the checkout, but an "allow"
 # prefix rule in ~/.codex/rules (smart approvals add them for xcodebuild) runs the command outside
 # the sandbox under on-request, which is how the review builds wrote DerivedData. Codex documents
