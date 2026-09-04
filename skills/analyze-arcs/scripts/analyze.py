@@ -51,7 +51,7 @@ def scan_master(p):
                     if rng:
                         out = re.search(r'--out\s+(\S+)', cmd)
                         r['codex'].append(dict(t=T, bg=bool(i.get('run_in_background')), range=rng.group(1) if rng else '?',
-                                               pin='--pin' in cmd, out=out.group(1).rstrip(';') if out else None,
+                                               pin='--pin' in cmd, out=out.group(1).strip('\'";') if out else None,
                                                timeout=i.get('timeout'), id=c['id']))
                     if re.search(r'\bgit push\b', cmd): r['pushes'].append(T)
                 elif n in ('Edit', 'Write', 'MultiEdit', 'NotebookEdit'):

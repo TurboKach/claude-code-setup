@@ -101,7 +101,7 @@ SHA you installed — one cached `curl` to the GitHub API, silent unless there's
 claude-code-setup: update available (installed abc1234 → remote def5678) — run /stack-update
 ```
 
-`/stack-update` applies it: clones the repo, summarizes what changed, and **asks for your
+If you edit the kit itself: commit first, then `./install.sh` — the stamp is the checkout's HEAD at install time, so installing before the commit leaves it one behind and the hook reports your own push as an update. `/stack-update` applies it: clones the repo, summarizes what changed, and **asks for your
 approval before writing anything**. Two state stamps track the update, not one — `installed`
 (the SHA skills/agents/settings are at) and `claude-md-installed` (the SHA whose `CLAUDE.md`
 you actually accepted). They diverge because `install.sh` never overwrites an existing
