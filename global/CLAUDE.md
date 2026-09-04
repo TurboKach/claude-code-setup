@@ -44,7 +44,7 @@
 
 ## Feature workflow
 
-**Two paths — state the call in one line before the first edit** ("one-shot: 2 files, mechanical, reversible" / "pipeline: design choice + UI"), so I can see and correct it.
+**Two paths — state the call in one line before the first edit, always, including before loading `feature-workflow`** — the line carries the sizing facts the call rests on ("one-shot: 2 files, mechanical, reversible" / "pipeline: 6 files + a design choice"), so I can see and correct it. Exploring first to get those facts is fine; loading the pipeline silently is not — of the seven sessions after the 2026-09-02 update every path call was right, but two masters entered the pipeline without the line and one one-shot never named its path, so I had no moment to overrule.
 
 - **One-shot** — clear scope, **≤3 files, no product/design or UI choice, nothing irreversible**: no plan mode, no planner, no plan-reviewer. Do it inline if trivial, else one Sonnet `step-executor` spawn with acceptance criteria + tests. **Cross-review still always runs**: before the change counts as done (and before any push), one `codex-challenge.sh <pre-change-sha>..HEAD` run on its diff, stage-5 triage rules — a one-shot skips ceremony, never review.
 - **Pipeline** — anything else: a design/product/UI/architectural choice, 4+ files, irreversible, a plan file, a real multi-step arc, or a parallel fan-out. Load `feature-workflow` before the first edit. It holds the six-stage pipeline (discuss → plan in native plan mode → validate + approve → delegated execute → one codex challenge per feature → ship), the parallelism mechanism picker, and the token-discipline rules.
