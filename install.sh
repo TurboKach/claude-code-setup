@@ -8,10 +8,13 @@ set -euo pipefail
 # from settings.example.json: the model pin (ANTHROPIC_DEFAULT_OPUS_MODEL —
 # keeps the "opus" alias on a fixed version; added only if you haven't set your
 # own value), and every other key in that file's "env" block the same way
-# (currently just CLAUDE_CODE_ENABLE_TODO_TOOLS, which enables the task-list
-# feature). It also installs a SessionStart hook that checks once a day
-# whether this repo has moved past the SHA you installed, and stamps that SHA
-# so the check has something to compare against.
+# (CLAUDE_CODE_ENABLE_TODO_TOOLS for the task-list feature, the Sonnet
+# subagent floor, and BASH_DEFAULT_TIMEOUT_MS=900000 so a build or test run
+# with no explicit timeout is not auto-backgrounded at 2 minutes). It also
+# installs two hooks: a SessionStart hook that checks once a day whether this
+# repo has moved past the SHA you installed (and stamps that SHA so the check
+# has something to compare against), and a PreToolUse hook on Bash that denies
+# run_in_background inside subagents — see hooks/subagent-no-background.sh.
 #
 # Flags (all optional — no flags reproduces the behavior above exactly; see
 # --help). INSTALL.md's interactive wizard drives this script with them instead
@@ -229,13 +232,15 @@ fi
 # --no-opus-pin was given.
 SETTINGS="$DEST/settings.json"
 HOOK_PATH="$DEST/hooks/stack-update-check.sh"
+BG_HOOK_PATH="$DEST/hooks/subagent-no-background.sh"
 if command -v python3 >/dev/null 2>&1; then
-  python3 - "$SETTINGS" "$SRC/settings.example.json" "$HOOK_PATH" "$DEST" "$OPUS_PIN_SET" "$OPUS_PIN" "$OPUS_SKIP" <<'PY'
+  python3 - "$SETTINGS" "$SRC/settings.example.json" "$HOOK_PATH" "$DEST" "$OPUS_PIN_SET" "$OPUS_PIN" "$OPUS_SKIP" "$BG_HOOK_PATH" <<'PY'
 import json, os, sys
 settings, example, hook_path, dest = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 opus_pin_set = sys.argv[5] == "1"
 opus_pin = sys.argv[6]
 opus_skip = sys.argv[7] == "1"
+bg_hook_path = sys.argv[8]
 ex = json.load(open(example))
 if os.path.exists(settings):
     d = json.load(open(settings))
@@ -275,48 +280,55 @@ def norm_path(cmd):
     except Exception:
         return None
 
-# SessionStart hook — append into the existing matcher-"" group (creating it if
-# absent) rather than replacing the array, so other SessionStart hooks (e.g. a
-# user's own peon-ping command) survive untouched. If hooks/SessionStart/the
-# matcher-"" group aren't the shape we expect, skip hook registration only —
-# never rewrite a structure we don't understand, and never abort the merge.
-warning = None
-hooks = d.setdefault("hooks", {})
-if not isinstance(hooks, dict):
-    warning = '"hooks" is not an object'
-else:
-    session_start = hooks.setdefault("SessionStart", [])
-    if not isinstance(session_start, list):
-        warning = '"hooks.SessionStart" is not an array'
-    elif not all(isinstance(g, dict) for g in session_start):
-        warning = '"hooks.SessionStart" contains a non-object entry'
-    else:
-        group = next((g for g in session_start if g.get("matcher") == ""), None)
-        if group is None:
-            group = {"matcher": "", "hooks": []}
-            session_start.append(group)
-        if "hooks" not in group:
-            group["hooks"] = []
-        entries = group["hooks"]
-        if not isinstance(entries, list):
-            warning = 'the matcher-"" group\'s "hooks" is not an array'
-        else:
-            target = norm_path(hook_path)
-            already_present = any(
-                isinstance(e, dict) and "command" in e and norm_path(e["command"]) == target
-                for e in entries
-            )
-            if not already_present:
-                entries.append({"type": "command", "command": hook_path, "timeout": 10})
+# Hooks — each one is appended into the existing group with its matcher
+# (creating the group if absent) rather than replacing the array, so the user's
+# other hooks (e.g. a peon-ping SessionStart command, or a PreToolUse group
+# with a different matcher) survive untouched. If hooks/<event>/the group
+# aren't the shape we expect, skip that hook's registration only — never
+# rewrite a structure we don't understand, and never abort the merge.
+def register_hook(event, matcher, path, timeout):
+    """Returns None on success, else a one-line description of why it skipped."""
+    hooks = d.setdefault("hooks", {})
+    if not isinstance(hooks, dict):
+        return '"hooks" is not an object'
+    groups = hooks.setdefault(event, [])
+    if not isinstance(groups, list):
+        return f'"hooks.{event}" is not an array'
+    if not all(isinstance(g, dict) for g in groups):
+        return f'"hooks.{event}" contains a non-object entry'
+    group = next((g for g in groups if g.get("matcher") == matcher), None)
+    if group is None:
+        group = {"matcher": matcher, "hooks": []}
+        groups.append(group)
+    if "hooks" not in group:
+        group["hooks"] = []
+    entries = group["hooks"]
+    if not isinstance(entries, list):
+        return f'the {event} matcher-"{matcher}" group\'s "hooks" is not an array'
+    target = norm_path(path)
+    already_present = any(
+        isinstance(e, dict) and "command" in e and norm_path(e["command"]) == target
+        for e in entries
+    )
+    if not already_present:
+        entries.append({"type": "command", "command": path, "timeout": timeout})
+    return None
+
+installed_hooks, skipped_hooks = [], []
+for label, event, matcher, path, timeout in (
+    ("SessionStart update-check hook", "SessionStart", "", hook_path, 10),
+    ("PreToolUse subagent-no-background hook", "PreToolUse", "Bash", bg_hook_path, 5),
+):
+    warning = register_hook(event, matcher, path, timeout)
+    (skipped_hooks if warning else installed_hooks).append((label, warning))
 
 merged_desc = "env + worktree.baseRef"
 json.dump(d, open(settings, "w"), indent=2)
-if warning:
-    print(f"  WARNING: settings.json's {warning} — skipped installing the SessionStart update-check hook.")
-    print(f"  Add it by hand: copy the \"hooks\" block from {example} into {settings}.")
-    print(f"  merged {merged_desc} into settings.json (backup: settings.json.bak)")
-else:
-    print(f"  merged {merged_desc} + SessionStart update-check hook into settings.json (backup: settings.json.bak)")
+for label, warning in skipped_hooks:
+    print(f"  WARNING: settings.json's {warning} — skipped installing the {label}.")
+    print(f"  Add it by hand: copy its entry from the \"hooks\" block in {example} into {settings}.")
+installed = " + ".join(label for label, _ in installed_hooks)
+print(f"  merged {merged_desc}{' + ' + installed if installed else ''} into settings.json (backup: settings.json.bak)")
 PY
 else
   echo "  python3 not found — add the keys from settings.example.json to $SETTINGS by hand"
