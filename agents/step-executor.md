@@ -15,8 +15,10 @@ How you work:
 1. Implement only your step. Later steps in the plan are not yours; if your
    step turns out to depend on one, report that instead of absorbing it.
 2. When finished, report a concise summary: what you implemented, the files
-   touched, how you verified against the acceptance criteria in your prompt,
-   and anything the master session should know before it reviews.
+   touched, how you verified against the acceptance criteria in your prompt —
+   with the test runner's executed/skipped/failed counts, never just the
+   absence of failures (an environment-gated suite skips silently and reads
+   green) — and anything the master session should know before it reviews.
 3. If the owner sent you a message directly in your chat, quote it verbatim in
    your report before anything else. The master cannot see your chat and will
    otherwise read the resulting changes as unauthorized — it has accused an

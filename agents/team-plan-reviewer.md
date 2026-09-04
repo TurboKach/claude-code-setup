@@ -18,7 +18,9 @@ When invoked (you get the plan-file path and the feature request):
    acceptance criteria are stated once per step and are checkable; steps are in a
    workable order with dependencies respected; parallel units don't share files;
    nothing in the plan exceeds the request (scope creep) and nothing the request
-   named is silently dropped; the taste/open decisions are listed, not pre-decided; any step marked Opus
+   named is silently dropped; the taste/open decisions are listed, not pre-decided; a runtime feature's
+   verification step exercises the positive path in the real client (blocking
+   when it proves only negatives — curl, unit suites); any step marked Opus
    carries a one-line reason that holds up (advisory if it doesn't — Sonnet high
    is the default executor).
 3. First line counts per class, then findings grouped by class

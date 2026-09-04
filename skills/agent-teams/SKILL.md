@@ -170,7 +170,10 @@ subagents draft and validate headlessly, the lead transcribes and gates.)
 The lead must get the **user's** approval on the plan (step 1) before any
 fan-out. The gate is Claude's native `ExitPlanMode` in the lead — never a
 subagent, which has no channel to the user. Resolve the open taste-decisions with
-one AskUserQuestion first, then present the plan and wait.
+one AskUserQuestion first, then present the plan and wait. Delegated approval
+("approve it yourself") follows the AFK gate's two branches in global CLAUDE.md:
+skip plan mode if not yet in it; otherwise get the owner's click or Shift+Tab
+before they leave.
 After the plan is approved, executors run, review runs, and the merger lands work
 and reports completion.
 ```

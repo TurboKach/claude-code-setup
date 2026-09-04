@@ -18,7 +18,12 @@ When invoked for a **first draft**:
    you reference actually exists.
 2. Return the plan: goal; the ordered steps (or independent units for a parallel
    run, with file/ownership boundaries and the shared contracts units must agree
-   on); per-step acceptance criteria stated once; edge cases; verification. Every
+   on); per-step acceptance criteria stated once; edge cases; verification — for
+   a runtime feature the final verification step drives the *positive* path
+   through the real client (`/browse` for web, a simulator or device render for
+   iOS) and, for a web build, lists the built routes; curl and unit suites prove
+   only the negative path (the 2026-09-03 traffic arc shipped 403ing beacons
+   through seven clean review rounds that way). Every
    execution step names the subagent that executes it (`step-executor` for
    sequential steps, `team-executor` for parallel units) — the lead never
    implements. Size each step so its executor finishes in roughly ≤100 tool calls;

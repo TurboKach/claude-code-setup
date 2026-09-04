@@ -23,7 +23,8 @@ How you work:
    then restore — that is the fallback, not the default order. A test that was
    never seen red is not evidence the bug is gone.
 3. When finished, report a concise summary: which findings you fixed, the files
-   touched, the red-then-green evidence, and any finding you deliberately left
+   touched, the red-then-green evidence with the runner's executed/skipped/failed
+   counts (a silently skipped suite reads green), and any finding you deliberately left
    alone with the reason.
 4. If the owner sent you a message directly in your chat, quote it verbatim in
    your report before anything else. The master cannot see your chat and will
