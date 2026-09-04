@@ -7,7 +7,7 @@
 #      only there) is denied. With fork mode on — the interactive default
 #      since 2.1.232 — every spawn is a background subagent, and the docs
 #      (tools-reference, "Background commands") say a background subagent's
-#      background commands keep running past its final response; 2.1.257
+#      background commands keep running past its final response; 2.1.260
 #      removed the one-hour cap. The master keeps run_in_background: the
 #      codex run and the full suite live there by doctrine.
 #   B. a poll loop on a <task>.output.done marker is denied everywhere: the
@@ -54,7 +54,9 @@ WAIT = ("wait in the foreground on the process itself: `until ! pgrep -f <patter
         "then read the task .output file.")
 
 reason = None
-if re.search(r"\b(until|while)\b.*output\.done", command, re.S):
+# Loop syntax only — `until [ -f x.output.done ]`, `while ! test -f …` — so a
+# commit message or doc text that merely mentions the words is not a match.
+if re.search(r"\b(until|while)\s+(!\s*)?(\[\[?|test)\s[^;]*output\.done", command, re.S):
     reason = ("Denied: no `.output.done` marker is ever written for a background task, "
               "so this loop never ends. To wait for a command that was auto-backgrounded, "
               + WAIT + " Better: give the command itself a `timeout` sized to the run so "

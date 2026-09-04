@@ -64,8 +64,15 @@ expect_deny "subagent foreground while-loop on .output.done -> deny" \
   '{"tool_name":"Bash","agent_id":"a1","tool_input":{"command":"while ! test -f /tmp/tasks/x.output.done; do sleep 2; done","timeout":300000}}' \
   "output.done"
 
+expect_deny "until with negated test on .output.done -> deny" \
+  '{"tool_name":"Bash","agent_id":"a1","tool_input":{"command":"until [ ! -f /tmp/tasks/x.output.done ]; do sleep 1; done"}}' \
+  "output.done"
+
 expect_allow "grep for the marker string -> allow" \
   '{"tool_name":"Bash","tool_input":{"command":"grep -rn output.done ~/.claude/projects | head"}}'
+
+expect_allow "commit message mentioning until + output.done -> allow" \
+  '{"tool_name":"Bash","agent_id":"a1","tool_input":{"command":"git commit -m \"hook: deny until/while polls on the .output.done marker\""}}'
 
 # Fail-open: never block on anything the hook does not understand.
 expect_allow "tool_name Read -> allow" \
