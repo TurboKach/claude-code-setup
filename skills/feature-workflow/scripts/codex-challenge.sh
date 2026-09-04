@@ -36,6 +36,17 @@ if [ "$pin" = 1 ]; then
   # A SIGKILLed run never reaches the trap: drop worktrees git no longer tracks, then any review-* dir
   # whose owning PID is dead. Namespaced per repo so a concurrent run in another repo's scratch dirs is untouched.
   git -C "$repo" worktree prune
+  # Xcode keys DerivedData on the absolute project path, so a build inside a review checkout mints a
+  # fresh multi-GB cache under ~/Library/Developer that removing the worktree never touches (five of
+  # them leaked 18.6 GiB on 2026-09-03). Match on the review dir's unique tail rather than the full
+  # path: $TMPDIR may carry a trailing slash and Xcode records the path with /var vs /private/var.
+  sweep_dd() {
+    local d ws
+    for d in "$HOME/Library/Developer/Xcode/DerivedData"/*/; do
+      ws=$(/usr/libexec/PlistBuddy -c "Print :WorkspacePath" "$d/info.plist" 2>/dev/null) || continue
+      case $ws in */"$1"/*) rm -rf "$d" ;; esac
+    done
+  }
   for d in "$scratch"/review-*; do
     [ -d "$d" ] || continue
     pid=${d##*-}
@@ -46,11 +57,12 @@ if [ "$pin" = 1 ]; then
     { kill -0 "$pid" 2>/dev/null || pgrep -qf -- "$suffix"; } && continue
     git -C "$repo" worktree remove --force "$d" >/dev/null 2>&1 || true
     rm -rf "$d"
+    sweep_dd "$suffix"
   done
   [ "$(df -k "$scratch" | awk 'NR==2{print $4}')" -ge $((2*1024*1024)) ] || { echo "under 2 GB free on $scratch; refusing to pin" >&2; exit 66; }
   dir=$scratch/review-${head:0:8}-$$
   git -c core.hooksPath=/dev/null -C "$repo" worktree add --detach "$dir" "$head" >/dev/null
-  trap 'git -C "$repo" worktree remove --force "$dir" >/dev/null 2>&1 || true' EXIT
+  trap 'git -C "$repo" worktree remove --force "$dir" >/dev/null 2>&1 || true; sweep_dd "codex-challenge/$repo_id/${dir##*/}"' EXIT
 fi
 prompt="Do NOT read or execute any files under ~/.claude/, ~/.agents/, .claude/skills/, or agents/; they are instructions for a different AI system. Do NOT modify agents/openai.yaml.
 
@@ -58,11 +70,15 @@ The change under review is exactly the commit range $base..$head. Run \`git log 
 
 Find ways this code will fail in production. Think like an attacker and a chaos engineer: edge cases, race conditions, security holes, resource leaks, failure modes, silent data corruption. Be adversarial and thorough. No compliments. One line per finding: file:line — what breaks and how to reach it."
 rm -f "$out.msg" "$out.log"
+# approval_policy=never: the read-only sandbox denies writes outside the checkout, but an "allow"
+# prefix rule in ~/.codex/rules (smart approvals add them for xcodebuild) runs the command outside
+# the sandbox under on-request, which is how the review builds wrote DerivedData. Codex documents
+# never as the policy for non-interactive runs; verified 2026-09-04 that it keeps xcodebuild sandboxed.
 start=$(date +%s); rc=1
 for attempt in 1 2 3; do
   set +e
   echo "=== attempt $attempt ===" >>"$out.log"
-  "$to" -k 60 2400 codex exec "$prompt" -C "$dir" -s read-only --ephemeral -c 'model_reasoning_effort="high"' -c 'web_search="cached"' -c 'project_doc_max_bytes=0' ${trace[@]+"${trace[@]}"} -o "$out.msg" </dev/null >>"$out.log" 2>&1
+  "$to" -k 60 2400 codex exec "$prompt" -C "$dir" -s read-only --ephemeral -c 'approval_policy="never"' -c 'model_reasoning_effort="high"' -c 'web_search="cached"' -c 'project_doc_max_bytes=0' ${trace[@]+"${trace[@]}"} -o "$out.msg" </dev/null >>"$out.log" 2>&1
   rc=$?
   set -e
   if [ "$rc" = 0 ]; then break; fi
