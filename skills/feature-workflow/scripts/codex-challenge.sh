@@ -76,10 +76,13 @@ rm -f "$out.msg" "$out.log"
 # (TOML merge; verified 2026-09-04), per-server enabled=false does. The names come from codex's own
 # config loader (`codex mcp list --json`, run in the review checkout so a trusted project config counts),
 # never from parsing config.toml here — two regex rounds missed sub-tables, trailing comments and quoted
-# names. The key segment is quoted so a dotted name stays one segment.
+# names. A quoted key segment is rejected by codex's loader ("invalid transport", verified), so only
+# names that are valid bare TOML keys are passed; any other name is left enabled rather than broken.
 mcp_off=()
-while IFS= read -r name; do mcp_off+=(-c "mcp_servers.\"${name}\".enabled=false"); done \
-  < <(cd "$dir" && "$to" 30 codex mcp list --json 2>/dev/null | sed -nE 's/^[[:space:]]*"name":[[:space:]]*"(.*)",?$/\1/p' | sort -u)
+while IFS= read -r name; do
+  case $name in *[!A-Za-z0-9_-]*|'') continue;; esac
+  mcp_off+=(-c "mcp_servers.${name}.enabled=false")
+done < <(cd "$dir" && "$to" 30 codex mcp list --json 2>/dev/null | sed -nE 's/^[[:space:]]*"name":[[:space:]]*"(.*)",?$/\1/p' | sort -u)
 # approval_policy=never: the read-only sandbox denies writes outside the checkout, but an "allow"
 # prefix rule in ~/.codex/rules (smart approvals add them for xcodebuild) runs the command outside
 # the sandbox under on-request, which is how the review builds wrote DerivedData. Codex documents
