@@ -38,8 +38,14 @@ Hard rules:
   whole suite unless your prompt says so; the full suite is a separate task the
   master schedules after the last step.
 - For long builds and test suites, pass an explicit Bash `timeout` sized to the
-  run (up to 600000 ms) — the 2-minute default kills long suites and forces a
-  full rerun.
+  run. The default is 15 min (the kit's settings set `BASH_DEFAULT_TIMEOUT_MS`,
+  which is also the ceiling). Past its timeout a simple command is
+  auto-backgrounded, while a pipeline (the `| xcbeautify` form below) is killed
+  and must be rerun with a bigger `timeout`. A hook denies `run_in_background`
+  in subagents — your background commands would outlive your report — so an
+  auto-backgrounded command is waited for in the foreground (`until ! pgrep -f
+  '<pattern>'; do sleep 10; done` under its own `timeout`) and its task
+  `.output` file read afterwards. No `.output.done` marker is ever written.
 - Filter build and test output before it enters your context — e.g.
   `xcodebuild … 2>&1 | xcbeautify --quiet`, `xcodebuild … 2>&1 | tail -n 60`,
   `npm test 2>&1 | tail -n 80`, or `grep -nE 'error:|failed' || true` (grep

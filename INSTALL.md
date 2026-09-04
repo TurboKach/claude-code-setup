@@ -79,8 +79,9 @@ their existing `CLAUDE.md`:
 ```
 
 Run it and show the output — it reports what it backed up, installed,
-pruned, and merged (skills, agents, rules, the update-check hook and its
-stamp, retired-agent removal, and the `settings.json` merge). **If it exits
+pruned, and merged (skills, agents, rules, the update-check and
+subagent-no-background hooks and the update stamp, retired-agent removal, and
+the `settings.json` merge). **If it exits
 non-zero, stop** — report exactly what it printed; nothing after that point
 in its output was applied.
 
@@ -100,7 +101,13 @@ else. Then suggest a test (background subagents, read-only → no worktrees):
 Also mention: a `SessionStart` hook now checks once a day for a newer
 `claude-code-setup` and prints one line if there's an update — `/stack-update`
 applies it, and nothing is written without approval. Opt out with
-`touch ~/.claude/.claude-code-setup/disabled`.
+`touch ~/.claude/.claude-code-setup/disabled`. A `PreToolUse` hook on Bash
+denies `run_in_background` inside subagents (their background commands would
+outlive them) and any poll loop on a `.output.done` marker (never written), and
+`BASH_DEFAULT_TIMEOUT_MS` is set to 15 minutes so a build or test run with no
+explicit timeout is not auto-backgrounded at 2 minutes. Hooks are read at
+session start: the new hook takes effect in the next session, or after
+reviewing it in `/hooks`.
 
 ## Rules
 
