@@ -44,7 +44,7 @@ if [ "$pin" = 1 ]; then
     local d ws
     for d in "$HOME/Library/Developer/Xcode/DerivedData"/*/; do
       ws=$(/usr/libexec/PlistBuddy -c "Print :WorkspacePath" "$d/info.plist" 2>/dev/null) || continue
-      case $ws in */"$1"/*) rm -rf "$d" ;; esac
+      case $ws in */"$1"/*) rm -rf "$d" || true ;; esac   # a held file must not abort the review under set -e
     done
   }
   for d in "$scratch"/review-*; do
@@ -55,14 +55,14 @@ if [ "$pin" = 1 ]; then
     # digest and the review-<headshort>-<pid> suffix is hex, digits and dashes only, no regex metachars.
     suffix="codex-challenge/$repo_id/review-${d##*/review-}"
     { kill -0 "$pid" 2>/dev/null || pgrep -qf -- "$suffix"; } && continue
+    sweep_dd "$suffix"   # before the dir goes: once it is gone no later run can recover the suffix
     git -C "$repo" worktree remove --force "$d" >/dev/null 2>&1 || true
     rm -rf "$d"
-    sweep_dd "$suffix"
   done
   [ "$(df -k "$scratch" | awk 'NR==2{print $4}')" -ge $((2*1024*1024)) ] || { echo "under 2 GB free on $scratch; refusing to pin" >&2; exit 66; }
   dir=$scratch/review-${head:0:8}-$$
   git -c core.hooksPath=/dev/null -C "$repo" worktree add --detach "$dir" "$head" >/dev/null
-  trap 'git -C "$repo" worktree remove --force "$dir" >/dev/null 2>&1 || true; sweep_dd "codex-challenge/$repo_id/${dir##*/}"' EXIT
+  trap 'sweep_dd "codex-challenge/$repo_id/${dir##*/}"; git -C "$repo" worktree remove --force "$dir" >/dev/null 2>&1 || true' EXIT
 fi
 prompt="Do NOT read or execute any files under ~/.claude/, ~/.agents/, .claude/skills/, or agents/; they are instructions for a different AI system. Do NOT modify agents/openai.yaml.
 
