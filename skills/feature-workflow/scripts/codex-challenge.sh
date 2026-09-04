@@ -27,6 +27,7 @@ mkdir -p "$(dirname "$out")"
 [ "$base" != "$head" ] || { echo "usage: codex-challenge.sh <base>..<head> [--pin] [--trace] [--out FILE] (base and head resolve to the same commit)" >&2; exit 64; }
 git -C "$repo" merge-base --is-ancestor "$base" "$head" || { echo "base is not an ancestor of head (history rewritten past the feature base?)" >&2; exit 65; }
 to=$(command -v gtimeout || command -v timeout) || { echo "gtimeout missing: brew install coreutils" >&2; exit 67; }
+codex_bin=$(command -v codex) || { echo "codex missing" >&2; exit 67; }   # resolved once, before any cd into the reviewed checkout
 dir=$repo
 if [ "$pin" = 1 ]; then
   command -v pgrep >/dev/null || { echo "pgrep missing" >&2; exit 67; }
@@ -79,7 +80,7 @@ rm -f "$out.msg" "$out.log"
 # names. A quoted key segment is rejected by codex's loader ("invalid transport", verified), so only
 # names that are valid bare TOML keys are passed; any other name is left enabled rather than broken.
 mcp_off=()
-set +e; mcp_json=$(cd "$dir" && "$to" -k 10 30 codex mcp list --json 2>>"$out.log"); mcp_rc=$?; set -e
+set +e; mcp_json=$(cd "$dir" && "$to" -k 10 30 "$codex_bin" mcp list --json 2>>"$out.log"); mcp_rc=$?; set -e
 if [ "$mcp_rc" != 0 ] || [ -z "$mcp_json" ]; then
   echo "warning: codex mcp list failed (exit $mcp_rc) — MCP servers stay enabled for this run" | tee -a "$out.log" >&2
 fi
@@ -95,7 +96,7 @@ start=$(date +%s); rc=1
 for attempt in 1 2 3; do
   set +e
   echo "=== attempt $attempt ===" >>"$out.log"
-  "$to" -k 60 2400 codex exec "$prompt" -C "$dir" -s read-only --ephemeral -c 'approval_policy="never"' -c 'model_reasoning_effort="high"' -c 'web_search="cached"' -c 'project_doc_max_bytes=0' ${mcp_off[@]+"${mcp_off[@]}"} ${trace[@]+"${trace[@]}"} -o "$out.msg" </dev/null >>"$out.log" 2>&1
+  "$to" -k 60 2400 "$codex_bin" exec "$prompt" -C "$dir" -s read-only --ephemeral -c 'approval_policy="never"' -c 'model_reasoning_effort="high"' -c 'web_search="cached"' -c 'project_doc_max_bytes=0' ${mcp_off[@]+"${mcp_off[@]}"} ${trace[@]+"${trace[@]}"} -o "$out.msg" </dev/null >>"$out.log" 2>&1
   rc=$?
   set -e
   if [ "$rc" = 0 ]; then break; fi
