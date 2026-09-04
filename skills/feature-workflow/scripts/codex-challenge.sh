@@ -75,8 +75,10 @@ rm -f "$out.msg" "$out.log"
 # outbound reach — Jira, web fetch — the read-only sandbox does not grant. `-c mcp_servers={}` does
 # not clear the table (TOML merge; verified 2026-09-04), per-server enabled=false does.
 mcp_off=()
+# Top-level server tables only: `[^].]+` stops at a dot, so a sub-table like [mcp_servers.foo.env]
+# is not read as a server named foo.env (a boolean into a string map aborts codex startup).
 while IFS= read -r name; do mcp_off+=(-c "mcp_servers.${name}.enabled=false"); done \
-  < <(sed -nE 's/^\[mcp_servers\.([^]]+)\][[:space:]]*$/\1/p' "${CODEX_HOME:-$HOME/.codex}/config.toml" 2>/dev/null)
+  < <(sed -nE 's/^\[mcp_servers\.([^].]+)\][[:space:]]*$/\1/p' "${CODEX_HOME:-$HOME/.codex}/config.toml" 2>/dev/null | sort -u)
 # approval_policy=never: the read-only sandbox denies writes outside the checkout, but an "allow"
 # prefix rule in ~/.codex/rules (smart approvals add them for xcodebuild) runs the command outside
 # the sandbox under on-request, which is how the review builds wrote DerivedData. Codex documents
