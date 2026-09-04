@@ -70,6 +70,13 @@ The change under review is exactly the commit range $base..$head. Run \`git log 
 
 Find ways this code will fail in production. Think like an attacker and a chaos engineer: edge cases, race conditions, security holes, resource leaks, failure modes, silent data corruption. Be adversarial and thorough. No compliments. One line per finding: file:line — what breaks and how to reach it."
 rm -f "$out.msg" "$out.log"
+# A review run needs no MCP tools: every server in ~/.codex/config.toml would otherwise start per
+# run (a stale Atlassian OAuth refresh failed on all 34 runs of 2026-09-03) and hand the reviewer
+# outbound reach — Jira, web fetch — the read-only sandbox does not grant. `-c mcp_servers={}` does
+# not clear the table (TOML merge; verified 2026-09-04), per-server enabled=false does.
+mcp_off=()
+while IFS= read -r name; do mcp_off+=(-c "mcp_servers.${name}.enabled=false"); done \
+  < <(sed -nE 's/^\[mcp_servers\.([^]]+)\][[:space:]]*$/\1/p' "${CODEX_HOME:-$HOME/.codex}/config.toml" 2>/dev/null)
 # approval_policy=never: the read-only sandbox denies writes outside the checkout, but an "allow"
 # prefix rule in ~/.codex/rules (smart approvals add them for xcodebuild) runs the command outside
 # the sandbox under on-request, which is how the review builds wrote DerivedData. Codex documents
@@ -78,7 +85,7 @@ start=$(date +%s); rc=1
 for attempt in 1 2 3; do
   set +e
   echo "=== attempt $attempt ===" >>"$out.log"
-  "$to" -k 60 2400 codex exec "$prompt" -C "$dir" -s read-only --ephemeral -c 'approval_policy="never"' -c 'model_reasoning_effort="high"' -c 'web_search="cached"' -c 'project_doc_max_bytes=0' ${trace[@]+"${trace[@]}"} -o "$out.msg" </dev/null >>"$out.log" 2>&1
+  "$to" -k 60 2400 codex exec "$prompt" -C "$dir" -s read-only --ephemeral -c 'approval_policy="never"' -c 'model_reasoning_effort="high"' -c 'web_search="cached"' -c 'project_doc_max_bytes=0' ${mcp_off[@]+"${mcp_off[@]}"} ${trace[@]+"${trace[@]}"} -o "$out.msg" </dev/null >>"$out.log" 2>&1
   rc=$?
   set -e
   if [ "$rc" = 0 ]; then break; fi
