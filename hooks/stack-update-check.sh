@@ -30,6 +30,20 @@ now="$(date +%s)"
 # session would pay the curl timeout instead of just this one.
 { echo "$now" > "$STATE/last-check"; } 2>/dev/null || exit 0
 
+# Doctrine-vs-harness drift. The kit's rules encode version-dependent harness
+# behavior; install.sh stamps the version docs/references.md was last validated
+# against. One line when the running Claude Code differs — the changelog diff
+# itself stays a manual, discussed step. `claude --version` starts node, so it
+# sits behind the once-a-day gate above and under gtimeout where available.
+validated="$(cat "$STATE/validated-cc-version" 2>/dev/null)"
+if [[ "$validated" =~ ^[0-9]+(\.[0-9]+)+$ ]]; then
+  to="$(command -v gtimeout || command -v timeout)" 2>/dev/null
+  running="$(${to:+"$to" 5} claude --version 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+' | head -1)"
+  if [ -n "$running" ] && [ "$running" != "$validated" ]; then
+    echo "claude-code-setup: Claude Code $running is running, doctrine last validated against $validated — diff the changelog $validated → $running before the next pipeline change"
+  fi
+fi
+
 remote="$(curl -sfm 4 -H 'Accept: application/vnd.github.sha' \
   "https://api.github.com/repos/${REPO}/commits/${BRANCH}" 2>/dev/null)"
 

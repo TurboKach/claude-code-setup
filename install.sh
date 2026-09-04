@@ -140,7 +140,7 @@ case "$CLAUDE_MD_MODE" in
 esac
 
 # Skills — back up then replace.
-for skill in agent-teams feature-workflow stack-update; do
+for skill in agent-teams feature-workflow stack-update analyze-arcs; do
   backup "skills/$skill"
   rm -rf "$DEST/skills/$skill"
   cp -R "$SRC/skills/$skill" "$DEST/skills/$skill"
@@ -212,6 +212,15 @@ if INSTALLED_SHA="$(git -C "$SRC" rev-parse HEAD 2>/dev/null)"; then
   fi
 else
   echo "  $SRC is not a git checkout — skipping update-check stamp (check will stay disabled)"
+fi
+
+# Stamp the Claude Code version the doctrine was last validated against (the
+# header line in docs/references.md), so the SessionStart hook can notice when
+# the running harness has moved past it. No git needed.
+if VALIDATED="$(grep -oE 'validated against Claude Code v[0-9]+(\.[0-9]+)+' "$SRC/docs/references.md" 2>/dev/null | head -1 | grep -oE '[0-9]+(\.[0-9]+)+')"; then
+  mkdir -p "$DEST/.claude-code-setup"
+  echo "$VALIDATED" > "$DEST/.claude-code-setup/validated-cc-version"
+  echo "  stamped .claude-code-setup/validated-cc-version ($VALIDATED)"
 fi
 
 # settings.json — merge the example keys, preserving everything else.
