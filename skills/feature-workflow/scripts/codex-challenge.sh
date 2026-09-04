@@ -70,15 +70,16 @@ The change under review is exactly the commit range $base..$head. Run \`git log 
 
 Find ways this code will fail in production. Think like an attacker and a chaos engineer: edge cases, race conditions, security holes, resource leaks, failure modes, silent data corruption. Be adversarial and thorough. No compliments. One line per finding: file:line — what breaks and how to reach it."
 rm -f "$out.msg" "$out.log"
-# A review run needs no MCP tools: every server in ~/.codex/config.toml would otherwise start per
-# run (a stale Atlassian OAuth refresh failed on all 34 runs of 2026-09-03) and hand the reviewer
-# outbound reach — Jira, web fetch — the read-only sandbox does not grant. `-c mcp_servers={}` does
-# not clear the table (TOML merge; verified 2026-09-04), per-server enabled=false does.
+# A review run needs no MCP tools: every configured server would otherwise start per run (a stale
+# Atlassian OAuth refresh failed on all 34 runs of 2026-09-03) and hand the reviewer outbound reach —
+# Jira, web fetch — the read-only sandbox does not grant. `-c mcp_servers={}` does not clear the table
+# (TOML merge; verified 2026-09-04), per-server enabled=false does. The names come from codex's own
+# config loader (`codex mcp list --json`, run in the review checkout so a trusted project config counts),
+# never from parsing config.toml here — two regex rounds missed sub-tables, trailing comments and quoted
+# names. The key segment is quoted so a dotted name stays one segment.
 mcp_off=()
-# Top-level server tables only: `[^].]+` stops at a dot, so a sub-table like [mcp_servers.foo.env]
-# is not read as a server named foo.env (a boolean into a string map aborts codex startup).
-while IFS= read -r name; do mcp_off+=(-c "mcp_servers.${name}.enabled=false"); done \
-  < <(sed -nE 's/^\[mcp_servers\.([^].]+)\][[:space:]]*$/\1/p' "${CODEX_HOME:-$HOME/.codex}/config.toml" 2>/dev/null | sort -u)
+while IFS= read -r name; do mcp_off+=(-c "mcp_servers.\"${name}\".enabled=false"); done \
+  < <(cd "$dir" && "$to" 30 codex mcp list --json 2>/dev/null | sed -nE 's/^[[:space:]]*"name":[[:space:]]*"(.*)",?$/\1/p' | sort -u)
 # approval_policy=never: the read-only sandbox denies writes outside the checkout, but an "allow"
 # prefix rule in ~/.codex/rules (smart approvals add them for xcodebuild) runs the command outside
 # the sandbox under on-request, which is how the review builds wrote DerivedData. Codex documents
