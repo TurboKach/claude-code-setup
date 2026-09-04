@@ -74,6 +74,20 @@ expect_allow "grep for the marker string -> allow" \
 expect_allow "commit message mentioning until + output.done -> allow" \
   '{"tool_name":"Bash","agent_id":"a1","tool_input":{"command":"git commit -m \"hook: deny until/while polls on the .output.done marker\""}}'
 
+expect_allow "echo of the full loop inside double quotes -> allow" \
+  '{"tool_name":"Bash","tool_input":{"command":"echo \"until [ -f x.output.done ]; do sleep 1; done\""}}'
+
+expect_allow "loop text inside single quotes (commit message) -> allow" \
+  "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m 'deny until [ -f x.output.done ] loops'\"}}"
+
+expect_deny "loop after && with a non-test builtin (stat) -> deny" \
+  '{"tool_name":"Bash","agent_id":"a1","tool_input":{"command":"cd /tmp && until stat /tmp/tasks/x.output.done >/dev/null 2>&1; do sleep 5; done"}}' \
+  "output.done"
+
+expect_deny "loop on its own line after a newline -> deny" \
+  '{"tool_name":"Bash","tool_input":{"command":"set -e\nwhile [ ! -f /tmp/tasks/x.output.done ]; do sleep 2; done"}}' \
+  "output.done"
+
 # Fail-open: never block on anything the hook does not understand.
 expect_allow "tool_name Read -> allow" \
   '{"tool_name":"Read","agent_id":"a1","tool_input":{"file_path":"/tmp/x"}}'

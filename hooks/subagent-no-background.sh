@@ -12,8 +12,12 @@
 #      codex run and the full suite live there by doctrine.
 #   B. a poll loop on a <task>.output.done marker is denied everywhere: the
 #      harness never writes that file, so the loop runs until its timeout or
-#      forever. Only the loop shape matches — greps and heredocs that mention
-#      the marker stay allowed.
+#      forever — and a foreground one is auto-backgrounded at the timeout,
+#      which rule A cannot see. Only an executed loop matches: quoted text
+#      is stripped first and the loop keyword must sit at a command boundary,
+#      so an echo, a commit message or a grep that mentions the loop is
+#      allowed. Known gaps, accepted: a loop inside `bash -c "…"` is quoted
+#      and passes; a heredoc body line that starts with the loop is denied.
 #
 # Why: 2026-09-04 clipsy_ios arc — a fixer's `xcodebuild test` (no timeout)
 # was auto-backgrounded at the 2-min default; its `sleep 90; tail` was blocked
@@ -49,14 +53,22 @@ if not isinstance(tool_input, dict):
 command = tool_input.get("command") or ""
 in_subagent = bool(data.get("agent_id"))
 
-WAIT = ("wait in the foreground on the process itself: `until ! pgrep -f <pattern> "
-        ">/dev/null; do sleep 10; done` under its own `timeout` sized to the run, "
-        "then read the task .output file.")
+WAIT = ("wait in the foreground on the process itself: `until ! pgrep -f "
+        "<pattern> >/dev/null; do sleep 10; done` under its own `timeout` sized to "
+        "the run, then read the task .output file. Bracket the first letter of the "
+        "pattern (`[x]codebuild`) so pgrep cannot match its own command line.")
+
+def polls_marker(cmd):
+    # Only a loop that would execute counts: drop quoted text first (an echo,
+    # a commit message, a doc line mentioning the loop is not a poll), then
+    # require the loop keyword at a command boundary — start of command, or
+    # after ; & | newline ( { — and the marker somewhere in that loop head.
+    stripped = re.sub(r"\"[^\"]*\"|\x27[^\x27]*\x27", "", cmd)
+    return re.search(r"(?:^|[;&|(){}\n])\s*(until|while)\b[^;\n]*output\.done",
+                     stripped) is not None
 
 reason = None
-# Loop syntax only — `until [ -f x.output.done ]`, `while ! test -f …` — so a
-# commit message or doc text that merely mentions the words is not a match.
-if re.search(r"\b(until|while)\s+(!\s*)?(\[\[?|test)\s[^;]*output\.done", command, re.S):
+if polls_marker(command):
     reason = ("Denied: no `.output.done` marker is ever written for a background task, "
               "so this loop never ends. To wait for a command that was auto-backgrounded, "
               + WAIT + " Better: give the command itself a `timeout` sized to the run so "
