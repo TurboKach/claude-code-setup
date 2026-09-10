@@ -96,7 +96,7 @@ start=$(date +%s); rc=1
 for attempt in 1 2 3; do
   set +e
   echo "=== attempt $attempt ===" >>"$out.log"
-  "$to" -k 60 2400 "$codex_bin" exec "$prompt" -C "$dir" -s read-only --ephemeral -c 'approval_policy="never"' -c 'model_reasoning_effort="high"' -c 'web_search="cached"' -c 'project_doc_max_bytes=0' ${mcp_off[@]+"${mcp_off[@]}"} ${trace[@]+"${trace[@]}"} -o "$out.msg" </dev/null >>"$out.log" 2>&1
+  "$to" -k 60 2400 "$codex_bin" exec "$prompt" -C "$dir" -s read-only --ephemeral -c 'approval_policy="never"' -c 'model="gpt-6-astra"' -c 'model_reasoning_effort="medium"' -c 'web_search="cached"' -c 'project_doc_max_bytes=0' ${mcp_off[@]+"${mcp_off[@]}"} ${trace[@]+"${trace[@]}"} -o "$out.msg" </dev/null >>"$out.log" 2>&1
   rc=$?
   set -e
   if [ "$rc" = 0 ]; then break; fi
