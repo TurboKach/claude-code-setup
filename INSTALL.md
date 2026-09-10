@@ -54,6 +54,9 @@ it — so don't offer it as a deselectable option. Suggested:
    - `gpt-5.6-sol` *(reliable everyday workhorse, 272k context)*
    - `gpt-5.6-luna` *(fast and affordable, 272k context)*
 
+   Tell them this sticks: `install.sh` never clobbers an existing value, so
+   changing it later means editing `~/.claude/settings.json` by hand.
+
 Explain briefly: the **default path** (background subagents + Workflows) needs
 nothing beyond the skill + agents — no flags, no extra tools. gstack is
 optional — it powers `/office-hours`, `/ship`, `/context-save`

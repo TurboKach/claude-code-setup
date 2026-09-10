@@ -31,7 +31,7 @@ in parallel, no extra setup).
 | `agents/spec-reviewer.md` | At the final gate, checks the feature's whole diff against the approved plan file — missing requirements, scope creep, wrong-logic-vs-spec; gaps only, in parallel with the whole-range codex challenge *(Sonnet medium)* |
 | `agents/team-reviewer.md` | Adversarially verifies each diff before merge — read-only, no worktree *(Opus)* |
 | `agents/team-merger.md` | Merges approved worktrees into the base branch, removes each worktree + branch after landing, reports done *(Sonnet)* |
-| `settings.example.json` | The model pin (`ANTHROPIC_DEFAULT_OPUS_MODEL` — see [Model pinning](#model-pinning)), `worktree.baseRef: "head"` so executor worktrees branch from your in-progress branch rather than the remote default, `CLAUDE_CODE_ENABLE_TODO_TOOLS` (the task-list feature), `CLAUDE_CODE_SUBAGENT_MODEL` (the Sonnet floor for unpinned spawns — see [Model pinning](#model-pinning)), `BASH_DEFAULT_TIMEOUT_MS: 900000` (a build or test run with no explicit timeout is no longer auto-backgrounded at 2 minutes; this is also the ceiling), `CODEX_REVIEW_MODEL` + `CODEX_REVIEW_EFFORT` (which codex model and reasoning effort the cross-review gate uses — set here, not in the script, because install.sh replaces the skill directory on every run), the `SessionStart` update-check hook, and the `PreToolUse` subagent-no-background hook |
+| `settings.example.json` | The model pin (`ANTHROPIC_DEFAULT_OPUS_MODEL` — see [Model pinning](#model-pinning)), `worktree.baseRef: "head"` so executor worktrees branch from your in-progress branch rather than the remote default, `CLAUDE_CODE_ENABLE_TODO_TOOLS` (the task-list feature), `CLAUDE_CODE_SUBAGENT_MODEL` (the Sonnet floor for unpinned spawns — see [Model pinning](#model-pinning)), `BASH_DEFAULT_TIMEOUT_MS: 900000` (a build or test run with no explicit timeout is no longer auto-backgrounded at 2 minutes; this is also the ceiling), `CODEX_REVIEW_MODEL` + `CODEX_REVIEW_EFFORT` (which codex model and reasoning effort the cross-review gate uses — set here, not in the script, because install.sh replaces the skill directory on every run; reinstalling never overrides an existing value, so change it by editing `settings.json`), the `SessionStart` update-check hook, and the `PreToolUse` subagent-no-background hook |
 | `hooks/subagent-no-background.sh` | PreToolUse on Bash: denies `run_in_background` inside any subagent (with fork mode on every spawn is a background subagent, whose background commands keep running past its final report — nobody stops them) and any `until`/`while` poll on a `.output.done` marker (the harness never writes one). Fail-open on anything it does not understand; tests in `hooks/tests/` |
 | `hooks/stack-update-check.sh` | Runs once per session start: at most once a day, checks whether this repo's `master` differs from the SHA you installed, and whether the running Claude Code differs from the version the doctrine was last validated against (`docs/references.md`, stamped by `install.sh`) — one line each if so, silent otherwise (no update, no network, disabled, cached) |
 | `skills/stack-update/SKILL.md` | Applies a pending update: clones the repo, summarizes what changed, asks for your approval before writing anything, re-runs `install.sh`, and re-stamps |
@@ -78,9 +78,10 @@ Open Claude Code and paste this:
 > Set up the Claude Code parallel-multi-agent kit from https://github.com/TurboKach/claude-code-setup — clone it to a temp directory, read INSTALL.md, and run it as an interactive install wizard. Detect what I already have and only install what's missing.
 
 Claude checks your machine and walks you through it step by step: it offers to
-install only what you're missing (gstack), enables the required settings, and
-copies the skill + agents with backups. Exactly what it does:
-[`INSTALL.md`](INSTALL.md).
+install what you're missing (gstack), asks how to handle an existing
+`CLAUDE.md`, which Opus version to pin, and which codex model the cross-review
+gate should use — then enables the required settings and copies the skill +
+agents with backups. Exactly what it does: [`INSTALL.md`](INSTALL.md).
 
 ### Alternative — non-interactive script
 
