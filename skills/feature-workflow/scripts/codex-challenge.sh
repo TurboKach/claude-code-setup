@@ -92,18 +92,37 @@ done < <(printf '%s\n' "$mcp_json" | sed -nE 's/^[[:space:]]*"name":[[:space:]]*
 # prefix rule in ~/.codex/rules (smart approvals add them for xcodebuild) runs the command outside
 # the sandbox under on-request, which is how the review builds wrote DerivedData. Codex documents
 # never as the policy for non-interactive runs; verified 2026-09-04 that it keeps xcodebuild sandboxed.
+# Model + effort come from the environment — settings.json's `env` block, installed by install.sh —
+# not from this file: install.sh does `rm -rf "$DEST/skills/<skill>"` on every run, so anything pinned
+# here is wiped by the next reinstall. Leaving them unset inherited ~/.codex/config.toml's interactive
+# TUI model, which silently flipped gpt-5.6-sol -> gpt-6-astra on 2026-09-05 after a codex-cli upgrade.
+# `${VAR:-default}` is safe under `set -u`; a bare `$VAR` is not.
+model=${CODEX_REVIEW_MODEL:-gpt-6-astra}
+effort=${CODEX_REVIEW_EFFORT:-medium}
 start=$(date +%s); rc=1
 for attempt in 1 2 3; do
   set +e
   echo "=== attempt $attempt ===" >>"$out.log"
-  "$to" -k 60 2400 "$codex_bin" exec "$prompt" -C "$dir" -s read-only --ephemeral -c 'approval_policy="never"' -c 'model="gpt-6-astra"' -c 'model_reasoning_effort="medium"' -c 'web_search="cached"' -c 'project_doc_max_bytes=0' ${mcp_off[@]+"${mcp_off[@]}"} ${trace[@]+"${trace[@]}"} -o "$out.msg" </dev/null >>"$out.log" 2>&1
+  mark=$(wc -c <"$out.log" 2>/dev/null || echo 0)
+  "$to" -k 60 2400 "$codex_bin" exec "$prompt" -C "$dir" -s read-only --ephemeral -c 'approval_policy="never"' -c "model=\"$model\"" -c "model_reasoning_effort=\"$effort\"" -c 'web_search="cached"' -c 'project_doc_max_bytes=0' ${mcp_off[@]+"${mcp_off[@]}"} ${trace[@]+"${trace[@]}"} -o "$out.msg" </dev/null >>"$out.log" 2>&1
   rc=$?
   set -e
   if [ "$rc" = 0 ]; then break; fi
   if [ "$rc" = 124 ] || [ "$rc" = 137 ]; then rc=124; break; fi   # 124/137 = 40-min stall (137 when -k had to SIGKILL a TERM-ignoring codex), not an outage
-  echo "attempt $attempt exit $rc" >>"$out.log"; [ "$attempt" -lt 3 ] && sleep 300
+  echo "attempt $attempt exit $rc" >>"$out.log"
+  # A model/effort the API rejects is an immediate HTTP 400, not an outage: retrying it costs 10 min of
+  # silence and still returns no review. codex exec's exit code does not distinguish 400 from a network
+  # failure, so match the error line codex itself prints. Scoped to this attempt's chunk of the log and
+  # anchored on codex's `ERROR:` prefix, because the reviewer's own findings text can contain these words
+  # verbatim (this repo reviews this very script). `grep -E ... >/dev/null`, never `grep -q`: under
+  # `set -o pipefail` a -q match kills the writer with SIGPIPE and the pipeline reports 141 == no match.
+  if tail -c +$((mark + 1)) "$out.log" | grep -E '^ERROR:.*("status": ?400|invalid_request_error|invalid_enum_value|not supported when using Codex)' >/dev/null; then
+    echo "permanent API error on attempt $attempt (bad CODEX_REVIEW_MODEL/EFFORT?) — not retrying; see $out.log" | tee -a "$out.log" >&2
+    break
+  fi
+  [ "$attempt" -lt 3 ] && sleep 300
 done
 rm -f "$out"
-{ echo "# codex challenge — range $base..$head — checkout $dir — exit $rc — $(( $(date +%s) - start ))s"
+{ echo "# codex challenge — range $base..$head — checkout $dir — model $model/$effort — exit $rc — $(( $(date +%s) - start ))s"
   cat "$out.msg" 2>/dev/null || echo "(no final message; see $out.log)"; } >"$out"
 echo "$out"; exit "$rc"
