@@ -112,11 +112,24 @@ for attempt in 1 2 3; do
   echo "attempt $attempt exit $rc" >>"$out.log"
   # A model/effort the API rejects is an immediate HTTP 400, not an outage: retrying it costs 10 min of
   # silence and still returns no review. codex exec's exit code does not distinguish 400 from a network
-  # failure, so match the error line codex itself prints. Scoped to this attempt's chunk of the log and
-  # anchored on codex's `ERROR:` prefix, because the reviewer's own findings text can contain these words
-  # verbatim (this repo reviews this very script). `grep -E ... >/dev/null`, never `grep -q`: under
-  # `set -o pipefail` a -q match kills the writer with SIGPIPE and the pipeline reports 141 == no match.
-  if tail -c +$((mark + 1)) "$out.log" | grep -E '^ERROR:.*("status": ?400|invalid_request_error|invalid_enum_value|not supported when using Codex)' >/dev/null; then
+  # failure, so match codex's own error report — two greps, not one, both measured 2026-09-10 against real
+  # bad-model and bad-effort failures in both --trace and non-trace mode:
+  # - ANCHOR: a line only codex itself emits for its own failure. Non-trace prints `ERROR:` at true
+  #   line-start; --trace's `--json` stream is one JSON object per line, so the anchor there is the
+  #   event's own `"type":"error"`/`"type":"turn.failed"` — plain `^ERROR:` never appears under --trace,
+  #   which silently disabled every bail on every feature-workflow gate run (those all pass --trace).
+  # - CONTENT: the 400/enum text, deliberately NOT required on the anchor's own line — a bad
+  #   CODEX_REVIEW_EFFORT renders its 400 body pretty-printed across several lines in non-trace mode
+  #   (unlike the bad-model 400, which is compact on one line), so a same-line regex misses it.
+  # Both are scoped to this attempt's chunk of the log. Requiring BOTH (not keywords alone) is what keeps
+  # a reviewer's own prose about this very regex from tripping the bail: measured in this session, a
+  # successful run's log contains these keywords from the reviewer's findings text, but that text is
+  # always indented when it quotes the script, so it never matches the anchor. `grep -E ... >/dev/null`,
+  # never `grep -q`: under `set -o pipefail` a -q match kills the writer with SIGPIPE and the pipeline
+  # reports 141 == no match.
+  chunk=$(tail -c +$((mark + 1)) "$out.log")
+  if grep -E '^(ERROR:|\{"type":"(error|turn\.failed)")' <<<"$chunk" >/dev/null \
+    && grep -E '("status": ?400|invalid_request_error|invalid_enum_value|not supported when using Codex)' <<<"$chunk" >/dev/null; then
     echo "permanent API error on attempt $attempt (bad CODEX_REVIEW_MODEL/EFFORT?) — not retrying; see $out.log" | tee -a "$out.log" >&2
     break
   fi
