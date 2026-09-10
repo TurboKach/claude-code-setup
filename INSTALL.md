@@ -45,6 +45,14 @@ it — so don't offer it as a deselectable option. Suggested:
    - `claude-opus-4-8` *(previous generation, if you want the older behavior)*
    - *don't pin* — the alias keeps following whatever Anthropic ships as Opus
    - custom: any full model ID the user types (the "Other" answer)
+4. **Codex review model** — only if `CODEX_REVIEW_MODEL` isn't already in
+   their settings `env`: ask which model the codex cross-review gate (the
+   always-on push gate) uses. All three options run at `medium` reasoning
+   effort; the gate reads a whole feature range end to end, which is why the
+   128k `gpt-5.3-codex-spark` tier is not offered. Options:
+   - `gpt-6-astra` *(recommended, the repo default — most capable, 272k context)*
+   - `gpt-5.6-sol` *(reliable everyday workhorse, 272k context)*
+   - `gpt-5.6-luna` *(fast and affordable, 272k context)*
 
 Explain briefly: the **default path** (background subagents + Workflows) needs
 nothing beyond the skill + agents — no flags, no extra tools. gstack is
@@ -71,6 +79,15 @@ Translate the Step 1 answers into flags and run it once:
 - **CLAUDE.md handling was *append*** → `--claude-md=append`.
 - **CLAUDE.md handling was *replace*** → `--claude-md=replace`.
 - **CLAUDE.md handling was *leave mine untouched*** → `--claude-md=leave`.
+- **Codex review model answer was *gpt-6-astra*** → `--codex-model=gpt-6-astra`.
+- **Codex review model answer was *gpt-5.6-sol*** → `--codex-model=gpt-5.6-sol`.
+- **Codex review model answer was *gpt-5.6-luna*** → `--codex-model=gpt-5.6-luna`.
+- **The question was skipped because `CODEX_REVIEW_MODEL` already exists** →
+  pass no `--codex-model` flag (the existing value is never clobbered).
+
+Every codex-model answer passes its own explicit flag, including the
+recommended one — there is no "recommended → pass no flag" branch, so the
+install command line always records which model was actually chosen.
 
 For example, a user who wants to append the Feature workflow section to
 their existing `CLAUDE.md`:

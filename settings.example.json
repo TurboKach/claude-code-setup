@@ -3,7 +3,9 @@
     "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5",
     "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1",
     "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet",
-    "BASH_DEFAULT_TIMEOUT_MS": "900000"
+    "BASH_DEFAULT_TIMEOUT_MS": "900000",
+    "CODEX_REVIEW_MODEL": "gpt-6-astra",
+    "CODEX_REVIEW_EFFORT": "medium"
   },
   "worktree": {
     "baseRef": "head"

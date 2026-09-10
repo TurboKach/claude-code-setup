@@ -9,8 +9,10 @@ set -euo pipefail
 # keeps the "opus" alias on a fixed version; added only if you haven't set your
 # own value), and every other key in that file's "env" block the same way
 # (CLAUDE_CODE_ENABLE_TODO_TOOLS for the task-list feature, the Sonnet
-# subagent floor, and BASH_DEFAULT_TIMEOUT_MS=900000 so a build or test run
-# with no explicit timeout is not auto-backgrounded at 2 minutes). It also
+# subagent floor, BASH_DEFAULT_TIMEOUT_MS=900000 so a build or test run
+# with no explicit timeout is not auto-backgrounded at 2 minutes, and
+# CODEX_REVIEW_MODEL / CODEX_REVIEW_EFFORT for the codex cross-review gate).
+# It also
 # installs two hooks: a SessionStart hook that checks once a day whether this
 # repo has moved past the SHA you installed (and stamps that SHA so the check
 # has something to compare against), and a PreToolUse hook on Bash that denies
@@ -22,7 +24,7 @@ set -euo pipefail
 
 usage() {
   cat <<EOF
-Usage: install.sh [--opus-pin=MODEL_ID | --no-opus-pin] [--claude-md=append|replace|leave]
+Usage: install.sh [--opus-pin=MODEL_ID | --no-opus-pin] [--codex-model=MODEL_ID] [--claude-md=append|replace|leave]
 
 No flags: setdefault the Opus pin from settings.example.json, and install
 CLAUDE.md only if none exists yet.
@@ -30,6 +32,8 @@ CLAUDE.md only if none exists yet.
   --opus-pin=MODEL_ID    Setdefault ANTHROPIC_DEFAULT_OPUS_MODEL to MODEL_ID instead of
                          the repo default (never clobbers an existing value).
   --no-opus-pin          Don't set ANTHROPIC_DEFAULT_OPUS_MODEL at all.
+  --codex-model=MODEL_ID Setdefault CODEX_REVIEW_MODEL to MODEL_ID instead of the repo
+                         default (never clobbers an existing value).
   --claude-md=append     Append this repo's Feature workflow section to an existing
                          ~/.claude/CLAUDE.md (no-op if that section is already there).
   --claude-md=replace    Back up and overwrite ~/.claude/CLAUDE.md with this repo's copy.
@@ -40,12 +44,15 @@ EOF
 OPUS_PIN=""
 OPUS_PIN_SET=0
 OPUS_SKIP=0
+CODEX_MODEL=""
+CODEX_MODEL_SET=0
 CLAUDE_MD_MODE="auto"
 
 for arg in "$@"; do
   case "$arg" in
     --opus-pin=*) OPUS_PIN="${arg#--opus-pin=}"; OPUS_PIN_SET=1 ;;
     --no-opus-pin) OPUS_SKIP=1 ;;
+    --codex-model=*) CODEX_MODEL="${arg#--codex-model=}"; CODEX_MODEL_SET=1 ;;
     --claude-md=*) CLAUDE_MD_MODE="${arg#--claude-md=}" ;;
     -h|--help) usage; exit 0 ;;
     *)
@@ -71,6 +78,11 @@ fi
 
 if [ "$OPUS_PIN_SET" = 1 ] && [ -z "$OPUS_PIN" ]; then
   echo "install.sh: --opus-pin requires a non-empty MODEL_ID" >&2
+  exit 1
+fi
+
+if [ "$CODEX_MODEL_SET" = 1 ] && [ -z "$CODEX_MODEL" ]; then
+  echo "install.sh: --codex-model requires a non-empty MODEL_ID" >&2
   exit 1
 fi
 
@@ -234,13 +246,14 @@ SETTINGS="$DEST/settings.json"
 HOOK_PATH="$DEST/hooks/stack-update-check.sh"
 BG_HOOK_PATH="$DEST/hooks/subagent-no-background.sh"
 if command -v python3 >/dev/null 2>&1; then
-  python3 - "$SETTINGS" "$SRC/settings.example.json" "$HOOK_PATH" "$DEST" "$OPUS_PIN_SET" "$OPUS_PIN" "$OPUS_SKIP" "$BG_HOOK_PATH" <<'PY'
+  python3 - "$SETTINGS" "$SRC/settings.example.json" "$HOOK_PATH" "$DEST" "$OPUS_PIN_SET" "$OPUS_PIN" "$OPUS_SKIP" "$BG_HOOK_PATH" "$CODEX_MODEL" <<'PY'
 import json, os, sys
 settings, example, hook_path, dest = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 opus_pin_set = sys.argv[5] == "1"
 opus_pin = sys.argv[6]
 opus_skip = sys.argv[7] == "1"
 bg_hook_path = sys.argv[8]
+codex_model = sys.argv[9]
 ex = json.load(open(example))
 if os.path.exists(settings):
     d = json.load(open(settings))
@@ -253,6 +266,8 @@ for k, v in ex["env"].items():
         if opus_skip:
             continue  # user chose not to pin the "opus" alias
         v = opus_pin if opus_pin_set else v
+    elif k == "CODEX_REVIEW_MODEL" and codex_model:
+        v = codex_model
     env.setdefault(k, v)  # model pins etc. — never clobber an existing choice
 # Executor worktrees must branch from the session's in-progress branch, not the
 # remote default — otherwise they can't see the plan file or prior units' work.
