@@ -1,0 +1,2 @@
+# codex challenge — range 6cd6c72de257d33e2e1fc53a20904cfd155d01e2..ec501c9d980d0239a43242371a9b4735156b4e11 — checkout /Users/turbokach/Dev/claude-code-setup — model gpt-6-astra/medium — exit 0 — 83s
+skills/feature-workflow/scripts/codex-challenge.sh:131 — Reading repository content containing `invalid_request_error` (including this diff), then encountering a transient disconnect, falsely triggers the permanent-error bailout in both trace and plain modes: the two greps match unrelated log entries, suppressing retries and leaving the review incomplete.
