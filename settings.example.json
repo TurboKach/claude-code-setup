@@ -11,6 +11,7 @@
     "baseRef": "head"
   },
   "bashOutputMaxChars": 64000,
+  "bashEditDiffEnabled": true,
   "hooks": {
     "SessionStart": [
       {

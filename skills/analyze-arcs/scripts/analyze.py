@@ -9,53 +9,20 @@ PINS = {'team-planner': 'fable', 'team-plan-reviewer': 'fable', 'team-reviewer':
         'step-executor': 'sonnet', 'team-executor': 'sonnet', 'fixer': 'sonnet',
         'codex-triage': 'sonnet', 'spec-reviewer': 'sonnet', 'explorer': 'sonnet', 'general-purpose': 'sonnet'}
 FW = re.compile(r'Base directory for this skill: \S*/feature-workflow\b')
-NON_PRODUCT = ('/.claude', '/memory/', '/MEMORY.md', '/docs/prompts/', '/docs/reviews/', '/docs/todos/', '/TODOS.md', '/tech-debt')   # anywhere in the path
+NON_PRODUCT = ('/.claude', '/memory/', '/MEMORY.md', '/docs/prompts/', '/docs/reviews/', '/docs/todos/', '/TODOS.md', '/tech-debt', '/__pycache__/')   # anywhere in the path
 HANDOFF_DOC = re.compile(r'HANDOFF[^/]*\.md$')   # a handoff doc by basename, wherever it lives
 SCRATCH_PREFIX = ('/tmp/', '/private/tmp/', '/dev/')   # only at the start of an absolute path (a repo's own dev/ or tmp/ is product)
 # A path call line: "Path call: ...", or a message that opens with one-shot / pipeline, or names one with a colon or dash.
 PATH_CALL = re.compile(r'(?i)\bpath call\b|^\s*\**\s*(one-shot|pipeline)\b(?!-)|\b(one-shot|pipeline)\**\s*[:\u2014\u2013]|\b(one-shot|pipeline)\**\s+-\s')
 # A stated reason for an off-doctrine pin: the doctrine's own categories (structural / same-mechanism / fable rate-limited) count.
 REASON = re.compile(r'(?i)reason|opus for|structural|mechanism|rate.?limit|429')
-# Bash commands that write a file (the auto-mode prompt steers edits through Bash since <=2.1.266): cat >, tee, sed -i, or a
-# heredoc script that opens a file for writing. Group 1 is the target path when the syntax names one.
-# Writers are scanned token by token, each looking ahead only to its own segment end (bounded, so a long command stays linear):
-# cat ... > target (the last redirection after cat is the file; an earlier 2>/dev/null is not), tee target, sed -i (targets in its segment).
-CAT, TEE, SED = re.compile(r'\bcat\b'), re.compile(r'\btee\s+(?:-a\s+)?([^\s;|&]+)'), re.compile(r'\bsed\s+-i\b')
-REDIR = re.compile(r'>>?\s*([^\s;|&]+)')
-CAT_END, SED_END = re.compile(r'[;&|\n]'), re.compile(r'[;&\n]')   # a sed expression may be pipe-delimited (s|a|b|), so its segment keeps pipes
-CODEX_LAUNCH = re.compile(r'codex-challenge\.sh\s+\S+\.\.\S+[^;&|\n]*')   # a launch (script + range): its --out is not a write; only that segment is excluded
-SEG_MAX = 2000   # how far past a writer token a target can sit
-# A script that opens a file for writing; only consulted when the command carries a heredoc or python -c, so a grep for the same text is not a write.
-SCRIPT_WRITE = re.compile(r'\bwrite_text\(|\bopen\([^)]{0,200}[\'"][wa][\'"]|(?<!std(?:out|err))\.write\(')   # every span is bounded: no quadratic rescans on long commands
-# The file a heredoc script writes, when the call names it literally: open('p', 'w'|'a') or Path('p').write_text(...).
-SCRIPT_TARGET = re.compile(r'open\(\s*[\'"]([^\'"]{1,300})[\'"]\s*,\s*[\'"][wa]|Path\(\s*[\'"]([^\'"]{1,300})[\'"]\s*\)\.write_text')
-# Quoted path literals in a heredoc script (no URLs): when the write call's target is a variable, these are the candidates.
-LITERAL_PATH = re.compile(r'[\'"]([^\'"\s:]{0,300}/[A-Za-z0-9_.-]+\.[A-Za-z0-9]{1,6})[\'"]')   # needs a directory part; a bare name is unresolvable
-SED_TARGET = re.compile(r'(?!-)(?:~/|/|\.\.?/)?(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_-]+\.[a-z]{1,6}')   # a whole whitespace token in sed -i's segment; may be a bare name
-
 def product_file(f):
-    """True when f names a product file; False for scratch, plans, reviews, TODO indexes, $VAR paths and unknown targets."""
+    """True when f names a product file; False for scratch, plans, reviews, TODO indexes and build artifacts."""
     f = (f or '').strip('\'"')
-    if not f or f.startswith('$') or f == '(script)': return False
+    if not f: return False
     a = f if f.startswith('/') else '/' + f
     scratch = f.startswith('/') and f.startswith(SCRATCH_PREFIX)
     return not (scratch or any(k in a for k in NON_PRODUCT) or HANDOFF_DOC.search(a))
-
-def bash_write_targets(cmd):
-    """Every file a Bash command writes, as far as the syntax names them; '(script)' for a file-writing heredoc with no visible path."""
-    cmd = CODEX_LAUNCH.sub('', cmd)
-    def segment(m, end_re):
-        e = end_re.search(cmd, m.end(), m.end() + SEG_MAX)
-        return cmd[m.end(): e.start() if e else m.end() + SEG_MAX]
-    targets = []
-    for m in CAT.finditer(cmd): targets += [t.strip('\'"') for t in REDIR.findall(segment(m, CAT_END))]   # every redirection; /dev/null is filtered later
-    targets += [t.strip('\'"') for t in TEE.findall(cmd)]
-    for m in SED.finditer(cmd): targets += [t.strip('\'"') for t in segment(m, SED_END).split() if SED_TARGET.fullmatch(t.strip('\'"'))]
-    if ('<<' in cmd or re.search(r'\bpython3?\s+-c\b', cmd)) and SCRIPT_WRITE.search(cmd):
-        named = [a or b for a, b in SCRIPT_TARGET.findall(cmd)]
-        if named: targets += named
-        else: targets += [('script', f) for f in LITERAL_PATH.findall(cmd)] or ['(script)']   # paths the script names; the write target is a variable
-    return list(dict.fromkeys(targets))
 
 def ts(s):
     return dt.datetime.strptime(s[:19], '%Y-%m-%dT%H:%M:%S') if s else None
@@ -68,7 +35,7 @@ def records(p):
 def scan_master(p):
     r = dict(path=p, first=None, last=None, cwd=None, models=set(), user_turns=0, first_prompt='', peak=0,
              spawns=[], codex=[], edits=[], gates=[], pushes=[], killed=[], fw_loaded=None, path_call=None,
-             plan_approved=[], exit_plan=[], first_edit=None, api_errors=0)
+             plan_approved=[], exit_plan=[], first_edit=None, api_errors=0, bash_diff=False)
     pending_q = {}
     for d in records(p):
         t = d.get('type'); T = d.get('timestamp')
@@ -100,10 +67,6 @@ def scan_master(p):
                                                pin='--pin' in cmd, out=out.group(1).strip('\'";') if out else None,
                                                timeout=i.get('timeout'), id=c['id']))
                     if re.search(r'\bgit push\b', cmd): r['pushes'].append(T)
-                    for f in bash_write_targets(cmd):
-                        tool, f = ('Bash script', f[1]) if isinstance(f, tuple) else ('Bash', f)
-                        r['edits'].append(dict(t=T, tool=tool, file=f))
-                        r['first_edit'] = r['first_edit'] or T
                 elif n in ('Edit', 'Write', 'MultiEdit', 'NotebookEdit'):
                     r['edits'].append(dict(t=T, tool=n, file=i.get('file_path') or i.get('notebook_path') or ''))
                     r['first_edit'] = r['first_edit'] or T
@@ -113,6 +76,13 @@ def scan_master(p):
                     pending_q[c['id']] = r['gates'][-1]
                     if n == 'ExitPlanMode': r['exit_plan'].append(T)
         elif t == 'user':
+            # Files a Bash command changed, as the harness recorded them (git working tree, ≤200 paths; 2.1.269+, `bashEditDiffEnabled`,
+            # on by default in auto/bypass mode, never shown to the model). Ground truth — the command text is not parsed.
+            tur = d.get('toolUseResult'); bed = tur.get('bashEditDiff') if isinstance(tur, dict) else None
+            if isinstance(bed, dict):
+                r['bash_diff'] = True
+                for f in bed.get('changedFiles') or []:
+                    r['edits'].append(dict(t=T, tool='Bash', file=f)); r['first_edit'] = r['first_edit'] or T
             c = m.get('content')
             if isinstance(c, str):
                 if not d.get('isMeta'):
@@ -182,7 +152,7 @@ def main():
     for p, sd, nsub in masters:
         r = scan_master(p); subs = scan_subagents(sd); sid = os.path.basename(p)[:8]; proj = os.path.basename(os.path.dirname(p))
         L += [f"## {proj} / {sid}", f"- {r['first']} → {r['last']}, user turns {r['user_turns']}, models {sorted(r['models'])}, peak context {r['peak']:,}, api errors {r['api_errors']}",
-              f"- prompt: {r['first_prompt']}", f"- feature-workflow loaded: {r['fw_loaded'] or 'no'}; path call line: {r['path_call'] or 'none'}; first master edit: {r['first_edit'] or 'none'}",
+              f"- prompt: {r['first_prompt']}", f"- feature-workflow loaded: {r['fw_loaded'] or 'no'}; path call line: {r['path_call'] or 'none'}; first master edit: {r['first_edit'] or 'none'}; Bash writes: {'recorded by the harness' if r['bash_diff'] else 'not recorded (Edit/Write only — needs 2.1.269+ with bashEditDiffEnabled)'}",
               f"- subagents {len(subs)} ({sum(s['kb'] for s in subs)//1024} MB), codex launches {len(r['codex'])}, pushes {len(r['pushes'])}, background tasks killed {len(r['killed'])}"]
         flags = []
         if r['fw_loaded'] and not (r['path_call'] and r['path_call'] <= r['fw_loaded']): flags.append('no one-shot/pipeline call line before feature-workflow loaded')
@@ -200,7 +170,6 @@ def main():
         if r['fw_loaded']:
             for e in r['edits']:
                 if e['t'] > r['fw_loaded'] and product_file(e['file']): flags.append(f"{e['t'][11:16]} master {e['tool']} on product file inside pipeline: {e['file']}")
-                elif e['t'] > r['fw_loaded'] and e['file'] == '(script)': flags.append(f"{e['t'][11:16]} master Bash script writes a file inside pipeline (target not named in the command)")
         for x in r['exit_plan']:
             ap_ = next((q for q in r['plan_approved'] if q > x), None); w = mins(x, ap_)
             if w is None: flags.append(f"{x[11:16]} ExitPlanMode never approved in this session")

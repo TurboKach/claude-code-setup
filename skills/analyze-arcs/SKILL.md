@@ -28,11 +28,13 @@ the master's view of it.
      team-reviewer `opus`, executors/fixers/triage `sonnet`) with whether the prompt states a reason
    - named spawn (delivery rerouted to the mailbox)
    - `codex-challenge.sh` run in the foreground; `--out` outside the session scratchpad or `docs/reviews/`
-   - master `Edit`/`Write` on a product file after `feature-workflow` loaded — or a Bash write to one
-     (`cat >`, `tee`, `sed -i`, a heredoc script that opens a file for writing): the auto-mode prompt
-     steers edits through Bash since at least 2.1.266, so the Edit/Write check alone is blind. Plan
-     files, `docs/prompts/`, `docs/reviews/`, `docs/todos/`, the TODO/tech-debt index and `/tmp/` are
-     not product files
+   - master `Edit`/`Write` on a product file after `feature-workflow` loaded — or a Bash command that
+     changed one, read from the harness's own changed-file record (`bashEditDiff.changedFiles` on the
+     tool result; 2.1.269+, on by default in auto mode, never parsed from the command text). The
+     auto-mode prompt steers edits through Bash since at least 2.1.266, so the Edit/Write check alone
+     is blind; sessions from before 2.1.269 say "Bash writes: not recorded". Plan files, `docs/prompts/`,
+     `docs/reviews/`, `docs/todos/`, handoff docs, the TODO/tech-debt index, `/tmp/` and build artifacts
+     are not product files
    - `ExitPlanMode` or `AskUserQuestion` that waited more than an hour, or was never answered
    - `feature-workflow` loaded with no one-shot/pipeline call line before it; product edits with no call line at all
    - subagents that died on an API error before doing work; subagents that hit their turn cap

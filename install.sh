@@ -13,7 +13,9 @@ set -euo pipefail
 # with no explicit timeout is not auto-backgrounded at 2 minutes, and
 # CODEX_REVIEW_MODEL / CODEX_REVIEW_EFFORT for the codex cross-review gate),
 # plus bashOutputMaxChars=64000 (a valid command result stays inline up to
-# 64k characters instead of ~30k before it is saved to a file; 2.1.261+).
+# 64k characters instead of ~30k before it is saved to a file; 2.1.261+) and
+# bashEditDiffEnabled=true (the transcript records which files each Bash
+# command changed, in every permission mode; /analyze-arcs reads it; 2.1.269+).
 # It also
 # installs two hooks: a SessionStart hook that checks once a day whether this
 # repo has moved past the SHA you installed (and stamps that SHA so the check
@@ -276,6 +278,8 @@ for k, v in ex["env"].items():
 d.setdefault("worktree", {}).setdefault("baseRef", ex["worktree"]["baseRef"])
 # Inline output ceiling for a valid Bash result (sizes the read-back window too; 2.1.261+).
 d.setdefault("bashOutputMaxChars", ex["bashOutputMaxChars"])
+# Changed-file record on every Bash result, in every permission mode (analyze-arcs reads it; 2.1.269+).
+d.setdefault("bashEditDiffEnabled", ex["bashEditDiffEnabled"])
 
 def norm_path(cmd):
     # Representation-independent comparison: a command written as
@@ -341,7 +345,7 @@ for label, event, matcher, path, timeout in (
     warning = register_hook(event, matcher, path, timeout)
     (skipped_hooks if warning else installed_hooks).append((label, warning))
 
-merged_desc = "env + worktree.baseRef + bashOutputMaxChars"
+merged_desc = "env + worktree.baseRef + bashOutputMaxChars + bashEditDiffEnabled"
 json.dump(d, open(settings, "w"), indent=2)
 for label, warning in skipped_hooks:
     print(f"  WARNING: settings.json's {warning} — skipped installing the {label}.")
