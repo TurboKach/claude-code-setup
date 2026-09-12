@@ -79,9 +79,9 @@ def scan_master(p):
             # Files a Bash command changed, as the harness recorded them (git working tree, ≤200 paths; 2.1.269+, `bashEditDiffEnabled`,
             # on by default in auto/bypass mode, never shown to the model). Ground truth — the command text is not parsed.
             tur = d.get('toolUseResult'); bed = tur.get('bashEditDiff') if isinstance(tur, dict) else None
-            if isinstance(bed, dict):
+            if isinstance(bed, dict) and isinstance(bed.get('changedFiles'), list):   # a record without the list (snapshot skipped) proves nothing
                 r['bash_diff'] = True
-                for f in bed.get('changedFiles') or []:
+                for f in bed['changedFiles']:
                     r['edits'].append(dict(t=T, tool='Bash', file=f)); r['first_edit'] = r['first_edit'] or T
             c = m.get('content')
             if isinstance(c, str):
