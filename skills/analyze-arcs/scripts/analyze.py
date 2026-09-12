@@ -23,15 +23,15 @@ REASON = re.compile(r'(?i)reason|opus for|structural|mechanism|rate.?limit|429')
 CAT, TEE, SED = re.compile(r'\bcat\b'), re.compile(r'\btee\s+(?:-a\s+)?([^\s;|&]+)'), re.compile(r'\bsed\s+-i\b')
 REDIR = re.compile(r'>>?\s*([^\s;|&]+)')
 CAT_END, SED_END = re.compile(r'[;&|\n]'), re.compile(r'[;&\n]')   # a sed expression may be pipe-delimited (s|a|b|), so its segment keeps pipes
-CODEX_LAUNCH = re.compile(r'codex-challenge\.sh[^;&|\n]*')   # the launch's own --out is not a write; only its segment is excluded
+CODEX_LAUNCH = re.compile(r'codex-challenge\.sh\s+\S+\.\.\S+[^;&|\n]*')   # a launch (script + range): its --out is not a write; only that segment is excluded
 SEG_MAX = 2000   # how far past a writer token a target can sit
 # A script that opens a file for writing; only consulted when the command carries a heredoc or python -c, so a grep for the same text is not a write.
-SCRIPT_WRITE = re.compile(r'\bwrite_text\(|\bopen\([^)]*[\'"][wa][\'"]|(?<!std(?:out|err))\.write\(')
+SCRIPT_WRITE = re.compile(r'\bwrite_text\(|\bopen\([^)]{0,200}[\'"][wa][\'"]|(?<!std(?:out|err))\.write\(')   # every span is bounded: no quadratic rescans on long commands
 # The file a heredoc script writes, when the call names it literally: open('p', 'w'|'a') or Path('p').write_text(...).
-SCRIPT_TARGET = re.compile(r'open\(\s*[\'"]([^\'"]+)[\'"]\s*,\s*[\'"][wa]|Path\(\s*[\'"]([^\'"]+)[\'"]\s*\)\.write_text')
+SCRIPT_TARGET = re.compile(r'open\(\s*[\'"]([^\'"]{1,300})[\'"]\s*,\s*[\'"][wa]|Path\(\s*[\'"]([^\'"]{1,300})[\'"]\s*\)\.write_text')
 # Quoted path literals in a heredoc script (no URLs): when the write call's target is a variable, these are the candidates.
-LITERAL_PATH = re.compile(r'[\'"]([^\'"\s:]*/[A-Za-z0-9_.-]+\.[A-Za-z0-9]{1,6})[\'"]')   # needs a directory part; a bare name is unresolvable
-SED_TARGET = re.compile(r'(?<![\w$/.-])(?!-)((?:~/|/|\.\.?/)?(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_-]+\.[a-z]{1,6})\b')   # sed -i's positional target may be a bare name
+LITERAL_PATH = re.compile(r'[\'"]([^\'"\s:]{0,300}/[A-Za-z0-9_.-]+\.[A-Za-z0-9]{1,6})[\'"]')   # needs a directory part; a bare name is unresolvable
+SED_TARGET = re.compile(r'(?!-)(?:~/|/|\.\.?/)?(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_-]+\.[a-z]{1,6}')   # a whole whitespace token in sed -i's segment; may be a bare name
 
 def product_file(f):
     """True when f names a product file; False for scratch, plans, reviews, TODO indexes, $VAR paths and unknown targets."""
@@ -48,11 +48,9 @@ def bash_write_targets(cmd):
         e = end_re.search(cmd, m.end(), m.end() + SEG_MAX)
         return cmd[m.end(): e.start() if e else m.end() + SEG_MAX]
     targets = []
-    for m in CAT.finditer(cmd):
-        r = REDIR.findall(segment(m, CAT_END))
-        if r: targets.append(r[-1].strip('\'"'))
+    for m in CAT.finditer(cmd): targets += [t.strip('\'"') for t in REDIR.findall(segment(m, CAT_END))]   # every redirection; /dev/null is filtered later
     targets += [t.strip('\'"') for t in TEE.findall(cmd)]
-    for m in SED.finditer(cmd): targets += SED_TARGET.findall(segment(m, SED_END))
+    for m in SED.finditer(cmd): targets += [t.strip('\'"') for t in segment(m, SED_END).split() if SED_TARGET.fullmatch(t.strip('\'"'))]
     if ('<<' in cmd or re.search(r'\bpython3?\s+-c\b', cmd)) and SCRIPT_WRITE.search(cmd):
         named = [a or b for a, b in SCRIPT_TARGET.findall(cmd)]
         if named: targets += named
@@ -102,7 +100,7 @@ def scan_master(p):
                                                pin='--pin' in cmd, out=out.group(1).strip('\'";') if out else None,
                                                timeout=i.get('timeout'), id=c['id']))
                     if re.search(r'\bgit push\b', cmd): r['pushes'].append(T)
-                    for f in ([] if rng else bash_write_targets(cmd)):
+                    for f in bash_write_targets(cmd):
                         tool, f = ('Bash script', f[1]) if isinstance(f, tuple) else ('Bash', f)
                         r['edits'].append(dict(t=T, tool=tool, file=f))
                         r['first_edit'] = r['first_edit'] or T
