@@ -9,21 +9,42 @@ PINS = {'team-planner': 'fable', 'team-plan-reviewer': 'fable', 'team-reviewer':
         'step-executor': 'sonnet', 'team-executor': 'sonnet', 'fixer': 'sonnet',
         'codex-triage': 'sonnet', 'spec-reviewer': 'sonnet', 'explorer': 'sonnet', 'general-purpose': 'sonnet'}
 FW = re.compile(r'Base directory for this skill: \S*/feature-workflow\b')
-NON_PRODUCT = ('/.claude', '/memory/', '/docs/prompts/', '/docs/reviews/', '/docs/todos/', '/TODOS.md', '/tech-debt', '/tmp/', '/private/tmp/', '/dev/')
+NON_PRODUCT = ('/.claude', '/memory/', '/MEMORY.md', '/docs/prompts/', '/docs/reviews/', '/docs/todos/', '/TODOS.md', '/tech-debt', 'HANDOFF')   # anywhere in the path
+SCRATCH_PREFIX = ('/tmp/', '/private/tmp/', '/dev/')   # only at the start of an absolute path
 # A path call line: "Path call: ...", or a message that opens with one-shot / pipeline, or names one with a colon or dash.
-PATH_CALL = re.compile(r'(?i)\bpath call\b|^\s*\**\s*(one-shot|pipeline)\b|\b(one-shot|pipeline)\**\s*[:\u2014\u2013-]')
+PATH_CALL = re.compile(r'(?i)\bpath call\b|^\s*\**\s*(one-shot|pipeline)\b|\b(one-shot|pipeline)\**\s*[:\u2014\u2013]|\b(one-shot|pipeline)\**\s+-\s')
 # A stated reason for an off-doctrine pin: the doctrine's own categories (structural / same-mechanism / fable rate-limited) count.
 REASON = re.compile(r'(?i)reason|opus for|structural|mechanism|rate.?limit|429')
 # Bash commands that write a file (the auto-mode prompt steers edits through Bash since <=2.1.266): cat >, tee, sed -i, or a
 # heredoc script that opens a file for writing. Group 1 is the target path when the syntax names one.
-BASH_WRITE = re.compile(r'(?:\bcat\s*>>?\s*|\btee\s+(?:-a\s+)?)([^\s;|&]+)|\bsed\s+-i\b|\bwrite_text\(|\bopen\([^)]*[\'"][wa][\'"]|(?<!std(?:out|err))\.write\(')
-PATHISH = re.compile(r'(?<![\w$])((?:~|/|\.\.?/|[A-Za-z0-9_.-]+/)[^\'"\s;|&]+\.[A-Za-z0-9]{1,6})\b')
+# cat ... > target (any redirection after cat, including cat <<EOF > f), tee target, or sed -i (targets read from its own segment).
+BASH_WRITE = re.compile(r'\bcat\b[^|;&\n]*?>>?\s*([^\s;|&]+)|\btee\s+(?:-a\s+)?([^\s;|&]+)|\bsed\s+-i\b')
+# A heredoc script that opens a file for writing; only consulted when the command carries a heredoc, so a grep for the same text is not a write.
+SCRIPT_WRITE = re.compile(r'\bwrite_text\(|\bopen\([^)]*[\'"][wa][\'"]|(?<!std(?:out|err))\.write\(')
+# The file a heredoc script writes, when the call names it literally: open('p', 'w'|'a') or Path('p').write_text(...).
+SCRIPT_TARGET = re.compile(r'open\(\s*[\'"]([^\'"]+)[\'"]\s*,\s*[\'"][wa]|Path\(\s*[\'"]([^\'"]+)[\'"]\s*\)\.write_text')
+# Quoted path literals in a heredoc script (no URLs): when the write call's target is a variable, these are the candidates.
+LITERAL_PATH = re.compile(r'[\'"]([^\'"\s:]*/[A-Za-z0-9_.-]+\.[A-Za-z0-9]{1,6})[\'"]')   # needs a directory part; a bare name is unresolvable
+SED_TARGET = re.compile(r'(?<![\w$/.-])(?!-)((?:~|/|\.\.?/|[A-Za-z0-9_.-]+/)?[A-Za-z0-9_-]+\.[a-z]{1,6})\b')   # sed -i's positional target may be a bare name
 
 def product_file(f):
     """True when f names a product file; False for scratch, plans, reviews, TODO indexes, $VAR paths and unknown targets."""
     f = (f or '').strip('\'"')
     if not f or f.startswith('$') or f == '(script)': return False
-    return not any(k in '/' + f for k in NON_PRODUCT)
+    a = f if f.startswith('/') else '/' + f
+    return not (a.startswith(SCRATCH_PREFIX) or any(k in a for k in NON_PRODUCT))
+
+def bash_write_targets(cmd):
+    """Every file a Bash command writes, as far as the syntax names them; '(script)' for a file-writing heredoc with no visible path."""
+    targets = []
+    for w in BASH_WRITE.finditer(cmd):
+        if w.group(1) or w.group(2): targets.append((w.group(1) or w.group(2)).strip('\'"'))
+        else: targets += SED_TARGET.findall(re.split(r'[;|&\n]', cmd[w.start():])[0])   # sed -i: paths in its own segment
+    if '<<' in cmd and SCRIPT_WRITE.search(cmd):
+        named = [a or b for a, b in SCRIPT_TARGET.findall(cmd)]
+        if named: targets += named
+        else: targets += [('script', f) for f in LITERAL_PATH.findall(cmd)] or ['(script)']   # paths the script names; the write target is a variable
+    return list(dict.fromkeys(targets))
 
 def ts(s):
     return dt.datetime.strptime(s[:19], '%Y-%m-%dT%H:%M:%S') if s else None
@@ -68,13 +89,12 @@ def scan_master(p):
                                                pin='--pin' in cmd, out=out.group(1).strip('\'";') if out else None,
                                                timeout=i.get('timeout'), id=c['id']))
                     if re.search(r'\bgit push\b', cmd): r['pushes'].append(T)
-                    w = BASH_WRITE.search(cmd)
-                    if w and 'codex-challenge.sh' not in cmd:
-                        f = (w.group(1) or '').strip('\'"') or next((m.group(1) for m in PATHISH.finditer(cmd)), '(script)')
-                        r['edits'].append(dict(t=T, tool='Bash', file=f))
+                    for f in ([] if rng else bash_write_targets(cmd)):
+                        tool, f = ('Bash script', f[1]) if isinstance(f, tuple) else ('Bash', f)
+                        r['edits'].append(dict(t=T, tool=tool, file=f))
                         r['first_edit'] = r['first_edit'] or T
                 elif n in ('Edit', 'Write', 'MultiEdit', 'NotebookEdit'):
-                    r['edits'].append(dict(t=T, tool=n, file=i.get('file_path', '')))
+                    r['edits'].append(dict(t=T, tool=n, file=i.get('file_path') or i.get('notebook_path') or ''))
                     r['first_edit'] = r['first_edit'] or T
                 elif n in ('AskUserQuestion', 'ExitPlanMode', 'EnterPlanMode', 'PushNotification'):
                     q = i.get('questions') or [{}]
