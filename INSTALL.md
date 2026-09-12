@@ -125,7 +125,9 @@ applies it, and nothing is written without approval. Opt out with
 denies `run_in_background` inside subagents (their background commands would
 outlive them) and any poll loop on a `.output.done` marker (never written), and
 `BASH_DEFAULT_TIMEOUT_MS` is set to 15 minutes so a build or test run with no
-explicit timeout is not auto-backgrounded at 2 minutes. Hooks are read at
+explicit timeout is not auto-backgrounded at 2 minutes, and `bashOutputMaxChars`
+to 64000 so a valid command result stays inline up to 64k characters instead of
+~30k before it is saved to a file. Hooks are read at
 session start: the new hook takes effect in the next session, or after
 reviewing it in `/hooks`.
 

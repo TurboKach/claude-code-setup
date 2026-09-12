@@ -3,7 +3,7 @@
 Sources this kit's doctrine is built on. Facts you can't infer from the code —
 not a reading list.
 
-> **Doctrine validated against Claude Code v2.1.260 — 2026-09-04.**
+> **Doctrine validated against Claude Code v2.1.269 — 2026-09-12.**
 > Re-check when `claude --version` has moved: read the changelog from the stamped
 > version forward, decide what it means for the pipeline, then re-stamp this line.
 > The claims in *Harness* below are version-dependent; the rest are not.
@@ -25,7 +25,7 @@ frontmatter, worktrees, permissions) comes from here and nowhere else.
 
 | Claim | Since | Encoded in |
 |---|---|---|
-| `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` required for the task tools | 2.1.233 | `settings.example.json` |
+| `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` required for the task tools (2.1.268 restates it: without it they are offered only on Claude 3.x, Opus 4.0–4.7, Sonnet 4.0–4.6, Haiku 4.5) | 2.1.233 | `settings.example.json` |
 | Teammate-model `/config` setting removed | 2.1.234 | `global/CLAUDE.md` |
 | Subagent concurrency caps at 20 | 2.1.217 | `global/CLAUDE.md`, `skills/agent-teams/` |
 | A `maxTurns` stop returns partial output, resumable via `SendMessage` | 2.1.246 | `global/CLAUDE.md` |
@@ -42,6 +42,13 @@ frontmatter, worktrees, permissions) comes from here and nowhere else.
 | `BASH_DEFAULT_TIMEOUT_MS` is the timeout when Claude passes none (120000 out of the box); the ceiling is the larger of it and `BASH_MAX_TIMEOUT_MS`; a simple command past its timeout is auto-backgrounded, a `sleep`-led, `git`-containing or unparseable compound is killed — docs `env-vars`, `tools-reference` | 2.1.260 | `settings.example.json` (900000), `agents/*.md` timeout bullet |
 | Hook input carries `agent_id`/`agent_type` only inside a subagent, and settings.json `PreToolUse` hooks run before every tool a subagent uses — docs `hooks`, `sub-agents` | 2.1.260 | `hooks/subagent-no-background.sh` |
 | A background subagent keeps `Monitor` and `TaskStop` unless the definition's `tools:` list drops them — the kit's executor/fixer lists do, so the harness's "use Monitor" block message points at a tool they lack — docs `sub-agents` | 2.1.260 | `hooks/subagent-no-background.sh` rule B (the hand-rolled substitute is denied) |
+| `bashOutputMaxChars` sizes the inline ceiling for a valid Bash result and the read-back window together (default ~30,000, max 128,000; `BASH_MAX_OUTPUT_LENGTH` is then ignored; a failing result stays at ~10,000 with no file path) — docs `tools-reference` "Output limits" | 2.1.261 | `settings.example.json` (64000), `install.sh` |
+| `/skill-doctor` lists loaded skills that go unused and what they cost in context | 2.1.261 | nothing yet — lever, run it once per install |
+| The auto-mode system-prompt block tells the model to read and edit through Bash (`cat`, `sed`, heredocs, short scripts) instead of Read/Edit/Write — read from the binary, not in the changelog, present since at least 2.1.266 | ≤2.1.266 | `skills/analyze-arcs/scripts/analyze.py` Bash-write flag (the Edit/Write check alone is blind) |
+| `effort:` frontmatter on subagents, skills and commands was silently ignored on models whose default effort is pinned (Opus 4.7, Opus 4.8, Fable 5); honored from here | 2.1.267 | `agents/*.md` `effort:` lines |
+| `maxEffortLevel` (top-level or per model under `modelSettings`) caps effort on every provider; the lowest cap from any scope applies | 2.1.267 | nothing yet — lever |
+| A running session could silently switch to the organization's default model when another Claude Code process refreshed a stale model-access entry (fixed) — a `model seen` mismatch in an analyze-arcs report from before this is not evidence against the pins | 2.1.268 | `skills/analyze-arcs/SKILL.md` limits |
+| `bashEditDiffEnabled` adds a diff of the files a Bash command changed to the Bash tool result when Bash handles the edit | 2.1.269 | nothing yet — lever |
 
 ## Model behavior — what the pipeline is tuned against
 
