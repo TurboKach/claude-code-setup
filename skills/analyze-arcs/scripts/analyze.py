@@ -9,7 +9,21 @@ PINS = {'team-planner': 'fable', 'team-plan-reviewer': 'fable', 'team-reviewer':
         'step-executor': 'sonnet', 'team-executor': 'sonnet', 'fixer': 'sonnet',
         'codex-triage': 'sonnet', 'spec-reviewer': 'sonnet', 'explorer': 'sonnet', 'general-purpose': 'sonnet'}
 FW = re.compile(r'Base directory for this skill: \S*/feature-workflow\b')
-NON_PRODUCT = ('/.claude/plans/', '/memory/', '/docs/prompts/', '/docs/reviews/', '/TODOS.md', '/tech-debt', '/.claude/')
+NON_PRODUCT = ('/.claude', '/memory/', '/docs/prompts/', '/docs/reviews/', '/docs/todos/', '/TODOS.md', '/tech-debt', '/tmp/', '/private/tmp/', '/dev/')
+# A path call line: "Path call: ...", or a message that opens with one-shot / pipeline, or names one with a colon or dash.
+PATH_CALL = re.compile(r'(?i)\bpath call\b|^\s*\**\s*(one-shot|pipeline)\b|\b(one-shot|pipeline)\**\s*[:\u2014\u2013-]')
+# A stated reason for an off-doctrine pin: the doctrine's own categories (structural / same-mechanism / fable rate-limited) count.
+REASON = re.compile(r'(?i)reason|opus for|structural|mechanism|rate.?limit|429')
+# Bash commands that write a file (the auto-mode prompt steers edits through Bash since <=2.1.266): cat >, tee, sed -i, or a
+# heredoc script that opens a file for writing. Group 1 is the target path when the syntax names one.
+BASH_WRITE = re.compile(r'(?:\bcat\s*>>?\s*|\btee\s+(?:-a\s+)?)([^\s;|&]+)|\bsed\s+-i\b|\bwrite_text\(|\bopen\([^)]*[\'"][wa][\'"]|(?<!std(?:out|err))\.write\(')
+PATHISH = re.compile(r'(?<![\w$])((?:~|/|\.\.?/|[A-Za-z0-9_.-]+/)[^\'"\s;|&]+\.[A-Za-z0-9]{1,6})\b')
+
+def product_file(f):
+    """True when f names a product file; False for scratch, plans, reviews, TODO indexes, $VAR paths and unknown targets."""
+    f = (f or '').strip('\'"')
+    if not f or f.startswith('$') or f == '(script)': return False
+    return not any(k in '/' + f for k in NON_PRODUCT)
 
 def ts(s):
     return dt.datetime.strptime(s[:19], '%Y-%m-%dT%H:%M:%S') if s else None
@@ -39,7 +53,7 @@ def scan_master(p):
             for c in m.get('content', []) or []:
                 if not isinstance(c, dict): continue
                 if c.get('type') == 'text' and r['path_call'] is None:
-                    if re.match(r'\s*\**(one-shot|pipeline)\b', c['text'], re.I): r['path_call'] = T
+                    if PATH_CALL.search(c['text'][:200]): r['path_call'] = T
                 if c.get('type') != 'tool_use': continue
                 n = c['name']; i = c.get('input', {}) or {}
                 if n == 'Agent':
@@ -54,6 +68,11 @@ def scan_master(p):
                                                pin='--pin' in cmd, out=out.group(1).strip('\'";') if out else None,
                                                timeout=i.get('timeout'), id=c['id']))
                     if re.search(r'\bgit push\b', cmd): r['pushes'].append(T)
+                    w = BASH_WRITE.search(cmd)
+                    if w and 'codex-challenge.sh' not in cmd:
+                        f = (w.group(1) or '').strip('\'"') or next((m.group(1) for m in PATHISH.finditer(cmd)), '(script)')
+                        r['edits'].append(dict(t=T, tool='Bash', file=f))
+                        r['first_edit'] = r['first_edit'] or T
                 elif n in ('Edit', 'Write', 'MultiEdit', 'NotebookEdit'):
                     r['edits'].append(dict(t=T, tool=n, file=i.get('file_path', '')))
                     r['first_edit'] = r['first_edit'] or T
@@ -136,12 +155,12 @@ def main():
               f"- subagents {len(subs)} ({sum(s['kb'] for s in subs)//1024} MB), codex launches {len(r['codex'])}, pushes {len(r['pushes'])}, background tasks killed {len(r['killed'])}"]
         flags = []
         if r['fw_loaded'] and not (r['path_call'] and r['path_call'] <= r['fw_loaded']): flags.append('no one-shot/pipeline call line before feature-workflow loaded')
-        if not r['fw_loaded'] and not r['path_call'] and any(not any(k in e['file'] for k in NON_PRODUCT) for e in r['edits']): flags.append('product edits without a one-shot/pipeline call line')
+        if not r['fw_loaded'] and not r['path_call'] and any(product_file(e['file']) for e in r['edits']): flags.append('product edits without a one-shot/pipeline call line')
         for s in r['spawns']:
             want = PINS.get(s['type'])
             if s['model'] is None: flags.append(f"{s['t'][11:16]} unpinned spawn {s['type']} ({s['desc']})")
             elif want and s['model'] != want:
-                reason = 'reason' in s['prompt'].lower() or 'opus for' in s['prompt'].lower()
+                reason = bool(REASON.search(s['prompt']))
                 flags.append(f"{s['t'][11:16]} {s['type']} pinned {s['model']} (doctrine {want}){' — reason stated' if reason else ' — no reason in prompt'}")
             if s['name']: flags.append(f"{s['t'][11:16]} named spawn {s['type']} name={s['name']}")
         for c in r['codex']:
@@ -149,7 +168,8 @@ def main():
             if c['out'] and not re.search(r'/claude-\d+/[^/]*|/scratchpad/|docs/reviews/', c['out']): flags.append(f"{c['t'][11:16]} --out outside scratchpad/docs/reviews: {c['out']}")
         if r['fw_loaded']:
             for e in r['edits']:
-                if e['t'] > r['fw_loaded'] and not any(k in e['file'] for k in NON_PRODUCT): flags.append(f"{e['t'][11:16]} master {e['tool']} on product file inside pipeline: {e['file']}")
+                if e['t'] > r['fw_loaded'] and product_file(e['file']): flags.append(f"{e['t'][11:16]} master {e['tool']} on product file inside pipeline: {e['file']}")
+                elif e['t'] > r['fw_loaded'] and e['file'] == '(script)': flags.append(f"{e['t'][11:16]} master Bash script writes a file inside pipeline (target not named in the command)")
         for x in r['exit_plan']:
             ap_ = next((q for q in r['plan_approved'] if q > x), None); w = mins(x, ap_)
             if w is None: flags.append(f"{x[11:16]} ExitPlanMode never approved in this session")
