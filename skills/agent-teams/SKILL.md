@@ -112,14 +112,16 @@ is merged, and there is no pane or process to tear down.
 ## The pipeline
 
 ```
-1. PLAN      (LEAD in native plan mode; subagents draft + validate)
-   → the LEAD calls EnterPlanMode, then spawns team-planner (fable, medium), which
-     RETURNS the plan as text (units, file boundaries, shared contracts, open
-     decisions) — subagents can't write files while the lead is in plan mode
-   → the LEAD writes it verbatim to the plan file, spawns team-plan-reviewer
-     (read-only) to validate it against the code, splices in any blocking
-     fixes from a fresh planner spawn, resolves the open decisions with one
-     AskUserQuestion, then calls ExitPlanMode.   ← only gate
+1. PLAN      (LEAD in native plan mode; subagent discovers + validates)
+   → the LEAD calls EnterPlanMode, then authors the plan itself, writing
+     directly into the plan file — units, file boundaries, shared contracts,
+     open decisions, per feature-workflow's Plan shape block
+   → codebase discovery goes to explorer subagents (Sonnet, read-only), which
+     return summaries; the lead reads no product file itself in plan mode
+   → the LEAD spawns team-plan-reviewer (read-only) to validate the plan
+     against the code, revises the plan file itself for any blocking finding,
+     resolves the open decisions with one AskUserQuestion, then calls
+     ExitPlanMode.   ← only gate
    → on approval: copy the plan file to docs/prompts/<feature>-plan.md, commit,
      and mirror the units into the native task list (one task per unit, `owner`
      = the executor that gets it, `addBlockedBy` for any cross-unit ordering;
@@ -138,7 +140,7 @@ is merged, and there is no pane or process to tear down.
      merge removes that worktree + deletes its branch; reports completion
 ```
 
-Every step delegates to a subagent except the lead's own plan-mode transcription
+Every step delegates to a subagent except the lead's own plan-mode authoring
 and gates in step 1; step 2 is the only fan-out (one background subagent per unit).
 The lead runs the gates and the codex gate, and ingests summaries — it
 does not read large diffs or implement. If the lead starts implementing, stop and
@@ -150,7 +152,7 @@ mid-run. So never delegate an *interactive* gate to one — `ExitPlanMode` and
 `AskUserQuestion` are unavailable to a subagent, so a delegated gate either
 auto-picks silently or dies. Gates run in the **lead** (the session you're
 attached to); only headless work goes to subagents. (This is why step 1 splits:
-subagents draft and validate headlessly, the lead transcribes and gates.)
+the lead authors and gates, a subagent validates.)
 
 ## Approval gate: PLAN ONLY
 
@@ -194,8 +196,7 @@ moderate effort; high-volume roles run on Sonnet.
 
 | Role | Spawned as | Model | Effort | Rationale |
 |------|-----------|-------|--------|-----------|
-| Orchestrator (lead) | main session | whatever the owner picked at session start — Fable 5.1 recommended | the session's effort — `medium` recommended on Fable 5.1 (persisted per model) | coordination, transcription, gates |
-| `team-planner` | subagent | Fable 5.1 | medium | one pass, highest leverage; returns text, lead transcribes |
+| Orchestrator (lead) | main session | whatever the owner picked at session start — Fable 5.1 recommended | the session's effort — `medium` recommended on Fable 5.1 (persisted per model) | coordination, authoring, gates |
 | `team-plan-reviewer` | subagent | Fable 5.1 | medium | validates the plan against the code before the gate; read-only |
 | `team-executor` | **background subagent** | Sonnet (Opus only when the plan justifies it) | high | token-heavy fan-out; Sonnet 5 guide: high for most work, xhigh only for the hardest |
 | `team-reviewer` | subagent | Opus | medium | adversarial bug-hunting on a bounded diff |
@@ -244,11 +245,12 @@ the approved plan.
 
 ## Spawn recipes
 
-Plan (lead in plan mode; subagents draft + validate), then gate:
-> [EnterPlanMode] Use the team-planner agent to return a ROUGH implementation plan
-> for <feature> as text — units, file boundaries, shared contracts, open decisions.
-> I write it to the plan file, have team-plan-reviewer validate it, resolve the open
-> decisions with the user, and get approval via ExitPlanMode before any execution.
+Plan (lead in plan mode; explorer discovers, lead authors, reviewer validates), then gate:
+> [EnterPlanMode] Spawn explorer subagents to report the files, symbols, and
+> patterns <feature> touches, then author the plan directly into the plan file —
+> units, file boundaries, shared contracts, open decisions — per feature-workflow's
+> Plan shape block. Have team-plan-reviewer validate it, resolve the open decisions
+> with the user, and get approval via ExitPlanMode before any execution.
 
 Fan out execution (background subagents that write + merge → worktree), after approval:
 > Spawn one team-executor as a background subagent per unit in the approved plan,

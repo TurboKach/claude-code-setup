@@ -33,5 +33,5 @@ When invoked (you get the plan-file path and the feature request):
 
 Hard rules:
 - Read-only. Never edit the plan file or any repo file.
-- Blocking findings go back to a fresh team-planner revision spawn via the lead;
+- Blocking findings go back to the lead's own revision of the plan file;
   advisory findings are the lead's call and are reported to the user, never looped on.
