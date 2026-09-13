@@ -166,7 +166,7 @@ def main():
             if s['name']: flags.append(f"{s['t'][11:16]} named spawn {s['type']} name={s['name']}")
         for c in r['codex']:
             if not c['bg']: flags.append(f"{c['t'][11:16]} codex-challenge run in the foreground")
-            if c['out'] and not re.search(r'/claude-\d+/[^/]*|/scratchpad/|docs/reviews/', c['out']): flags.append(f"{c['t'][11:16]} --out outside scratchpad/docs/reviews: {c['out']}")
+            if c['out'] and not re.search(r'/claude-\d+/[^/]*|/scratchpad/', c['out']): flags.append(f"{c['t'][11:16]} --out outside scratchpad/docs/reviews: {c['out']}")
         if r['fw_loaded']:
             for e in r['edits']:
                 if e['t'] > r['fw_loaded'] and product_file(e['file']): flags.append(f"{e['t'][11:16]} master {e['tool']} on product file inside pipeline: {e['file']}")

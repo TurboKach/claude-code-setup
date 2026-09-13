@@ -27,7 +27,7 @@ the master's view of it.
    - unpinned `Agent` spawn, or a pin off the doctrine tier (planner/plan-reviewer `fable`,
      team-reviewer `opus`, executors/fixers/triage `sonnet`) with whether the prompt states a reason
    - named spawn (delivery rerouted to the mailbox)
-   - `codex-challenge.sh` run in the foreground; `--out` outside the session scratchpad or `docs/reviews/`
+   - `codex-challenge.sh` run in the foreground; `--out` outside the session scratchpad
    - master `Edit`/`Write` on a product file after `feature-workflow` loaded — or a Bash command that
      changed one, read from the harness's own changed-file record (`bashEditDiff.changedFiles` on the
      tool result; 2.1.269+, never parsed from the command text). The auto-mode prompt steers edits
