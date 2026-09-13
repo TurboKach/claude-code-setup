@@ -1,234 +1,25 @@
 # Tech debt
 
-Known gaps, deliberately left unfixed. Each entry names the exact site, what's
-wrong, why it's deferred rather than fixed, and the review that surfaced it —
-so the next person touching that code inherits the reasoning, not just the
-gap.
+Index of project-level deferred work. Each task's full context lives in its own file
+under `docs/todos/` so a session only pays for the entries it touches.
 
-## Entries
+Maintenance rules:
 
-### `install.sh:177` — `RETIRED_AGENTS` entries aren't validated as plain basenames
+- New TODO = create `docs/todos/<slug>.md` with full context (What/Why/Context/Depends/Effort)
+  + add ONE index line here — never inline task bodies in this file.
+- Completed TODO = delete its file + its line.
 
-The installer's `RETIRED_AGENTS` array isn't checked for being a bare
-filename. A future entry like `../rules/custom.md` resolves outside
-`~/.claude/agents/`, deleting a file elsewhere under `~/.claude/` instead of a
-retired agent. (`INSTALL.md`'s wizard used to carry its own copy of this same
-loop; it now invokes `install.sh` instead, so this is the only remaining
-site.)
+## P2
 
-**Deferred because:** only reachable through a mistaken future array entry,
-not through current data — `RETIRED_AGENTS` has exactly one element
-(`team-prompt-smith.md`) today, and it's a plain basename. Recorded per the
-round-3 `/codex challenge` verdict:
-`/private/tmp/claude-501/-Users-turbokach-Dev-claude-code-setup/5216f638-c3e8-4e76-a319-5478f71e801f/scratchpad/codex-prompt-smith-round3.md`.
-
-### `install.sh:164-168` vs `install.sh:178-185` — no disjointness check between shipped and retired agents
-
-`install.sh` runs a copy loop over every file in `$SRC/agents/*.md` before
-the retirement-prune loop runs. If a maintainer ever lists a name in
-`RETIRED_AGENTS` that's *also* still shipped (e.g. adds `team-executor.md` to
-the retired list without first deleting `agents/team-executor.md` from the
-repo), the copy loop backs up the user's existing agent and installs the kit
-version, then the prune loop backs up that just-installed version over the
-same backup path and deletes the destination — losing the user's original
-copy and leaving the agent missing entirely after install. (`INSTALL.md`'s
-wizard used to run the equivalent pair of loops itself; it now invokes
-`install.sh` instead, so this is the only remaining site.)
-
-**Deferred because:** only reachable through a mistaken future array entry,
-not through current data — the one retired name today
-(`team-prompt-smith.md`) is not present in `agents/*.md`. Recorded per the
-round-3 `/codex challenge` verdict:
-`/private/tmp/claude-501/-Users-turbokach-Dev-claude-code-setup/5216f638-c3e8-4e76-a319-5478f71e801f/scratchpad/codex-prompt-smith-round3.md`.
-
-### `install.sh:116-117` — append idempotency check requires an exact `## Feature workflow` heading
-
-The `--claude-md=append` mode's idempotency check matches only the literal
-line `## Feature workflow` (CRLF-tolerant, otherwise exact). A hand-edited
-variant — a trailing space, a closing `##`, or any other equivalent heading
-syntax — isn't recognized as "already present," so a re-run appends a second,
-duplicate section instead of skipping.
-
-**Introduced by this feature** — the `--claude-md=append` mode is new.
-**Deferred because:** it needs a deliberate decision about how tolerant the
-match should be, and every previous attempt to make this check cleverer
-(fence-tracking, etc.) produced new edge cases of its own — round 3
-deliberately settled on this exact match as the simple, correct-by-inspection
-version. Recorded per the round-3 `/codex challenge` verdict:
-`/private/tmp/claude-501/-Users-turbokach-Dev-claude-code-setup/5216f638-c3e8-4e76-a319-5478f71e801f/scratchpad/codex-install-consolidation-round3.md`.
-
-### `install.sh:113-132` — `elif awk ...` misreads a missing file as "not found," and the scan/backup/append aren't atomic
-
-The append branch's `elif awk ...; then` treats any nonzero awk exit as
-"heading not found, append is safe" — but awk exits `2`, not `1`, when
-`$DEST/CLAUDE.md` is missing, which this check can't tell apart from "scanned
-the file, found no heading." The existence test (113), the awk scan
-(116-117), the backup, and the append (127-132) are also four separate,
-non-atomic steps. If `CLAUDE.md` is removed between the existence test and
-the scan, or two installs run concurrently, the append branch can recreate
-`CLAUDE.md` containing only the extracted Feature workflow section.
-
-**Introduced by this feature** — the whole `--claude-md=append` code path is
-new. **Deferred because:** only reachable via TOCTOU (a file removed mid-run)
-or concurrent installs, not through the script's normal single-invocation
-use. Recorded per the round-3 `/codex challenge` verdict:
-`/private/tmp/claude-501/-Users-turbokach-Dev-claude-code-setup/5216f638-c3e8-4e76-a319-5478f71e801f/scratchpad/codex-install-consolidation-round3.md`.
-
-### `INSTALL.md:19` — Step 0 detection hardcodes `~/.claude`, not `CLAUDE_HOME`
-
-The wizard's Step 0 detection (`test -f ~/.claude/CLAUDE.md`) always checks
-the default home, while `install.sh` operates on
-`${CLAUDE_HOME:-$HOME/.claude}` (`install.sh:79`). With `CLAUDE_HOME` set,
-the wizard decides its replace/append/leave question against a different
-installation than the one `install.sh` will actually modify.
-
-**Pre-existing** — `CLAUDE_HOME` support predates this feature; this feature
-didn't introduce the mismatch, it just didn't fix it while making
-`install.sh` the single implementation. Recorded per the round-3 `/codex
-challenge` verdict:
-`/private/tmp/claude-501/-Users-turbokach-Dev-claude-code-setup/5216f638-c3e8-4e76-a319-5478f71e801f/scratchpad/codex-install-consolidation-round3.md`.
-
-### `skills/feature-workflow/SKILL.md:17` — mixed dependency graph relies on a derived precondition
-
-Stage 3 now chains a task only where a step consumes an earlier one's output,
-so `TaskList` can show a dependent step and an independent step unblocked at
-the same time. Codex round 4 argued that an un-isolated `step-executor` could
-then run alongside a worktree-isolated `team-executor`.
-
-**Declined, not fixed.** Stage 4 already states the precondition where the
-choice is made — `step-executor` is "the only writer in flight" — so two
-concurrent writers is not a state that rule permits, and concurrent
-independent steps go to the `agent-teams` skill, which owns REVIEW/MERGE via
-`team-merger` (codex read this as an ad-hoc `team-executor` spawn with no
-merge owner, which the sentence does not say). Fixing it would restate a
-condition the sentence already carries. Recorded because a careful reader has
-to *derive* the mixed-graph case rather than read it: if it ever bites, the
-minimal fix is one clause in stage 4, not a new rule. Round-4 verdict:
-`/private/tmp/claude-501/-Users-turbokach-Dev-claude-code-setup/a4bff32a-75bb-4ec0-b24d-7d092e902147/scratchpad/codex-verdict-contract-round4.md`.
-
-### `skills/feature-workflow/SKILL.md:52` — no fallback if real+regression lines alone exceed the cap
-
-The verdict size contract now permits truncation to drop only `test-gap` and
-`theoretical` lines. Codex round 4 noted there is no fallback when the real
-and regression lines alone exceed 2,000 characters.
-
-**Declined, not fixed.** It needs ~22+ real findings on a single diff, and it
-cannot produce a wrong decision: clean is defined as zero real and zero
-regression, the counts line is never dropped, and a verdict overflowing with
-real findings is definitively not clean. Error handling for a case that
-cannot change the outcome. Same round-4 verdict file as above.
-
-### `global/CLAUDE.md:12` — simplicity mnemonic cut, salience not replaced
-
-The line `Test: "Would a senior engineer say this is overcomplicated?" If yes,
-simplify.` was removed. Codex round 1 of the consolidation noted the cut loses
-a salience cue for the simplicity standard.
-
-**Deferred, not restored.** Classified `theoretical` at `conf:0.3` by the
-runner's own triage — the standard itself ("minimum code that solves the
-problem", the line directly above) is unchanged, so no enforceable behavior
-differs. The cut follows Claude Code's documented CLAUDE.md guidance, which
-excludes *"self-evident practices like 'write clean code'"* and names the
-over-specified CLAUDE.md as a failure mode: *"If Claude already does something
-correctly without the instruction, delete it."* Recorded so a future session
-doesn't re-litigate it. Round-1 verdict:
-`/private/tmp/claude-501/-Users-turbokach-Dev-claude-code-setup/a4bff32a-75bb-4ec0-b24d-7d092e902147/scratchpad/codex-consolidation-round1.md`.
-
-### `skills/feature-workflow/SKILL.md:18` — the ship gate's diff range is probably ignored
-
-Stage 5 and the `global/CLAUDE.md` ship gate both invoke
-`Skill(codex, "challenge <feature-base-sha>..HEAD")`. But gstack's codex skill
-parses `/codex challenge <text>` with everything after `challenge` as a **focus
-area**, not a scope (`~/.claude/skills/gstack/codex/SKILL.md`, Step 1 mode
-detection). The range string is then interpolated into the adversarial prompt as
-a focus area, while the prompt itself still tells codex to run
-`git diff origin/<base>` against the base branch detected in Step 0. So the gate
-likely reviews the branch-vs-base diff rather than the recorded feature range,
-and a range narrower or wider than the branch diff is silently not honored.
-
-**Deferred because:** the fix belongs in gstack, not this kit — either a scope
-flag on challenge mode, or a documented "challenge takes no range" contract that
-stage 5 is then written against. Guessing gstack's intended argument shape from
-this side would encode the wrong contract. Surfaced by the round-1 codex
-challenge on the 2026-08-21 wall-clock doctrine edits, while verifying an
-unrelated claim about challenge-mode diff scoping; not yet reported upstream.
-
-**Resolved 2026-09-02:** measured (2026-09-01 backend and clipsy session
-transcripts, 111 verdict files) — no recorded run ever diffed `origin/`;
-masters bypassed the gstack path by hand-assembling each launch, which
-drifted (three parser variants, 13 of 14 losing the `[codex ran]` audit
-lines). `skills/feature-workflow/scripts/codex-challenge.sh` now owns the
-invocation: one deterministic `codex exec` call on the explicit range, no
-gstack scope-vs-focus-area ambiguity.
-
-### Deferred from the codex-challenge arc — 2026-09-02
-
-The stage-5 gate was clean at `ac1424d`; these are the standalone P2/test-gap/theoretical
-lines the owner deferred rather than looped on. Round 3 at `5acce42` (exit 0, 1000s) found
-one new P1 in INSTALL.md's readiness line, fixed in the commit that recorded this entry,
-after round 2 had been clean.
-
-1. `[P2 conf:0.5] global/CLAUDE.md:27 — gate hard-codes ~/.claude/… while install.sh honours CLAUDE_HOME (same mismatch as the INSTALL.md Step 0 entry above) → F2 #2`
-2. `[P1 conf:0.6] skills/feature-workflow/scripts/codex-challenge.sh:38-48 — pin liveness is keyed on the wrapper shell PID ($$), not the codex/gtimeout child, in both directions: PID reuse can misread a dead run as live; independently, a wrapper killed via SIGKILL (bypassing the EXIT trap) leaves its codex/gtimeout child running while the next --pin invocation sees the wrapper as dead and force-removes the checkout out from under it — observed 2026-09-02 11:29Z, a fixer's 3-second timeout killed the wrapper and codex ran on for six minutes before the sweep deleted its dir. Mitigated: the sweep now also treats the dir as live when any process has its path in argv (`pgrep -f`), closing the killed-wrapper direction; PID reuse remains open → F1 #7, codex-final-round1.md:16, codex-final-round3.md:18.`
-3. `[P2 conf:0.4] skills/feature-workflow/scripts/codex-challenge.sh:60 — -s read-only bounds shell writes, not MCP/connector side effects reachable from reviewed content → F1 #6`
-4. `[conf:0.5] skills/feature-workflow/scripts/codex-challenge.sh:52 — test-gap: no self-check that codex actually ran the range diff; the --trace log is the only evidence → S1 test-gap #1`
-5. `[conf:0.5] skills/feature-workflow/scripts/codex-challenge.sh:71 — test-gap: exit 0 with an empty .msg reports success; the stage-5 parking rule covers it only at the doctrine level → S1 test-gap #2`
-6. `[conf:0.4] skills/feature-workflow/scripts/codex-challenge.sh:65 — theoretical: every non-zero exit retries, including permanent auth/config errors (two 5-min sleeps) → S1 (dropped-for-cap line)`
-7. `[conf:0.4] skills/feature-workflow/SKILL.md:18 — theoretical: the unpinned stage-5 launch reads stray uncommitted working-tree state as final code → S2 theoretical #2`
-8. `[conf:0.3] skills/feature-workflow/SKILL.md:22 — theoretical: unpinned slices read the final tree while triage verifies against git show <head>; consistent only while stage 5 has no writer → S2 theoretical #3`
-
-9. `[P2 conf:0.4] skills/feature-workflow/scripts/codex-challenge.sh:47 — the pin's worktree add runs outside the gtimeout wrapper; a hung LFS/smudge filter blocks --pin with no verdict → F3 #2`
-10. `[P2 conf:0.4] skills/feature-workflow/scripts/codex-challenge.sh:47 — the fixed 2 GiB preflight ignores actual checkout and LFS size → F3 #3`
-11. `[P2 conf:0.3] INSTALL.md:16 — readiness checks that codex exists, not that it is authenticated; an unauthenticated codex reads "ready" until the gate fails → F3 #4`
-12. `[conf:0.3] global/CLAUDE.md:49 — theoretical: the one-shot path does not say to commit before gating; an uncommitted one-shot makes <pre-change-sha>..HEAD collapse and the script exits 64 (loud, not silent) → F3 theoretical #1`
-13. `[conf:0.4] skills/feature-workflow/scripts/codex-challenge.sh — no committed self-test; fixers rebuild throwaway stubs each arc, and one accidentally started a real codex invocation → B5`
-14. `[P2 conf:0.3] skills/feature-workflow/scripts/codex-challenge.sh:33,49 — the pin scratch directory and worktree are created under the default umask, world-readable on a shared machine → F2 (never triaged)`
-15. `global/CLAUDE.md:26 — push-approval gate is prose-only, no PreToolUse hook. Considered and rejected: no push-without-approval incident is recorded; gstack's question-preference hook shows marker-based gating is feasible if one ever occurs → C5`
-16. `[P2 conf:0.4] codex-challenge.sh:69 — rm -f "$out" then >"$out" leaves a symlink TOCTOU window for a local attacker sharing the directory → evaluation round 1`
-17. `[conf:0.5] SKILL.md:18 — theoretical: convergence keys on mechanism identity across rounds, but triage spawns see one round and verdicts carry no stable mechanism id; the master matches by text → evaluation round 1`
-
-Not deferred, because triage itself found it did not reproduce or was already documented: the
-oversized single commit (fallback sentence added in `ac1424d`), "one background Bash" vs split
-provision (reconciled in the skill), the unpinned live-tree tradeoff (documented in Token
-discipline), the split-slice verification premise, verdict-commit-postdates-range (inherent),
-and the stage-5 `--pin` premise mismatch.
-
-### Deferred from the subagent no-background arc — 2026-09-04
-
-The stage-5 gate was clean at `6e90f42` after three rounds (round 1: two P1s — the raw-text
-rule-B regex over-matching, fixed; the shell-`&` bypass, reclassified P2 below; round 2: the
-same regex mechanism hit again via quoted text, replaced structurally — quoted segments
-stripped, loop keyword at a command boundary; round 3: one P1 claiming `BASH_MAX_TIMEOUT_MS`
-unset clamps the 15-min default — false, the env-vars docs say the ceiling is the larger of
-the two and the binary computes `Math.max`). Verdicts: `docs/reviews/subagent-no-background/`.
-The owner deferred every standalone line rather than loop on them.
-
-1. `[P2 conf:0.6] hooks/subagent-no-background.sh:76 — rule A is bypassed by shell &, nohup, setsid, disown; denying & would break the working xcodebuild … & + foreground pgrep-wait pattern → round1 #1, round3 theoretical #1`
-2. `[conf:0.4] hooks/subagent-no-background.sh:76 — theoretical: a foreground command auto-backgrounded past the 15-min default bypasses rule A; inherent to a pre-execution hook → round3 theoretical #2`
-3. `[P2 conf:0.5] hooks/subagent-no-background.sh:66 — rule B misses marker=… indirection and a loop inside bash -c "…" (quoted text is stripped by design) → round1 #3, round2 #2`
-4. `[conf:0.5] hooks/subagent-no-background.sh:66 — test-gap: a loop after then/do (if …; then until [ -f x.output.done ] …) is not at a boundary char and passes → round3 test-gap #1`
-5. `[P2 conf:0.4] hooks/subagent-no-background.sh:67 — a project's own *.output.done sentinel poll is denied like the harness marker; no such file exists in any owner repo → round2 #3, round3 test-gap #2`
-6. `[P2 conf:0.5] hooks/subagent-no-background.sh:56 — the deny text's pgrep -f wait matches any same-named process system-wide, not the backgrounded task; bracket trick added for the self-match only → round1 #4, round2 #5, round3 #1`
-7. `[P2 conf:0.4] install.sh:309 — register_hook treats an existing same-path entry with a wrong type/timeout as installed and never repairs it → round3 #3`
-8. `[conf:0.3] hooks/subagent-no-background.sh:37 — theoretical: python3 -c puts cwd first on sys.path, so a repo-planted json.py could shadow stdlib before the hook decides; needs a prior repo write → round2 theoretical #1`
-9. `[P2 conf:0.5] skills/feature-workflow/SKILL.md:47 — doctrine: the close-out pgrep -f output.done check is global, not session-scoped → round1 #5 (doctrine, report-only)`
-
-Not deferred, because triage found it false: install.sh:314 "unquoted hook path" (every
-hook path is a quoted argv element written via json.dump — dropped in all three rounds).
-
-### Deferred from the review-model-picker arc — 2026-09-10
-
-The stage-5 gate was clean at `ec501c9` — round 1 ran on `gpt-5.6-sol` (one P2) and round 2 on
-`gpt-6-astra` (zero real, one theoretical) over the identical tree; no code changed between
-them, round 2 existed only because a leaked `CODEX_REVIEW_MODEL` env var had overridden the
-intended model in round 1. The two defects the per-step round found in the permanent-error bail
-were fixed during the arc (`f703d0a`), not deferred: the `^ERROR:` anchor never matched under
-`--trace`, and codex pretty-prints the effort-400 body across multiple lines — three of four
-failure cases burned ~620s before the fix, all four bail in under 10s after it. Verdicts:
-`docs/reviews/codex-review-model-picker/`. Entries 4-5 are session findings with no verdict file.
-
-1. `[P2 conf:0.4] skills/feature-workflow/scripts/codex-challenge.sh:129-131 — the bail's anchor grep and content grep are scoped independently to the attempt's whole log chunk rather than jointly to one event, so a transient turn.failed line co-occurring with unindented 400-keyword text elsewhere in the chunk aborts retries on a real outage → whole-round1 #1, whole-round2 theoretical #1 (both models flagged it)`
-2. `[conf:0.4] skills/feature-workflow/scripts/codex-challenge.sh:124 — theoretical: the attempt chunk is captured into a shell variable once per grep; memory pressure only if a single --trace attempt emits a pathological stream before failing → whole-round1 theoretical #1`
-3. `[P2 conf:0.6] skills/feature-workflow/scripts/codex-challenge.sh:99 — model is pinned while model_provider is inherited, so an Azure/--oss/custom-provider config sends the pinned model to a provider that does not have it and burns the retry loop; CODEX_REVIEW_MODEL is the only escape → docs/reviews/codex-model-pin/codex-whole-round1.md #1 (raised pre-picker, now reachable by any user who picks a model)`
-4. `[P2 conf:0.9] skills/feature-workflow/SKILL.md:18,56 — doctrine: the stage-4/5 call strings name ~/.claude/skills/feature-workflow/scripts/codex-challenge.sh, the INSTALLED copy; when the repo under review IS the kit, every gate reviews the new code using the old script and silently at the old model/effort. This arc's step-1 round ran the pre-pin script and was briefly reported as exercising the pin; only the new verdict-header model field exposed it → session finding`
-5. `[conf:0.8] global/CLAUDE.md — doctrine: the planner/plan-reviewer Fable pin has no documented fallback for quota exhaustion (429 "You've reached your Fable limit"). This arc's first team-planner spawn died at launch having emitted 93 chars and zero tool calls; the master substituted Opus 5 by hand, citing the pre-experiment baseline → session finding`
+- **`install.sh:177` — `RETIRED_AGENTS` entries aren't validated as plain basenames** — `RETIRED_AGENTS` array isn't checked for being a bare filename → docs/todos/install-sh-177-retired-agents-basename.md
+- **`install.sh:164-168` vs `install.sh:178-185` — no disjointness check between shipped and retired agents** — Copy loop over `agents/*.md` runs before the retirement-prune loop, no disjointness check → docs/todos/install-sh-no-disjointness-check.md
+- **`install.sh:116-117` — append idempotency check requires an exact `## Feature workflow` heading** — `--claude-md=append` idempotency check matches only the literal `## Feature workflow` line → docs/todos/install-sh-append-idempotency-check.md
+- **`install.sh:113-132` — `elif awk ...` misreads a missing file as "not found," and the scan/backup/append aren't atomic** — `elif awk` misreads a missing CLAUDE.md as heading-not-found; scan/backup/append aren't atomic → docs/todos/install-sh-append-not-atomic.md
+- **`INSTALL.md:19` — Step 0 detection hardcodes `~/.claude`, not `CLAUDE_HOME`** — Step 0 detection hardcodes ~/.claude while install.sh honors CLAUDE_HOME → docs/todos/install-md-step0-claude-home.md
+- **`skills/feature-workflow/SKILL.md:17` — mixed dependency graph relies on a derived precondition** — Stage 3's mixed dependency graph relies on a derived precondition, not a stated one → docs/todos/feature-workflow-mixed-dependency-graph.md
+- **`skills/feature-workflow/SKILL.md:52` — no fallback if real+regression lines alone exceed the cap** — No fallback when real+regression lines alone exceed the verdict size cap → docs/todos/feature-workflow-verdict-cap-fallback.md
+- **`global/CLAUDE.md:12` — simplicity mnemonic cut, salience not replaced** — Simplicity mnemonic line was cut from CLAUDE.md, salience cue not replaced → docs/todos/claude-md-simplicity-mnemonic-cut.md
+- **`skills/feature-workflow/SKILL.md:18` — the ship gate's diff range is probably ignored** — Ship gate's codex invocation may parse the diff range as a focus area, not a scope → docs/todos/feature-workflow-ship-gate-diff-range.md
+- **Deferred from the codex-challenge arc** — Standalone P2/test-gap/theoretical findings deferred after the stage-5 gate went clean → docs/todos/deferred-codex-challenge-arc.md
+- **Deferred from the subagent no-background arc** — Standalone findings deferred after the stage-5 gate went clean across three rounds → docs/todos/deferred-subagent-no-background-arc.md
+- **Deferred from the review-model-picker arc** — Standalone findings deferred after the stage-5 gate went clean across two model rounds → docs/todos/deferred-review-model-picker-arc.md
