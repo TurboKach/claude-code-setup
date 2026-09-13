@@ -103,8 +103,9 @@ def product_file(f):
     if not f: return False
     f = os.path.normpath(f)   # so docs/prompts/../../src/app.py is product and docs/prompts/plan.md stays exempt
     a = f if f.startswith('/') else '/' + f
-    scratch = f.startswith('/') and f.startswith(SCRATCH_PREFIX)
-    return not (scratch or any(k in a for k in NON_PRODUCT) or HANDOFF_DOC.search(a))
+    a_dir = a + '/'   # normpath strips a trailing slash; check both forms so docs/prompts and docs/prompts/ match alike
+    scratch = f.startswith('/') and a_dir.startswith(SCRATCH_PREFIX)
+    return not (scratch or any(k in a or k in a_dir for k in NON_PRODUCT) or HANDOFF_DOC.search(a))
 
 def ts(s):
     return dt.datetime.strptime(s[:19], '%Y-%m-%dT%H:%M:%S') if s else None
@@ -155,7 +156,9 @@ def scan_master_records(recs, path=None):
                     for tok in bash_read_paths(cmd):
                         r['reads'].append(dict(t=T, tool='Bash', file=tok))
                 elif n in ('Edit', 'Write', 'MultiEdit', 'NotebookEdit'):
-                    ed = dict(t=T, tool=n, file=i.get('file_path') or i.get('notebook_path') or '', error=False)
+                    # error starts True (unproven): only a tool_result with is_error falsy proves the edit landed.
+                    # No tool_result at all (session interrupted) must never count as proof plan mode ended.
+                    ed = dict(t=T, tool=n, file=i.get('file_path') or i.get('notebook_path') or '', error=True)
                     r['edits'].append(ed)
                     r['first_edit'] = r['first_edit'] or T
                     pending_q[c['id']] = ed
@@ -232,22 +235,32 @@ def codex_run(out):
 def mins(a, b):
     return int((ts(b) - ts(a)).total_seconds() // 60) if a and b else None
 
-def plan_span_end(x0, exit_plan, plan_approved, edits, last):
-    """The end of the plan-mode span opened at x0: the first ExitPlanMode after x0 whose own next
-    event (among later ExitPlanMode/plan_approved) is a plan_approved. A rejected exit does not end
-    the span — reject/revise/approve keeps the revision-phase reads inside it.
-    No approved exit ever follows (including a Shift+Tab exit, which leaves no ExitPlanMode call at
-    all): the span ends at the first proven-successful product-file edit after x0 — an Edit/Write/
-    MultiEdit/NotebookEdit whose tool_result was not an error, or a Bash write the harness's own
-    changed-file record shows — since the harness blocks product edits while still in plan mode, one
-    proves plan mode had already ended. With no such edit either, the span runs to end of transcript."""
+def plan_span_end(x0, exit_plan, plan_approved, edits, enter_plan, last):
+    """The end of the plan-mode span opened at x0: whichever comes first after x0 among —
+    (a) the first ExitPlanMode after x0 whose own next event (among later ExitPlanMode/plan_approved)
+        is a plan_approved. A rejected exit does not end the span — reject/revise/approve keeps the
+        revision-phase reads inside it.
+    (b) the first proven-successful product-file edit after x0 — an Edit/Write/MultiEdit/NotebookEdit
+        whose tool_result was not an error, or a Bash write the harness's own changed-file record
+        shows — since the harness blocks product edits while still in plan mode, one proves plan mode
+        had already ended.
+    (c) the next EnterPlanMode after x0, if any: a later enter proves the earlier span was left
+        (approved or not) even when neither (a) nor (b) fired for it — so it never scans into a
+        later cycle's events.
+    With none of the three, the span runs to end of transcript."""
+    later_enters = sorted(t for t in enter_plan if t > x0)
+    bound = later_enters[0] if later_enters else None
     merged = sorted([(t, 'exit') for t in exit_plan] + [(t, 'approved') for t in plan_approved])
+    approved_end = None
     for e in sorted(t for t in exit_plan if t > x0):
         later = [ev for ev in merged if ev[0] > e]
         if later and later[0][1] == 'approved':
-            return e
+            approved_end = e
+            break
     prod_edits = sorted(e['t'] for e in edits if e['t'] > x0 and not e.get('error') and product_file(e['file']))
-    return prod_edits[0] if prod_edits else last
+    edit_end = prod_edits[0] if prod_edits else None
+    candidates = [c for c in (approved_end, edit_end, bound) if c is not None]
+    return min(candidates) if candidates else last
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--since', required=True); ap.add_argument('--projects-dir', default=os.path.expanduser('~/.claude/projects'))
@@ -285,7 +298,7 @@ def main():
             for e in r['edits']:
                 if e['t'] > r['fw_loaded'] and product_file(e['file']): flags.append(f"{e['t'][11:16]} master {e['tool']} on product file inside pipeline: {e['file']}")
         for x0 in sorted(r['enter_plan']):
-            end = plan_span_end(x0, r['exit_plan'], r['plan_approved'], r['edits'], r['last'])
+            end = plan_span_end(x0, r['exit_plan'], r['plan_approved'], r['edits'], r['enter_plan'], r['last'])
             reads = [rd for rd in r['reads'] if x0 <= rd['t'] <= end and product_file(rd['file'])]
             if reads:
                 n = len(reads); p1, p2, p3 = (reads[i]['file'] if i < n else '' for i in range(3))
