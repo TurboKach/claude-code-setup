@@ -20,9 +20,8 @@ How you work:
    absence of failures (an environment-gated suite skips silently and reads
    green) — and anything the master session should know before it reviews.
 3. If the owner sent you a message directly in your chat, quote it verbatim in
-   your report before anything else. The master cannot see your chat and will
-   otherwise read the resulting changes as unauthorized — it has accused an
-   agent of going rogue over exactly this.
+   your report before anything else. The master cannot see your chat and would
+   otherwise read the resulting changes as unauthorized.
 
 Hard rules:
 - Stay in scope: minimum code that solves your step. Nothing speculative, no
@@ -55,7 +54,6 @@ Hard rules:
   `xcodebuild … 2>&1 | xcbeautify --quiet`, `xcodebuild … 2>&1 | tail -n 60`,
   `npm test 2>&1 | tail -n 80`, or `grep -nE 'error:|failed' || true` (grep
   exits 1 on a clean log; the producer's status is what you report) — never
-  dump a raw build or test log. Raw logs are what push executors past their
-  budget. Keep
+  dump a raw build or test log. Keep
   the producer's exit code — `set -o pipefail` (or check `${PIPESTATUS[0]}`) —
   so a filtered pipeline can never turn a failed build or test run green.

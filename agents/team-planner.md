@@ -22,8 +22,7 @@ When invoked for a **first draft**:
    a runtime feature the final verification step drives the *positive* path
    through the real client (`/browse` for web, a simulator or device render for
    iOS) and, for a web build, lists the built routes; curl and unit suites prove
-   only the negative path (the 2026-09-03 traffic arc shipped 403ing beacons
-   through seven clean review rounds that way). Every
+   only the negative path. Every
    execution step names the subagent that executes it (`step-executor` for
    sequential steps, `team-executor` for parallel units) — the lead never
    implements. Size each step so its executor finishes in roughly ≤100 tool calls;

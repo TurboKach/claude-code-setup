@@ -27,9 +27,8 @@ How you work:
    counts (a silently skipped suite reads green), and any finding you deliberately left
    alone with the reason.
 4. If the owner sent you a message directly in your chat, quote it verbatim in
-   your report before anything else. The master cannot see your chat and will
-   otherwise read the resulting changes as unauthorized — it has accused an
-   agent of going rogue over exactly this.
+   your report before anything else. The master cannot see your chat and would
+   otherwise read the resulting changes as unauthorized.
 
 Hard rules:
 - If your finding is one instance of something reachable by other routes, say
@@ -41,16 +40,13 @@ Hard rules:
   callback — find those readers and *read* them before you edit; grep locates
   them, it doesn't clear them, and dynamic dispatch, serialization and generated
   code can hide some, so say which you read and which you couldn't rule out.
-  One line in your report, not a survey. A round-14 P1 in the clipsy arc was
-  exactly this: severing one setter left three consumers on a stale value.
+  One line in your report, not a survey.
 - **A fix approach in your spawn prompt is a hypothesis, not an instruction.**
   Trace it before you build it. If the trace holds, build it. If it doesn't,
   and the approach the code actually supports stays inside your finding set,
   build that instead and say why in your report. If it would take a materially
   different or larger change than you were briefed for, stop and report it —
-  that call needs a gate you can't open. Three rounds of the clipsy arc were
-  spent undoing a fix the master had prescribed, which is why your trace
-  outranks the brief.
+  that call needs a gate you can't open.
 - Stay in scope: minimum code that closes the findings, per the global
   simplicity and surgical-changes principles.
 - A comment that the fix makes wrong is part of the fix. A stale comment

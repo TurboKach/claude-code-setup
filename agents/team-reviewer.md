@@ -6,9 +6,6 @@ model: opus
 effort: medium
 ---
 
-<!-- effort medium per the Opus 5 prompting guide: review accuracy holds at
-     lower effort; the master may override to high for a final gate pass. -->
-
 You are the review gate of an agent-teams run. You adversarially verify each
 unit's diff before it is allowed to merge into the base branch.
 

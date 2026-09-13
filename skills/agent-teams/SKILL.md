@@ -43,9 +43,7 @@ talk to each other.
 Reach for **Workflows** when the fan-out is large or you want deterministic,
 repeatable, resumable orchestration with built-in cross-checking. (In this kit
 only the lead runs Workflows — the worker roles' `tools` lists deliberately omit
-the Workflow and Agent tools, so they can't fan out on their own. That's a kit
-choice, not a platform rule: since v2.1.172 a subagent whose `tools` includes
-`Agent` can spawn nested subagents, up to a harness-enforced depth limit.)
+the Workflow and Agent tools, so they can't fan out on their own.)
 
 ## 3. Worktree isolation: every concurrent writer gets one
 
@@ -82,12 +80,9 @@ A worktree is also a fresh checkout, so gitignored files don't come along —
 add a `.worktreeinclude` if executors need `.env` or similar to run tests.
 
 **Why "disjoint files" isn't a safe reason to skip worktrees with 2+ writers.**
-Disjointness isn't knowable at spawn time. *(Observed, 20 sessions reviewed):*
-of 3 genuinely-parallel execute batches, 2 collided — in `claude-watch`, units
-U0+U3 and separately U2+U5 all edited the CLI entrypoint despite being planned
-as independent. A new unit usually has to register itself in some hub file (a
-dispatcher, router, barrel export, `package.json`) that the plan assigned to
-nobody. Only one batch (wizards U1/U2) was genuinely clean. Plan around this:
+Disjointness isn't knowable at spawn time: a new unit usually has to register
+itself in some hub file (a dispatcher, router, barrel export, `package.json`)
+that the plan assigned to nobody. Plan around this:
 **if units keep colliding on a hub file, give that file to one unit** instead
 of isolating three agents that all want to edit it — prefer fewer, larger
 units over more, smaller colliding ones.
@@ -98,14 +93,6 @@ codex gate challenges the merged feature diff once, but the reviewer
 still needs a per-unit diff. With 2+ concurrent writers sharing one checkout there is no per-unit
 diff to review or merge independently, and a unit that fails review can't be
 dropped without untangling it from the others it shares a tree with.
-
-> **Deliberate deviation (from the platform docs' file-overlap test):** the
-> [docs](https://code.claude.com/docs/en/agents) key worktree isolation to
-> whether tasks touch the same files. This kit keys it to concurrent-writer
-> count instead — a stricter test (a superset of the docs' cases): even units
-> with disjoint files get worktrees the moment 2+ of them write at the same
-> time, because disjointness can't be verified at spawn time and review needs a
-> separable diff either way.
 
 **Clean up after merge — nothing else will.** Once a unit lands, the merger
 removes its worktree (`git worktree remove`) and deletes the merged branch
@@ -207,11 +194,11 @@ moderate effort; high-volume roles run on Sonnet.
 
 | Role | Spawned as | Model | Effort | Rationale |
 |------|-----------|-------|--------|-----------|
-| Orchestrator (lead) | main session | whatever the owner picked at session start — Fable 5.1 recommended | the session's effort — `medium` recommended on Fable 5.1 (persisted per model) | coordination, transcription, gates; Fable's cache re-reads are half Opus 5's price — the Fable-at-medium recommendation is an experiment from 2026-09-02, reviewed after one arc |
-| `team-planner` | subagent | Fable 5.1 | medium | one pass, highest leverage; Fable 5.1 guide: `medium` ≈ Fable 5 quality, and lower effort often beats prior-tier models on cost per task — experiment from 2026-09-02, reviewed after one arc (before: Opus 5 high); returns text, lead transcribes |
-| `team-plan-reviewer` | subagent | Fable 5.1 | medium | validates the plan against the code before the gate; read-only. Same experiment as the planner — the whole-codebase read that justified `high` on Opus is re-tested at Fable's `medium` |
+| Orchestrator (lead) | main session | whatever the owner picked at session start — Fable 5.1 recommended | the session's effort — `medium` recommended on Fable 5.1 (persisted per model) | coordination, transcription, gates |
+| `team-planner` | subagent | Fable 5.1 | medium | one pass, highest leverage; returns text, lead transcribes |
+| `team-plan-reviewer` | subagent | Fable 5.1 | medium | validates the plan against the code before the gate; read-only |
 | `team-executor` | **background subagent** | Sonnet (Opus only when the plan justifies it) | high | token-heavy fan-out; Sonnet 5 guide: high for most work, xhigh only for the hardest |
-| `team-reviewer` | subagent | Opus | medium | adversarial bug-hunting on a bounded diff (Opus 5 review stays accurate at lower effort) |
+| `team-reviewer` | subagent | Opus | medium | adversarial bug-hunting on a bounded diff |
 | `team-merger` | subagent | Sonnet | medium | mechanical merge/verify |
 | `explorer` | subagent | Sonnet | medium | codebase search, read-only, effort pinned by frontmatter (built-in `Explore` floats with the session's effort and runs on Opus under a Fable or Opus master) |
 
