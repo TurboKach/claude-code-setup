@@ -24,7 +24,7 @@ the master's view of it.
    model actually seen), every `codex-challenge.sh` launch with its range, `--out`, run
    minutes and verdict size, every gate with how long it waited, pushes, killed background
    tasks. Then the **flags** — mechanical checks only:
-   - unpinned `Agent` spawn, or a pin off the doctrine tier (planner/plan-reviewer `fable`,
+   - unpinned `Agent` spawn, or a pin off the doctrine tier (plan-reviewer `fable`,
      team-reviewer `opus`, executors/fixers/triage `sonnet`) with whether the prompt states a reason
    - named spawn (delivery rerouted to the mailbox)
    - `codex-challenge.sh` run in the foreground; `--out` outside the session scratchpad
@@ -36,6 +36,13 @@ the master's view of it.
      when it changed files, and a `run_in_background` command gets none either. Plan files, `docs/prompts/`,
      `docs/reviews/`, `docs/todos/`, handoff docs, the TODO/tech-debt index, `/tmp/` and build artifacts
      are not product files
+   - master `Read` of a product file, or a Bash read command (`cat`/`head`/`tail`/`sed`/`grep`/`rg`/`less`
+     parsed from the command text — the harness records writes only, never reads) inside a plan-mode span
+     (`EnterPlanMode` to the next approved `ExitPlanMode`, or end of transcript if never approved). Same
+     exemptions as the Edit/Write check. Gaps: a read inside a heredoc or a `python3 -` script is invisible
+     to the command-text regex; a session that entered plan mode via Shift+Tab has no `EnterPlanMode` call
+     and is not windowed; `product_file()` exempts any path containing `/.claude`, so a product repo's own
+     `.claude/` files are invisible to this flag
    - `ExitPlanMode` or `AskUserQuestion` that waited more than an hour, or was never answered
    - `feature-workflow` loaded with no one-shot/pipeline call line before it; product edits with no call line at all
    - subagents that died on an API error before doing work; subagents that hit their turn cap
