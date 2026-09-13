@@ -21,7 +21,6 @@ in parallel, no extra setup).
 | `global/rules/` | Path-scoped user rules, installed to `~/.claude/rules/` — load only when a matching file is touched, so they don't add to every session's always-on context |
 | `skills/feature-workflow/SKILL.md` | The six-stage single-master feature pipeline, the parallel-multi-agent mechanism picker, and the token-discipline rules. Loads on demand when a pipeline or fan-out starts. |
 | `skills/agent-teams/SKILL.md` | The orchestration playbook — when to fan out, how to pick the mechanism (subagents / Workflows), the pipeline, models, worktree/merge flow, the plan-approval gate. Loads on demand. |
-| `agents/team-planner.md` | Explores and **returns** the plan as text (headless, read-only); the lead — in native plan mode — writes it to the plan file *(Fable 5.1 medium)* |
 | `agents/explorer.md` | Read-only codebase search on Sonnet at effort medium — the pinned stand-in for built-in `Explore` *(Sonnet)* |
 | `agents/team-plan-reviewer.md` | Validates the plan against the code before the lead presents it via `ExitPlanMode` for **your** approval *(Fable 5.1 medium)* |
 | `agents/team-executor.md` | Implements one unit of a **parallel** fan-out as a background subagent — carries `isolation: worktree` in its frontmatter, since concurrent writers merge later *(Sonnet high; Opus only when the plan justifies it)* |
@@ -45,12 +44,12 @@ in parallel, no extra setup).
 ## How it works
 
 Only the **lead** (your main session) spawns. Every step delegates to a subagent
-except the lead's own plan-mode transcription and gates; the parallel **execution**
+except the lead's own plan-mode authoring and gates; the parallel **execution**
 step fans out into one background subagent per independent unit, each in its own
 worktree (because they write concurrently and merge later):
 
 ```
-PLAN (lead in plan mode: planner drafts → plan-reviewer validates → ExitPlanMode) → you approve ─┐   ← the only approval gate
+PLAN (lead in plan mode: lead authors → plan-reviewer validates → ExitPlanMode) → you approve ─┐   ← the only approval gate
 EXECUTE (N executor subagents, parallel, in worktrees)  ← contracts baked into each spawn prompt; no cross-talk
 REVIEW (reviewer, read-only — no worktree)                 │
 MERGE (merger) → removes each worktree+branch, reports completion
@@ -136,7 +135,7 @@ too.
 It also sets `CLAUDE_CODE_SUBAGENT_MODEL` to `sonnet` as a **floor**, not an
 override: an agent definition's `model:` and an explicit per-spawn model both
 take precedence over it. The pinned roles keep their frontmatter
-pins (`team-planner` and `team-plan-reviewer` on `fable`, `team-reviewer` on
+pins (`team-plan-reviewer` on `fable`, `team-reviewer` on
 `opus`), and a per-spawn `model: "opus"` still wins — the floor only catches
 a spawn with no pin anywhere (`general-purpose`, a bare `Agent` call — built-in
 `Explore` is the exception, always capped at Opus regardless of this floor),
