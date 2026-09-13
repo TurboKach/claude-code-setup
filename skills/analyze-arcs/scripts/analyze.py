@@ -16,26 +16,92 @@ SCRATCH_PREFIX = ('/tmp/', '/private/tmp/', '/dev/')   # only at the start of an
 PATH_CALL = re.compile(r'(?i)\bpath call\b|^\s*\**\s*(one-shot|pipeline)\b(?!-)|\b(one-shot|pipeline)\**\s*[:\u2014\u2013]|\b(one-shot|pipeline)\**\s+-\s')
 # A stated reason for an off-doctrine pin: the doctrine's own categories (structural / same-mechanism / fable rate-limited) count.
 REASON = re.compile(r'(?i)reason|opus for|structural|mechanism|rate.?limit|429')
-# A Bash read command (cat/head/tail/sed/grep/rg/less) within a &&/|/;/newline segment; command word and args captured separately.
-BASH_READ = re.compile(r'(?:^|&&|\||;)\s*(cat|head|tail|sed|grep|rg|less)\b([^&|;\n]*)', re.MULTILINE)
-PATTERN_CMDS = ('grep', 'rg', 'sed')   # first non-flag token is the pattern/script, not a path
+# Read commands, and the options whose value is a separate token (`--opt=value` is always one token).
+# Short options listed here consume the rest of their cluster when attached (`-ePAT`, `-n5`), else the next token.
+READ_CMDS = {
+    'cat':  dict(short='', long=(), pat_short='', pat_long=()),
+    'less': dict(short='', long=(), pat_short='', pat_long=()),
+    'head': dict(short='nc', long=('--lines', '--bytes'), pat_short='', pat_long=()),
+    'tail': dict(short='nc', long=('--lines', '--bytes'), pat_short='', pat_long=()),
+    'grep': dict(short='efmABCDd', long=('--regexp', '--file', '--max-count', '--after-context', '--before-context',
+                                         '--context', '--include', '--exclude', '--exclude-dir', '--binary-files'),
+                 pat_short='ef', pat_long=('--regexp', '--file')),
+    'rg':   dict(short='efmABCtgM', long=('--regexp', '--file', '--max-count', '--after-context', '--before-context',
+                                          '--context', '--type', '--type-not', '--glob', '--iglob', '--max-columns'),
+                 pat_short='ef', pat_long=('--regexp', '--file')),
+    'sed':  dict(short='ef', long=('--expression', '--file'), pat_short='ef', pat_long=('--expression', '--file')),
+}
+REDIRECT = re.compile(r'^(\d*)(>>|>&|>|<)(.*)$')   # a redirect token: optional fd, operator, optional inline target
+
+def _segments(cmd):
+    """Split a command string on unquoted &&, ||, |, ; and newlines; quoted text never splits."""
+    seg, q, i = '', None, 0
+    while i < len(cmd):
+        c = cmd[i]
+        if q:
+            seg += c
+            if c == '\\' and q == '"' and i + 1 < len(cmd): seg += cmd[i + 1]; i += 2; continue
+            if c == q: q = None
+            i += 1; continue
+        if c in '"\'': q = c; seg += c; i += 1; continue
+        if c == '\\' and i + 1 < len(cmd): seg += cmd[i:i + 2]; i += 2; continue
+        if cmd.startswith('&&', i) or cmd.startswith('||', i): yield seg; seg = ''; i += 2; continue
+        if c in '|;\n': yield seg; seg = ''; i += 1; continue
+        seg += c; i += 1
+    yield seg
 
 def bash_read_paths(cmd):
-    """Path arguments read by cat/head/tail/sed/grep/rg/less calls in a Bash command string."""
+    """Paths read by cat/head/tail/less/sed/grep/rg calls in a Bash command string.
+    Quote-aware: a quoted |, ; or && is text, and a segment with unbalanced quotes yields nothing.
+    A read inside a heredoc or a `python3 -` script is still invisible — nothing tokenizes those."""
     out = []
-    for bm in BASH_READ.finditer(cmd):
-        word, argstr = bm.group(1), bm.group(2)
-        try: toks = shlex.split(argstr)
-        except ValueError: toks = argstr.split()
-        toks = [t for t in toks if t and not t.startswith('-') and '<' not in t and '>' not in t]
-        if word in PATTERN_CMDS and toks:
-            toks = toks[1:]   # drop the pattern/script; it is never a path
-        out.extend(toks)
+    for seg in _segments(cmd):
+        try: toks = shlex.split(seg)
+        except ValueError: continue   # unbalanced quotes: this segment is unparseable, claim nothing
+        if not toks: continue
+        word = os.path.basename(toks[0])
+        spec = READ_CMDS.get(word)
+        if not spec: continue
+        operands, redirs, pattern_given, recursive, i = [], [], False, False, 1
+        while i < len(toks):
+            t = toks[i]; i += 1
+            if t.startswith('<<'):   # heredoc: the body is inline text, never a file read
+                if t in ('<<', '<<-') and i < len(toks): i += 1
+                continue
+            m = REDIRECT.match(t)
+            if m:
+                op, target = m.group(2), m.group(3)
+                if not target and i < len(toks): target = toks[i]; i += 1
+                if op == '<' and target: redirs.append(target)
+                continue
+            if t == '--':
+                operands.extend(toks[i:]); break
+            if t.startswith('--'):
+                name, eq, _val = t.partition('=')
+                if name in spec['pat_long']: pattern_given = True
+                if not eq and name in spec['long'] and i < len(toks): i += 1   # value is the next token
+                continue
+            if t.startswith('-') and t != '-':
+                for j, c in enumerate(t[1:], 1):
+                    if word in ('grep', 'rg') and c in 'rR': recursive = True
+                    if c not in spec['short']: continue
+                    if c in spec['pat_short']: pattern_given = True
+                    if j == len(t) - 1 and i < len(toks): i += 1   # value is the next token
+                    break                                          # else the value is attached
+                continue
+            if t: operands.append(t)   # an empty operand (BSD `sed -i ''`) is a suffix, not a path
+        if word in ('grep', 'rg', 'sed') and not pattern_given and operands:
+            operands = operands[1:]   # the first operand is the pattern/script, never a path
+        paths = operands + redirs
+        if not paths and word in ('grep', 'rg') and (word == 'rg' or recursive):
+            paths = ['.']   # a bare recursive search reads the cwd
+        out.extend(paths)
     return out
 def product_file(f):
     """True when f names a product file; False for scratch, plans, reviews, TODO indexes and build artifacts."""
     f = (f or '').strip('\'"')
     if not f: return False
+    f = os.path.normpath(f)   # so docs/prompts/../../src/app.py is product and docs/prompts/plan.md stays exempt
     a = f if f.startswith('/') else '/' + f
     scratch = f.startswith('/') and f.startswith(SCRATCH_PREFIX)
     return not (scratch or any(k in a for k in NON_PRODUCT) or HANDOFF_DOC.search(a))

@@ -36,15 +36,20 @@ the master's view of it.
      when it changed files, and a `run_in_background` command gets none either. Plan files, `docs/prompts/`,
      `docs/reviews/`, `docs/todos/`, handoff docs, the TODO/tech-debt index, `/tmp/` and build artifacts
      are not product files
-   - master `Read` of a product file, or a Bash read command (`cat`/`head`/`tail`/`sed`/`grep`/`rg`/`less`
+   - master `Read` of a product file, or a Bash read command (`cat`/`head`/`tail`/`less`/`sed`/`grep`/`rg`
      parsed from the command text — the harness records writes only, never reads) inside a plan-mode span
      (an `EnterPlanMode` whose call was not denied, to the `ExitPlanMode` that was itself approved — a
-     rejected exit does not end the span — or end of transcript if none is ever approved). For `grep`/`rg`/`sed`
-     the first non-flag token is the pattern or script and is dropped, not read as a path; the harness
-     records writes only, never reads. Same exemptions as the Edit/Write check. Gaps: a read inside a
-     heredoc or a `python3 -` script is invisible to the command-text regex; a session that entered plan
-     mode via Shift+Tab has no `EnterPlanMode` call and is not windowed; `product_file()` exempts any path
-     containing `/.claude`, so a product repo's own `.claude/` files are invisible to this flag
+     rejected exit does not end the span — or end of transcript if none is ever approved). The command text
+     goes through a quote-aware tokenizer, not a regex: segments split on unquoted `&&`/`||`/`|`/`;`/newline,
+     operands come from `shlex`, each option's value is consumed with it (`head -n 5 f` reads `f` only),
+     redirections are not operands (`2>/dev/null`; a `<f` redirect *is* a read), and for `grep`/`rg`/`sed`
+     the first operand is the pattern or script unless `-e`/`-f`/`--regexp=`/`--expression=` already gave it.
+     A bare recursive search with no path (`rg needle`) reads `.`. Same exemptions as the Edit/Write check.
+     Gaps: a read inside a heredoc, a `python3 -` script, or behind an unexpanded variable (`cat $f`) is
+     invisible — nothing tokenizes those; a segment with unbalanced quotes claims nothing; a `cd dir && cat f`
+     relative path is reported as written, not resolved against the `cd`; a session that entered plan mode via
+     Shift+Tab has no `EnterPlanMode` call and is not windowed; `product_file()` normalizes the path, then
+     exempts any path containing `/.claude`, so a product repo's own `.claude/` files are invisible to this flag
    - `ExitPlanMode` or `AskUserQuestion` that waited more than an hour, or was never answered
    - `feature-workflow` loaded with no one-shot/pipeline call line before it; product edits with no call line at all
    - subagents that died on an API error before doing work; subagents that hit their turn cap

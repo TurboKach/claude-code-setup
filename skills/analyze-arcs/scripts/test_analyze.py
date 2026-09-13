@@ -18,8 +18,7 @@ def check(name, got, want):
 
 # --- bash_read_paths: the six command shapes plus the reported false-negative/positive cases ---
 check("cat single path", analyze.bash_read_paths("cat file1.txt"), ["file1.txt"])
-check("head with flag (a non-flag value token like the -n count is treated as a path too, per the invariant)",
-      analyze.bash_read_paths("head -n 5 dir/file2.py"), ["5", "dir/file2.py"])
+check("head -n consumes its count, not a path", analyze.bash_read_paths("head -n 5 dir/file2.py"), ["dir/file2.py"])
 check("tail before &&", analyze.bash_read_paths("tail -f log/file3.log && echo done"), ["log/file3.log"])
 check("less path", analyze.bash_read_paths("less docs/readme.md"), ["docs/readme.md"])
 check("grep drops pattern, keeps path", analyze.bash_read_paths("grep -n pattern src/app.py"), ["src/app.py"])
@@ -33,6 +32,55 @@ check("cat on line 2 of a multi-line command",
       analyze.bash_read_paths("echo start\ncat file4.txt\necho end"), ["file4.txt"])
 check("sed address range is not a path",
       analyze.bash_read_paths("sed -n '/^a:/,/^b:/p' file.yaml"), ["file.yaml"])
+
+# --- quoting: quoted metacharacters never split a segment or terminate the capture ---
+check("quoted pipe inside a grep pattern", analyze.bash_read_paths("grep -E 'foo|bar' src/app.py"), ["src/app.py"])
+check("quoted '; cat' is text, not a command", analyze.bash_read_paths('echo "; cat x"'), [])
+check("unbalanced quote yields nothing, no exception", analyze.bash_read_paths('cat "file.txt'), [])
+check("unbalanced quote only kills its own segment",
+      analyze.bash_read_paths('cat a.txt && cat "b'), ["a.txt"])
+check("double-quoted path is unquoted once", analyze.bash_read_paths('cat "dir with space/x.py"'), ["dir with space/x.py"])
+
+# --- grep/rg: the pattern is an operand only when no -e/-f/--regexp gave it ---
+check("grep -e PAT", analyze.bash_read_paths("grep -e foo bar.py"), ["bar.py"])
+check("grep -ePAT attached", analyze.bash_read_paths("grep -efoo bar.py"), ["bar.py"])
+check("grep --regexp=PAT", analyze.bash_read_paths("grep --regexp=foo bar.py"), ["bar.py"])
+check("grep --regexp PAT", analyze.bash_read_paths("grep --regexp foo bar.py"), ["bar.py"])
+check("grep -f FILE leaves every operand a path", analyze.bash_read_paths("grep -f pats.txt src/app.py"), ["src/app.py"])
+check("bare rg needle reads the cwd", analyze.bash_read_paths("rg needle"), ["."])
+check("grep -r needle reads the cwd", analyze.bash_read_paths("grep -r needle"), ["."])
+
+# --- option values are consumed with their option, per command ---
+check("grep -m N", analyze.bash_read_paths("grep -m 3 pat path.py"), ["path.py"])
+check("grep -A/-B context counts", analyze.bash_read_paths("grep -A 3 -B 2 pat f.py"), ["f.py"])
+check("grep --include=GLOB", analyze.bash_read_paths("grep --include=*.py pat src"), ["src"])
+check("rg -g GLOB and -t TYPE", analyze.bash_read_paths("rg -t py -g '*.py' pat src"), ["src"])
+check("tail -c N", analyze.bash_read_paths("tail -c 100 f.log"), ["f.log"])
+check("tail --lines=N", analyze.bash_read_paths("tail --lines=5 f.log"), ["f.log"])
+check("head -n 5 on a plan file", analyze.bash_read_paths("head -n 5 docs/prompts/plan.md"), ["docs/prompts/plan.md"])
+check("sed -i[SUFFIX] takes no separate value", analyze.bash_read_paths("sed -i.bak 's/a/b/' f.txt"), ["f.txt"])
+check("sed -e SCRIPT leaves every operand a path",
+      analyze.bash_read_paths("sed -n -e '/^a:/,/^b:/p' a.yaml b.yaml"), ["a.yaml", "b.yaml"])
+check("sed -eSCRIPT attached", analyze.bash_read_paths("sed -n -e1,5p a.yaml"), ["a.yaml"])
+
+# --- redirections are not operands; a < redirect is a read ---
+check("2>/dev/null is not a path", analyze.bash_read_paths("cat x.txt 2>/dev/null"), ["x.txt"])
+check("> target is not a path", analyze.bash_read_paths("cat x.txt >out.txt"), ["x.txt"])
+check("cat <path is a read", analyze.bash_read_paths("cat <src/app.py"), ["src/app.py"])
+check("grep pat <path is a read of path only", analyze.bash_read_paths("grep pat <src/app.py"), ["src/app.py"])
+check("heredoc is not a read", analyze.bash_read_paths("cat <<'EOF'\nhello\nEOF"), [])
+check("bare heredoc delimiter is not a read", analyze.bash_read_paths("cat << EOF"), [])
+check("BSD sed -i '' keeps only the file", analyze.bash_read_paths("sed -i '' 's/a/b/' notes.md"), ["notes.md"])
+
+# --- segments split on || and newlines too ---
+check("|| splits segments", analyze.bash_read_paths("grep -q pat a.py || cat b.py"), ["a.py", "b.py"])
+check("multi-line command, one read per line",
+      analyze.bash_read_paths("cd /x\ncat one.py\nrg needle two/"), ["one.py", "two/"])
+
+# --- product_file normalizes before matching ---
+check("traversal out of docs/prompts is product", analyze.product_file("docs/prompts/../../src/app.py"), True)
+check("plan file stays exempt", analyze.product_file("docs/prompts/plan.md"), False)
+check("normalized plan file stays exempt", analyze.product_file("src/../docs/prompts/plan.md"), False)
 
 # --- plan_span_end: reject -> revise -> approve keeps the span open past the rejected exit ---
 def t(s): return f"2026-01-01T00:00:{s:02d}"
