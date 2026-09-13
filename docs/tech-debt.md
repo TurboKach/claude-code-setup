@@ -19,7 +19,6 @@ Maintenance rules:
 - **`skills/feature-workflow/SKILL.md:17` — mixed dependency graph relies on a derived precondition** — Stage 3's mixed dependency graph relies on a derived precondition, not a stated one → docs/todos/feature-workflow-mixed-dependency-graph.md
 - **`skills/feature-workflow/SKILL.md:52` — no fallback if real+regression lines alone exceed the cap** — No fallback when real+regression lines alone exceed the verdict size cap → docs/todos/feature-workflow-verdict-cap-fallback.md
 - **`global/CLAUDE.md:12` — simplicity mnemonic cut, salience not replaced** — Simplicity mnemonic line was cut from CLAUDE.md, salience cue not replaced → docs/todos/claude-md-simplicity-mnemonic-cut.md
-- **`skills/feature-workflow/SKILL.md:18` — the ship gate's diff range is probably ignored** — Ship gate's codex invocation may parse the diff range as a focus area, not a scope → docs/todos/feature-workflow-ship-gate-diff-range.md
 - **Deferred from the codex-challenge arc** — Standalone P2/test-gap/theoretical findings deferred after the stage-5 gate went clean → docs/todos/deferred-codex-challenge-arc.md
 - **Deferred from the subagent no-background arc** — Standalone findings deferred after the stage-5 gate went clean across three rounds → docs/todos/deferred-subagent-no-background-arc.md
 - **Deferred from the review-model-picker arc** — Standalone findings deferred after the stage-5 gate went clean across two model rounds → docs/todos/deferred-review-model-picker-arc.md

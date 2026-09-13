@@ -41,7 +41,6 @@ in parallel, no extra setup).
 | `docs/decision-flow.md` | Mermaid map of the gates: who executes each kind of work, in which checkout, reviewed by whom — a reading aid; the authoritative text stays in the files it points at |
 | `docs/references.md` | The sources the doctrine is built on — harness docs (version-stamped, authoritative), the model-behavior guides it's tuned against, and cookbook patterns; plus the last Claude Code version the doctrine was validated against |
 | `docs/tech-debt.md` | Known gaps deliberately left unfixed, each with the site, the reasoning, and the review that surfaced it |
-| `docs/prompts/` | The approved plan files behind each doctrine change, mirrored for history |
 
 ## How it works
 
@@ -147,8 +146,7 @@ which would otherwise inherit whatever tier the master is running. Settings
 ## Requirements
 
 **Default path (background subagents + Workflows):**
-- Claude Code **v2.1.186 or newer** (`claude --version`) — earlier versions
-  silently auto-denied background subagents' permission prompts.
+- Claude Code, current version — it auto-updates; `claude --version` if in doubt.
 - That's it for the pipeline itself — no flags, no extra tools. The
   always-on codex gate (hard gate in global CLAUDE.md) is separate: it needs
   `codex` (codex-cli with `--ephemeral` support), `gtimeout`

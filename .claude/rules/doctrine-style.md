@@ -20,5 +20,8 @@ kit. They carry instructions and the facts needed to follow them — nothing els
 - Keep a harness fact the model cannot infer (what auto-backgrounds, what
   auto-delivers, what the installer never overwrites). State the fact, not how
   it was discovered.
+- Doctrine is read in the team's product repos, never here. It does not mention
+  this repo, its gitignore, or how it is maintained; state the general condition
+  a product repo can act on.
 - A rationale clause earns its place only when the rule is counter-intuitive
   without it, and then it is one clause, not a paragraph.

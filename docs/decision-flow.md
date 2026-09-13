@@ -12,7 +12,7 @@ files named in the "Owned by" column. Keep it in sync when those change.
 flowchart TD
     START([User request]) --> G0{"<b>Gate 0</b> — master session, before first edit<br/>design/product/UI/architectural choice OR 4+ files OR irreversible OR plan file exists OR multi-step arc OR fan-out?<br/><i>in doubt → ask in one line</i>"}
 
-    G0 -->|no| ONESHOT["<b>One-shot</b><br/>master edits directly<br/>no plan file, no executor, no review cycle"]
+    G0 -->|no| ONESHOT["<b>One-shot</b><br/>master edits directly, or one step-executor<br/>no plan file · codex-challenge.sh still runs on the diff"]
     G0 -->|yes| LOAD[["load <b>feature-workflow</b><br/>⇒ pipeline is now ACTIVE"]]
 
     LOAD --> INV0{{"INVARIANT: master writes zero product code<br/>from here until ship"}}
@@ -63,7 +63,7 @@ so gate 2 always precedes it. Gates fire 0 → 2 → 1 → 3.
 
 | # | Path | Executor | Worktree | Base branch | Who lands it | Who removes the worktree |
 |---|---|---|---|---|---|---|
-| L1 | gate 0 = no | master itself | no | session | master | n/a |
+| L1 | gate 0 = no | master itself, or one `step-executor` | no | session | master | n/a |
 | L2 | gate 2 = sequential | `step-executor` ×1 per step | **no** | session | master | n/a |
 | L3 | gate 3 = 2+ writers | `team-executor` ×N | **yes** (frontmatter) | `baseRef: head` | `team-merger` | `team-merger`, explicitly |
 | L4 | gate 3 = read-only | ad-hoc subagents | no | session | n/a — nothing written | n/a |
@@ -86,9 +86,7 @@ These are what a logic review should test. Each should hold on every path above.
    executors get a clean `origin/main`.
 4. **Isolation is never a per-spawn judgment call.** L3's worktree comes from
    `team-executor`'s frontmatter; L2 has no `isolation` field at all. The
-   orchestrator picks an *agent*, not a flag. (This is the fix for the
-   2026-08 audit: 11 of 22 executor spawns were worktree-isolated with no
-   sibling writer in flight.)
+   orchestrator picks an *agent*, not a flag.
 5. **Every executor is named by the plan.** Global CLAUDE.md requires each plan
    step to name its subagent; L2 → `step-executor`, L3 → `team-executor`.
 6. **Once the pipeline is active, the master writes no product code.** Applies
@@ -107,6 +105,5 @@ These are what a logic review should test. Each should hold on every path above.
   one writer, gate 2 has already committed to the parallel path. The redirect
   works, but the wasted step is real.
 - **Gate 2's "at the same time" is a prediction.** A plan that looks parallel
-  can serialize in practice (units colliding on a hub file — observed twice in
-  the audit). §3's mitigation is to give a hub file to one unit and prefer
+  can serialize in practice (units colliding on a hub file). §3's mitigation is to give a hub file to one unit and prefer
   fewer, larger units.

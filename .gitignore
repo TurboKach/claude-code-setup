@@ -6,5 +6,10 @@ settings.local.json
 docs/reviews/**/*.log
 docs/reviews/**/*.msg
 
-# local-only history, never pushed
+# local-only history
 docs/history.local.md
+# review verdicts stay local
+docs/reviews/
+# plan files stay local
+docs/prompts/
+__pycache__/

@@ -11,13 +11,12 @@
 Run these and show the user a short status summary:
 
 ```bash
-claude --version                                  # need >= 2.1.186 (background permission prompts)
+claude --version
 ls -d ~/.claude/skills/gstack 2>/dev/null && echo "gstack: present" || echo "gstack: missing"
 command -v codex >/dev/null && { command -v gtimeout || command -v timeout; } >/dev/null && command -v pgrep >/dev/null && codex exec --help 2>/dev/null | grep -q -- --ephemeral && echo "codex gate: ready" || echo "codex gate: needs codex-cli + GNU timeout + pgrep (macOS: brew install coreutils)"
 test -f ~/.claude/CLAUDE.md && echo "CLAUDE.md: exists" || echo "CLAUDE.md: none"
 ```
 
-- If `claude --version` is older than 2.1.186: suggest updating Claude Code.
 - If the codex gate line reports missing: install codex-cli + GNU timeout
   (macOS: `brew install coreutils`) — the codex gate does not run without them.
 
