@@ -86,9 +86,15 @@ check("normalized plan file stays exempt", analyze.product_file("src/../docs/pro
 def t(s): return f"2026-01-01T00:00:{s:02d}"
 
 check("rejected exit does not end the span; approved exit does",
-      analyze.plan_span_end(t(0), [t(10), t(30)], [t(40)], t(50)), t(30))
-check("no approved exit ever -> end of transcript",
-      analyze.plan_span_end(t(0), [t(10)], [], t(20)), t(20))
+      analyze.plan_span_end(t(0), [t(10), t(30)], [t(40)], [], t(50)), t(30))
+check("no approved exit ever, no edit either -> end of transcript",
+      analyze.plan_span_end(t(0), [t(10)], [], [], t(20)), t(20))
+check("no approved exit ever, but a proven product edit closes the span",
+      analyze.plan_span_end(t(0), [], [], [dict(t=t(5), file='src/app.py', error=False)], t(20)), t(5))
+check("an edit whose result errored proves nothing -> end of transcript",
+      analyze.plan_span_end(t(0), [], [], [dict(t=t(5), file='src/app.py', error=True)], t(20)), t(20))
+check("an edit to a non-product file proves nothing -> end of transcript",
+      analyze.plan_span_end(t(0), [], [], [dict(t=t(5), file='docs/prompts/plan.md', error=False)], t(20)), t(20))
 
 # --- scan_master_records: a synthetic transcript exercising both invariants end to end ---
 def tool_use(T, tid, name, inp=None):
@@ -116,7 +122,7 @@ r = analyze.scan_master_records(recs)
 check("enter_plan opened once", r['enter_plan'], [t(0)])
 check("exit_plan has both exits", r['exit_plan'], [t(2), t(5)])
 check("plan_approved recorded", r['plan_approved'], [t(6)])
-end = analyze.plan_span_end(r['enter_plan'][0], r['exit_plan'], r['plan_approved'], r['last'])
+end = analyze.plan_span_end(r['enter_plan'][0], r['exit_plan'], r['plan_approved'], r['edits'], r['last'])
 check("span end is the approved exit, not the rejected one", end, t(5))
 inside = [rd['file'] for rd in r['reads'] if r['enter_plan'][0] <= rd['t'] <= end and analyze.product_file(rd['file'])]
 check("read during the rejected/revision phase is inside the span", inside, ['src/inside_after_reject.py'])
@@ -131,6 +137,71 @@ recs_denied = [
 ]
 r2 = analyze.scan_master_records(recs_denied)
 check("denied EnterPlanMode opens no span", r2['enter_plan'], [])
+
+def edit_use(T, tid, name, path):
+    return tool_use(T, tid, name, dict(file_path=path))
+
+# --- (a) the approval string in a tool_result with no pending ExitPlanMode call is not an approval ---
+recs_false_close = [
+    tool_use(t(0), 'e1', 'EnterPlanMode'),
+    tool_result(t(1), 'e1'),                                             # opens the span at t(0)
+    read_use(t(2), 'r1', 'analyze.py'),
+    tool_result(t(3), 'r1', content='...\nif \'User has approved your plan\' in rr: ...'),  # a Read, not an ExitPlanMode result
+    read_use(t(4), 'r2', 'src/still_inside.py'),
+]
+ra = analyze.scan_master_records(recs_false_close)
+check("(a) approval string outside an ExitPlanMode result is not recorded", ra['plan_approved'], [])
+end_a = analyze.plan_span_end(ra['enter_plan'][0], ra['exit_plan'], ra['plan_approved'], ra['edits'], ra['last'])
+check("(a) span stays open through both reads", end_a, ra['last'])
+inside_a = [rd['file'] for rd in ra['reads'] if ra['enter_plan'][0] <= rd['t'] <= end_a and analyze.product_file(rd['file'])]
+check("(a) both reads are inside the still-open span", sorted(inside_a), ['analyze.py', 'src/still_inside.py'])
+
+# --- (b) enter -> exit(rejected) -> reads -> exit(approved) -> reads: middle reads in, trailing out ---
+recs_b = [
+    tool_use(t(0), 'e1', 'EnterPlanMode'), tool_result(t(1), 'e1'),
+    tool_use(t(2), 'x1', 'ExitPlanMode'),
+    tool_result(t(3), 'x1', content='the user rejected the plan', is_error=True),
+    read_use(t(4), 'r1', 'src/middle.py'),
+    tool_use(t(5), 'x2', 'ExitPlanMode'),
+    tool_result(t(6), 'x2', content='User has approved your plan. ok'),
+    read_use(t(7), 'r2', 'src/trailing.py'),
+]
+rb = analyze.scan_master_records(recs_b)
+end_b = analyze.plan_span_end(rb['enter_plan'][0], rb['exit_plan'], rb['plan_approved'], rb['edits'], rb['last'])
+inside_b = [rd['file'] for rd in rb['reads'] if rb['enter_plan'][0] <= rd['t'] <= end_b and analyze.product_file(rd['file'])]
+outside_b = [rd['file'] for rd in rb['reads'] if not (rb['enter_plan'][0] <= rd['t'] <= end_b) and analyze.product_file(rd['file'])]
+check("(b) middle read (after rejection, before approval) is inside", inside_b, ['src/middle.py'])
+check("(b) trailing read (after approval) is outside", outside_b, ['src/trailing.py'])
+
+# --- (c) enter -> reads -> successful Edit on a product file -> reads: first reads in, later reads out ---
+recs_c = [
+    tool_use(t(0), 'e1', 'EnterPlanMode'), tool_result(t(1), 'e1'),
+    read_use(t(2), 'r1', 'src/before_edit.py'),
+    edit_use(t(3), 'ed1', 'Edit', 'src/app.py'),
+    tool_result(t(4), 'ed1', content='edited'),
+    read_use(t(5), 'r2', 'src/after_edit.py'),
+]
+rc = analyze.scan_master_records(recs_c)
+end_c = analyze.plan_span_end(rc['enter_plan'][0], rc['exit_plan'], rc['plan_approved'], rc['edits'], rc['last'])
+inside_c = [rd['file'] for rd in rc['reads'] if rc['enter_plan'][0] <= rd['t'] <= end_c and analyze.product_file(rd['file'])]
+outside_c = [rd['file'] for rd in rc['reads'] if not (rc['enter_plan'][0] <= rd['t'] <= end_c) and analyze.product_file(rd['file'])]
+check("(c) end of span is the successful edit's timestamp", end_c, t(3))
+check("(c) read before the proven edit is inside", inside_c, ['src/before_edit.py'])
+check("(c) read after the proven edit is outside", outside_c, ['src/after_edit.py'])
+
+# --- (d) enter -> reads -> Edit whose result is_error -> reads: all in (edit didn't prove anything) ---
+recs_d = [
+    tool_use(t(0), 'e1', 'EnterPlanMode'), tool_result(t(1), 'e1'),
+    read_use(t(2), 'r1', 'src/before_edit.py'),
+    edit_use(t(3), 'ed1', 'Edit', 'src/app.py'),
+    tool_result(t(4), 'ed1', content='blocked: still in plan mode', is_error=True),
+    read_use(t(5), 'r2', 'src/after_edit.py'),
+]
+rd_ = analyze.scan_master_records(recs_d)
+end_d = analyze.plan_span_end(rd_['enter_plan'][0], rd_['exit_plan'], rd_['plan_approved'], rd_['edits'], rd_['last'])
+inside_d = [rd['file'] for rd in rd_['reads'] if rd_['enter_plan'][0] <= rd['t'] <= end_d and analyze.product_file(rd['file'])]
+check("(d) a failed edit proves nothing; span runs to end of transcript", end_d, rd_['last'])
+check("(d) both reads stay inside the still-open span", sorted(inside_d), ['src/after_edit.py', 'src/before_edit.py'])
 
 print()
 if fails:

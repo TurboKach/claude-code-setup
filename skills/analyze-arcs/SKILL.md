@@ -38,18 +38,25 @@ the master's view of it.
      are not product files
    - master `Read` of a product file, or a Bash read command (`cat`/`head`/`tail`/`less`/`sed`/`grep`/`rg`
      parsed from the command text — the harness records writes only, never reads) inside a plan-mode span
-     (an `EnterPlanMode` whose call was not denied, to the `ExitPlanMode` that was itself approved — a
-     rejected exit does not end the span — or end of transcript if none is ever approved). The command text
-     goes through a quote-aware tokenizer, not a regex: segments split on unquoted `&&`/`||`/`|`/`;`/newline,
-     operands come from `shlex`, each option's value is consumed with it (`head -n 5 f` reads `f` only),
-     redirections are not operands (`2>/dev/null`; a `<f` redirect *is* a read), and for `grep`/`rg`/`sed`
-     the first operand is the pattern or script unless `-e`/`-f`/`--regexp=`/`--expression=` already gave it.
-     A bare recursive search with no path (`rg needle`) reads `.`. Same exemptions as the Edit/Write check.
-     Gaps: a read inside a heredoc, a `python3 -` script, or behind an unexpanded variable (`cat $f`) is
-     invisible — nothing tokenizes those; a segment with unbalanced quotes claims nothing; a `cd dir && cat f`
-     relative path is reported as written, not resolved against the `cd`; a session that entered plan mode via
-     Shift+Tab has no `EnterPlanMode` call and is not windowed; `product_file()` normalizes the path, then
-     exempts any path containing `/.claude`, so a product repo's own `.claude/` files are invisible to this flag
+     (an `EnterPlanMode` whose call was not denied, to the `ExitPlanMode` that was itself approved — checked
+     only in the `tool_result` linked to that `ExitPlanMode` call by `tool_use_id`, so the approval string
+     appearing elsewhere, e.g. in a Read of this script's own source, is not a false close; a rejected exit
+     does not end the span either). When no approved exit ever follows — including a Shift+Tab exit, which
+     leaves no `ExitPlanMode` call at all — the span ends at the first proven-successful product-file edit
+     after it (an Edit/Write/MultiEdit/NotebookEdit whose own `tool_result` was not an error, or a Bash write
+     the harness's `bashEditDiff.changedFiles` record shows; the harness blocks product edits while still in
+     plan mode, so one proves plan mode had already ended), or end of transcript if there's no such edit
+     either. The command text goes through a quote-aware tokenizer, not a regex: segments split on unquoted
+     `&&`/`||`/`|`/`;`/newline, operands come from `shlex`, each option's value is consumed with it (`head -n
+     5 f` reads `f` only), redirections are not operands (`2>/dev/null`; a `<f` redirect *is* a read), and for
+     `grep`/`rg`/`sed` the first operand is the pattern or script unless `-e`/`-f`/`--regexp=`/`--expression=`
+     already gave it. A bare recursive search with no path (`rg needle`) reads `.`. Same exemptions as the
+     Edit/Write check. Gaps: a read inside a heredoc, a `python3 -` script, or behind an unexpanded variable
+     (`cat $f`) is invisible — nothing tokenizes those; a segment with unbalanced quotes claims nothing; a
+     `cd dir && cat f` relative path is reported as written, not resolved against the `cd`; a session that
+     *entered* plan mode via Shift+Tab has no `EnterPlanMode` call and is not windowed at all; `product_file()`
+     normalizes the path, then exempts any path containing `/.claude`, so a product repo's own `.claude/`
+     files are invisible to this flag
    - `ExitPlanMode` or `AskUserQuestion` that waited more than an hour, or was never answered
    - `feature-workflow` loaded with no one-shot/pipeline call line before it; product edits with no call line at all
    - subagents that died on an API error before doing work; subagents that hit their turn cap

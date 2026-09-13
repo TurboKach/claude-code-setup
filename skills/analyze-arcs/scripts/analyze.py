@@ -155,8 +155,10 @@ def scan_master_records(recs, path=None):
                     for tok in bash_read_paths(cmd):
                         r['reads'].append(dict(t=T, tool='Bash', file=tok))
                 elif n in ('Edit', 'Write', 'MultiEdit', 'NotebookEdit'):
-                    r['edits'].append(dict(t=T, tool=n, file=i.get('file_path') or i.get('notebook_path') or ''))
+                    ed = dict(t=T, tool=n, file=i.get('file_path') or i.get('notebook_path') or '', error=False)
+                    r['edits'].append(ed)
                     r['first_edit'] = r['first_edit'] or T
+                    pending_q[c['id']] = ed
                 elif n == 'Read':
                     r['reads'].append(dict(t=T, tool='Read', file=i.get('file_path')))
                 elif n in ('AskUserQuestion', 'ExitPlanMode', 'EnterPlanMode', 'PushNotification'):
@@ -172,7 +174,7 @@ def scan_master_records(recs, path=None):
             if isinstance(bed, dict) and isinstance(bed.get('changedFiles'), list):   # a record without the list (snapshot skipped) proves nothing
                 r['bash_diff'] = True
                 for f in bed['changedFiles']:
-                    r['edits'].append(dict(t=T, tool='Bash', file=f)); r['first_edit'] = r['first_edit'] or T
+                    r['edits'].append(dict(t=T, tool='Bash', file=f, error=False)); r['first_edit'] = r['first_edit'] or T
             c = m.get('content')
             if isinstance(c, str):
                 if not d.get('isMeta'):
@@ -191,8 +193,11 @@ def scan_master_records(recs, path=None):
                         if g:
                             g['answered'] = T; g['error'] = bool(x.get('is_error'))
                             if g['tool'] == 'EnterPlanMode' and not g['error']: r['enter_plan'].append(g['t'])
-                        rr = x.get('content'); rr = rr if isinstance(rr, str) else ' '.join(y.get('text', '') for y in (rr or []) if isinstance(y, dict))
-                        if 'User has approved your plan' in rr: r['plan_approved'].append(T)
+                            if g['tool'] == 'ExitPlanMode':
+                                # the approval string is only trustworthy inside the result linked to a pending
+                                # ExitPlanMode call — anywhere else (e.g. a Read of this file's own source) it's noise
+                                rr = x.get('content'); rr = rr if isinstance(rr, str) else ' '.join(y.get('text', '') for y in (rr or []) if isinstance(y, dict))
+                                if 'User has approved your plan' in rr: r['plan_approved'].append(T)
     return r
 
 def scan_subagents(session_dir):
@@ -227,17 +232,22 @@ def codex_run(out):
 def mins(a, b):
     return int((ts(b) - ts(a)).total_seconds() // 60) if a and b else None
 
-def plan_span_end(x0, exit_plan, plan_approved, last):
+def plan_span_end(x0, exit_plan, plan_approved, edits, last):
     """The end of the plan-mode span opened at x0: the first ExitPlanMode after x0 whose own next
     event (among later ExitPlanMode/plan_approved) is a plan_approved. A rejected exit does not end
-    the span — reject/revise/approve keeps the revision-phase reads inside it. No approved exit ever
-    follows: the span runs to end of transcript."""
+    the span — reject/revise/approve keeps the revision-phase reads inside it.
+    No approved exit ever follows (including a Shift+Tab exit, which leaves no ExitPlanMode call at
+    all): the span ends at the first proven-successful product-file edit after x0 — an Edit/Write/
+    MultiEdit/NotebookEdit whose tool_result was not an error, or a Bash write the harness's own
+    changed-file record shows — since the harness blocks product edits while still in plan mode, one
+    proves plan mode had already ended. With no such edit either, the span runs to end of transcript."""
     merged = sorted([(t, 'exit') for t in exit_plan] + [(t, 'approved') for t in plan_approved])
     for e in sorted(t for t in exit_plan if t > x0):
         later = [ev for ev in merged if ev[0] > e]
         if later and later[0][1] == 'approved':
             return e
-    return last
+    prod_edits = sorted(e['t'] for e in edits if e['t'] > x0 and not e.get('error') and product_file(e['file']))
+    return prod_edits[0] if prod_edits else last
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--since', required=True); ap.add_argument('--projects-dir', default=os.path.expanduser('~/.claude/projects'))
@@ -275,7 +285,7 @@ def main():
             for e in r['edits']:
                 if e['t'] > r['fw_loaded'] and product_file(e['file']): flags.append(f"{e['t'][11:16]} master {e['tool']} on product file inside pipeline: {e['file']}")
         for x0 in sorted(r['enter_plan']):
-            end = plan_span_end(x0, r['exit_plan'], r['plan_approved'], r['last'])
+            end = plan_span_end(x0, r['exit_plan'], r['plan_approved'], r['edits'], r['last'])
             reads = [rd for rd in r['reads'] if x0 <= rd['t'] <= end and product_file(rd['file'])]
             if reads:
                 n = len(reads); p1, p2, p3 = (reads[i]['file'] if i < n else '' for i in range(3))
