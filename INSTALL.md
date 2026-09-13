@@ -17,8 +17,7 @@ command -v codex >/dev/null && { command -v gtimeout || command -v timeout; } >/
 test -f ~/.claude/CLAUDE.md && echo "CLAUDE.md: exists" || echo "CLAUDE.md: none"
 ```
 
-- If `claude --version` is older than 2.1.186: suggest updating Claude Code —
-  before 2.1.186 background subagents silently auto-denied permission prompts.
+- If `claude --version` is older than 2.1.186: suggest updating Claude Code.
 - If the codex gate line reports missing: install codex-cli + GNU timeout
   (macOS: `brew install coreutils`) — the codex gate does not run without them.
 
@@ -47,9 +46,8 @@ it — so don't offer it as a deselectable option. Suggested:
    - custom: any full model ID the user types (the "Other" answer)
 4. **Codex review model** — only if `CODEX_REVIEW_MODEL` isn't already in
    their settings `env`: ask which model the codex cross-review gate (the
-   always-on push gate) uses. All three options run at `medium` reasoning
-   effort; the gate reads a whole feature range end to end, which is why the
-   128k `gpt-5.3-codex-spark` tier is not offered. Options:
+   always-on push gate) uses. All three run at `medium` reasoning effort.
+   Options:
    - `gpt-6-astra` *(recommended, the repo default — most capable, 272k context)*
    - `gpt-5.6-sol` *(reliable everyday workhorse, 272k context)*
    - `gpt-5.6-luna` *(fast and affordable, 272k context)*
@@ -64,7 +62,7 @@ referenced by the workflow; without it, use plain git.
 
 ## Step 2 — Execute (only chosen + only missing)
 
-**Core kit + settings + `CLAUDE.md`** — all of it is `install.sh`'s job now;
+**Core kit + settings + `CLAUDE.md`** — all of it is `install.sh`'s job;
 don't reimplement any of its copy/backup/prune/merge logic here. Its settings
 merge setdefaults `CLAUDE_CODE_ENABLE_TODO_TOOLS` (the task-list feature)
 along with every other key in `settings.example.json`'s `env` block — added
@@ -128,8 +126,8 @@ outlive them) and any poll loop on a `.output.done` marker (never written), and
 explicit timeout is not auto-backgrounded at 2 minutes, and `bashOutputMaxChars`
 to 64000 so a valid command result stays inline up to 64k characters instead of
 ~30k before it is saved to a file, and `bashEditDiffEnabled` to true so the
-transcript records which files each Bash command changed in every permission
-mode (`/analyze-arcs` reads it). Hooks are read at
+transcript records which files each Bash command changed (`/analyze-arcs`
+reads it). Hooks are read at
 session start: the new hook takes effect in the next session, or after
 reviewing it in `/hooks`.
 
