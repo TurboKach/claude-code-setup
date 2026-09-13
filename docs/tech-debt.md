@@ -22,3 +22,5 @@ Maintenance rules:
 - **Deferred from the codex-challenge arc** — Standalone P2/test-gap/theoretical findings deferred after the stage-5 gate went clean → docs/todos/deferred-codex-challenge-arc.md
 - **Deferred from the subagent no-background arc** — Standalone findings deferred after the stage-5 gate went clean across three rounds → docs/todos/deferred-subagent-no-background-arc.md
 - **Deferred from the review-model-picker arc** — Standalone findings deferred after the stage-5 gate went clean across two model rounds → docs/todos/deferred-review-model-picker-arc.md
+- **`skills/analyze-arcs/scripts/analyze.py` — plan-mode read flag tokenizer/window edges** — nine codex P2/theoretical shapes (`LC_ALL=C cat`, `cat<file`, `#` comments, `rg --files`, heredoc apostrophe…) → docs/todos/analyze-arcs-plan-mode-read-heuristics.md
+- **`skills/analyze-arcs/scripts/analyze.py` — ExitPlanMode wait-time flag pairs by time, not call id** — a rejected exit is credited with a later approval's wait → docs/todos/analyze-arcs-exit-plan-wait-pairing.md
