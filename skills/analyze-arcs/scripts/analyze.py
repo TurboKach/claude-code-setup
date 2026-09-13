@@ -3,7 +3,7 @@
 usage: analyze.py --since YYYY-MM-DD [--projects-dir ~/.claude/projects] --out <report.md> [--min-kb 150]
 Reads master transcripts, their subagents/*.jsonl, and the codex-challenge --out logs the masters named.
 Judgment findings (verification proved only negatives, review escapes) are NOT detected here."""
-import argparse, datetime as dt, glob, json, os, re, sys
+import argparse, datetime as dt, glob, json, os, re, shlex, sys
 
 PINS = {'team-plan-reviewer': 'fable', 'team-reviewer': 'opus',
         'step-executor': 'sonnet', 'team-executor': 'sonnet', 'fixer': 'sonnet',
@@ -16,8 +16,22 @@ SCRATCH_PREFIX = ('/tmp/', '/private/tmp/', '/dev/')   # only at the start of an
 PATH_CALL = re.compile(r'(?i)\bpath call\b|^\s*\**\s*(one-shot|pipeline)\b(?!-)|\b(one-shot|pipeline)\**\s*[:\u2014\u2013]|\b(one-shot|pipeline)\**\s+-\s')
 # A stated reason for an off-doctrine pin: the doctrine's own categories (structural / same-mechanism / fable rate-limited) count.
 REASON = re.compile(r'(?i)reason|opus for|structural|mechanism|rate.?limit|429')
-# A Bash read command (cat/head/tail/sed/grep/rg/less) within a &&/|/; segment; args captured for token filtering below.
-BASH_READ = re.compile(r'(?:^|&&|\||;)\s*(?:cat|head|tail|sed|grep|rg|less)\b([^&|;]*)')
+# A Bash read command (cat/head/tail/sed/grep/rg/less) within a &&/|/;/newline segment; command word and args captured separately.
+BASH_READ = re.compile(r'(?:^|&&|\||;)\s*(cat|head|tail|sed|grep|rg|less)\b([^&|;\n]*)', re.MULTILINE)
+PATTERN_CMDS = ('grep', 'rg', 'sed')   # first non-flag token is the pattern/script, not a path
+
+def bash_read_paths(cmd):
+    """Path arguments read by cat/head/tail/sed/grep/rg/less calls in a Bash command string."""
+    out = []
+    for bm in BASH_READ.finditer(cmd):
+        word, argstr = bm.group(1), bm.group(2)
+        try: toks = shlex.split(argstr)
+        except ValueError: toks = argstr.split()
+        toks = [t for t in toks if t and not t.startswith('-') and '<' not in t and '>' not in t]
+        if word in PATTERN_CMDS and toks:
+            toks = toks[1:]   # drop the pattern/script; it is never a path
+        out.extend(toks)
+    return out
 def product_file(f):
     """True when f names a product file; False for scratch, plans, reviews, TODO indexes and build artifacts."""
     f = (f or '').strip('\'"')
@@ -35,11 +49,14 @@ def records(p):
         except Exception: continue
 
 def scan_master(p):
-    r = dict(path=p, first=None, last=None, cwd=None, models=set(), user_turns=0, first_prompt='', peak=0,
+    return scan_master_records(records(p), path=p)
+
+def scan_master_records(recs, path=None):
+    r = dict(path=path, first=None, last=None, cwd=None, models=set(), user_turns=0, first_prompt='', peak=0,
              spawns=[], codex=[], edits=[], gates=[], pushes=[], killed=[], fw_loaded=None, path_call=None,
              plan_approved=[], exit_plan=[], enter_plan=[], reads=[], first_edit=None, api_errors=0, bash_diff=False)
     pending_q = {}
-    for d in records(p):
+    for d in recs:
         t = d.get('type'); T = d.get('timestamp')
         if T:
             r['first'] = r['first'] or T; r['last'] = T
@@ -69,12 +86,8 @@ def scan_master(p):
                                                pin='--pin' in cmd, out=out.group(1).strip('\'";') if out else None,
                                                timeout=i.get('timeout'), id=c['id']))
                     if re.search(r'\bgit push\b', cmd): r['pushes'].append(T)
-                    for bm in BASH_READ.finditer(cmd):
-                        for tok in bm.group(1).split():
-                            tok = tok.strip('\'"')
-                            if not tok or tok.startswith('-') or '<' in tok or '>' in tok: continue
-                            if '/' in tok or re.search(r'\.\w+$', tok):
-                                r['reads'].append(dict(t=T, tool='Bash', file=tok))
+                    for tok in bash_read_paths(cmd):
+                        r['reads'].append(dict(t=T, tool='Bash', file=tok))
                 elif n in ('Edit', 'Write', 'MultiEdit', 'NotebookEdit'):
                     r['edits'].append(dict(t=T, tool=n, file=i.get('file_path') or i.get('notebook_path') or ''))
                     r['first_edit'] = r['first_edit'] or T
@@ -82,10 +95,10 @@ def scan_master(p):
                     r['reads'].append(dict(t=T, tool='Read', file=i.get('file_path')))
                 elif n in ('AskUserQuestion', 'ExitPlanMode', 'EnterPlanMode', 'PushNotification'):
                     q = i.get('questions') or [{}]
-                    r['gates'].append(dict(t=T, tool=n, q=(q[0].get('question', '') if isinstance(q, list) and q else '')[:100], answered=None))
+                    r['gates'].append(dict(t=T, tool=n, q=(q[0].get('question', '') if isinstance(q, list) and q else '')[:100], answered=None, error=None))
                     pending_q[c['id']] = r['gates'][-1]
                     if n == 'ExitPlanMode': r['exit_plan'].append(T)
-                    if n == 'EnterPlanMode': r['enter_plan'].append(T)
+                    # EnterPlanMode opens a span only once its tool_result comes back not-an-error (below); a denied call opens nothing.
         elif t == 'user':
             # Files a Bash command changed, as the harness recorded them (git working tree, ≤200 paths; 2.1.269+, `bashEditDiffEnabled`,
             # on by default in auto/bypass mode, never shown to the model). Ground truth — the command text is not parsed.
@@ -109,7 +122,9 @@ def scan_master(p):
                         if '<status>killed</status>' in tx: r['killed'].append(T)
                     if x.get('type') == 'tool_result':
                         g = pending_q.pop(x.get('tool_use_id'), None)
-                        if g: g['answered'] = T
+                        if g:
+                            g['answered'] = T; g['error'] = bool(x.get('is_error'))
+                            if g['tool'] == 'EnterPlanMode' and not g['error']: r['enter_plan'].append(g['t'])
                         rr = x.get('content'); rr = rr if isinstance(rr, str) else ' '.join(y.get('text', '') for y in (rr or []) if isinstance(y, dict))
                         if 'User has approved your plan' in rr: r['plan_approved'].append(T)
     return r
@@ -145,6 +160,18 @@ def codex_run(out):
 
 def mins(a, b):
     return int((ts(b) - ts(a)).total_seconds() // 60) if a and b else None
+
+def plan_span_end(x0, exit_plan, plan_approved, last):
+    """The end of the plan-mode span opened at x0: the first ExitPlanMode after x0 whose own next
+    event (among later ExitPlanMode/plan_approved) is a plan_approved. A rejected exit does not end
+    the span — reject/revise/approve keeps the revision-phase reads inside it. No approved exit ever
+    follows: the span runs to end of transcript."""
+    merged = sorted([(t, 'exit') for t in exit_plan] + [(t, 'approved') for t in plan_approved])
+    for e in sorted(t for t in exit_plan if t > x0):
+        later = [ev for ev in merged if ev[0] > e]
+        if later and later[0][1] == 'approved':
+            return e
+    return last
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--since', required=True); ap.add_argument('--projects-dir', default=os.path.expanduser('~/.claude/projects'))
@@ -182,7 +209,7 @@ def main():
             for e in r['edits']:
                 if e['t'] > r['fw_loaded'] and product_file(e['file']): flags.append(f"{e['t'][11:16]} master {e['tool']} on product file inside pipeline: {e['file']}")
         for x0 in sorted(r['enter_plan']):
-            end = next((e for e in sorted(r['exit_plan']) if e > x0 and next((q for q in r['plan_approved'] if q > e), None)), None) or r['last']
+            end = plan_span_end(x0, r['exit_plan'], r['plan_approved'], r['last'])
             reads = [rd for rd in r['reads'] if x0 <= rd['t'] <= end and product_file(rd['file'])]
             if reads:
                 n = len(reads); p1, p2, p3 = (reads[i]['file'] if i < n else '' for i in range(3))

@@ -38,11 +38,13 @@ the master's view of it.
      are not product files
    - master `Read` of a product file, or a Bash read command (`cat`/`head`/`tail`/`sed`/`grep`/`rg`/`less`
      parsed from the command text — the harness records writes only, never reads) inside a plan-mode span
-     (`EnterPlanMode` to the next approved `ExitPlanMode`, or end of transcript if never approved). Same
-     exemptions as the Edit/Write check. Gaps: a read inside a heredoc or a `python3 -` script is invisible
-     to the command-text regex; a session that entered plan mode via Shift+Tab has no `EnterPlanMode` call
-     and is not windowed; `product_file()` exempts any path containing `/.claude`, so a product repo's own
-     `.claude/` files are invisible to this flag
+     (an `EnterPlanMode` whose call was not denied, to the `ExitPlanMode` that was itself approved — a
+     rejected exit does not end the span — or end of transcript if none is ever approved). For `grep`/`rg`/`sed`
+     the first non-flag token is the pattern or script and is dropped, not read as a path; the harness
+     records writes only, never reads. Same exemptions as the Edit/Write check. Gaps: a read inside a
+     heredoc or a `python3 -` script is invisible to the command-text regex; a session that entered plan
+     mode via Shift+Tab has no `EnterPlanMode` call and is not windowed; `product_file()` exempts any path
+     containing `/.claude`, so a product repo's own `.claude/` files are invisible to this flag
    - `ExitPlanMode` or `AskUserQuestion` that waited more than an hour, or was never answered
    - `feature-workflow` loaded with no one-shot/pipeline call line before it; product edits with no call line at all
    - subagents that died on an API error before doing work; subagents that hit their turn cap
