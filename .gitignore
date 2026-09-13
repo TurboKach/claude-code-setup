@@ -5,3 +5,6 @@ settings.local.json
 .DS_Store
 docs/reviews/**/*.log
 docs/reviews/**/*.msg
+
+# local-only history, never pushed
+docs/history.local.md
