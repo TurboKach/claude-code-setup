@@ -11,7 +11,7 @@ One **master session** owns the feature end-to-end. It stays thin by running eve
 
 Six stages, each delegated out of main context by the master session:
 
-1. **Discuss approach** → `/office-hours`. Explore the problem space, surface constraints, decide what's worth building. No code.
+1. **Discuss approach.** Explore the problem space, surface constraints, decide what's worth building. No code.
 2. **Plan in native plan mode** → the master calls `EnterPlanMode`, then authors the plan itself, writing directly into the plan file named in the plan-mode system message — that file is the canonical plan until approval. Codebase discovery goes to `explorer` subagents (Sonnet, read-only), which return summaries; the master reads no product file itself in plan mode — a hard line in global CLAUDE.md, because exploration done in the master's own context is re-paid by every later turn of the arc. Revisions — reviewer blocking findings, user answers, ExitPlanMode "keep planning" feedback — are the master's own edits of the plan file, not a fresh spawn.
 
    **Plan shape.** The plan states: the goal; the ordered steps, or for a parallel run the independent units (file/ownership boundaries, the shared contracts units must agree on, and a check that they are genuinely independent — otherwise say the work is sequential); every execution step names the subagent that executes it (`step-executor` for sequential steps, `team-executor` for parallel units) — never the master; steps sized so an executor finishes in roughly ≤100 tool calls, split otherwise; acceptance criteria stated once per step; edge cases; a verification step that drives the positive path through the real client (`/browse` for web, a simulator or device render for iOS, the built routes for a web build) — curl and unit suites prove only the negative path; per-step verification is the build plus the targeted suites the step touches, with the full suite run once as its own final step; any step marked Opus carries a one-line reason; and a taste/open-decisions list, each item with a recommended option and the simplest option, never decided silently.
@@ -26,7 +26,7 @@ Six stages, each delegated out of main context by the master session:
 **Failure paths.** Exit 124 → relaunch once with the same arguments, under a different `--out` name (e.g. a `-r2` suffix). A second 124 → the range is too big: split it (above) or, when this fires inside a stage-4 per-step round, skip that round and note it in the cost checkpoint — stage 5 still covers the skipped range. Non-zero after the script's three attempts, or exit 0 in under 60 s with no findings text in the verdict body (auth or usage-limit failure — triage reports it verbatim) → park: push-notify, end the turn, no relaunch — the script already retried for 10 minutes. Exit 66 (pin refused, under the free-space threshold) → park like the other failures: push-notify, end the turn, no unpinned retry.
 
 **Brief the defect and the invariant, never the patch.** A fixer's spawn prompt carries what is broken and what must hold afterward. If the master has a fix in mind it goes in labeled as a hypothesis to verify and overrule, because the fixer is the one who will read the call sites.
-6. **Ship** → `/ship` (PR) → `/land-and-deploy` (merge + deploy + post-deploy verify).
+6. **Ship** → push (owner-approved) → PR → merge + deploy → post-deploy verify.
 
 Rules:
 - The always-on hard gates in global CLAUDE.md apply throughout: push approval, the codex gate, verified-claims, AFK-is-not-approval.

@@ -16,7 +16,7 @@ flowchart TD
     G0 -->|yes| LOAD[["load <b>feature-workflow</b><br/>⇒ pipeline is now ACTIVE"]]
 
     LOAD --> INV0{{"INVARIANT: master writes zero product code<br/>from here until ship"}}
-    INV0 --> S123["Stages 1–3<br/>/office-hours → plan mode: master authors → team-plan-reviewer → ExitPlanMode<br/><b>user approves plan</b> ← only taste gate"]
+    INV0 --> S123["Stages 1–3<br/>discuss → plan mode: master authors → team-plan-reviewer → ExitPlanMode<br/><b>user approves plan</b> ← only taste gate"]
 
     S123 --> G2{"<b>Gate 2</b> — stage 4 Execute<br/>are 2+ steps independent AND<br/>running at the same time?"}
 
@@ -42,7 +42,7 @@ flowchart TD
     RO --> CODEX
     WF --> CODEX
 
-    CODEX["Stage 5 — ONE <b>codex-challenge.sh</b> &lt;feature-base-sha&gt;..HEAD — P1/P2 fixed to convergence<br>⛔ hard gate: no ship without a triaged verdict"] --> SHIP["Stage 6 — /ship → /land-and-deploy<br/>⛔ hard gate: push needs user approval"]
+    CODEX["Stage 5 — ONE <b>codex-challenge.sh</b> &lt;feature-base-sha&gt;..HEAD — P1/P2 fixed to convergence<br>⛔ hard gate: no ship without a triaged verdict"] --> SHIP["Stage 6 — push → PR → merge + deploy<br/>⛔ hard gate: push needs user approval"]
     SHIP --> DONE([Done])
     ONESHOT --> DONE
 ```

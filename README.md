@@ -153,14 +153,14 @@ which would otherwise inherit whatever tier the master is running. Settings
   the non-interactive installer installs none of them.
 
 **Recommended for the full workflow:**
-- **gstack** *(optional)* — the workflow references `/office-hours`, `/ship`,
-  `/context-save`, `/browse`, etc. Install:
+- **gstack** *(optional)* — the workflow's browser verification uses its
+  `/browse`. Install:
   ```bash
   git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack \
     && cd ~/.claude/skills/gstack && ./setup
   ```
-  Without gstack the team still works — use plain git/PR commands for the ship
-  steps. The codex gate needs `codex` (codex-cli) and `gtimeout`
+  Without gstack the team still works — verify web flows with another browser
+  tool. The codex gate needs `codex` (codex-cli) and `gtimeout`
   (`brew install coreutils`), not gstack.
 
 ## Notes

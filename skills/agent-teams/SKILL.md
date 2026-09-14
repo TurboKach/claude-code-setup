@@ -276,7 +276,6 @@ scales to many units, cross-checks results, and resumes if interrupted.
 ## Relationship to the feature workflow
 
 This is the parallel-execution variant of the `feature-workflow` skill's pipeline; its stage-5 codex gate rules (per-feature range, P0/P1 convergence loop, tech-debt deferral) apply verbatim.
-Planning (`/office-hours`, native plan mode) and shipping (`/ship`,
-`/land-and-deploy`) are unchanged; fan-out only replaces the execute phase's
+Planning (native plan mode) and shipping are unchanged; fan-out only replaces the execute phase's
 sequential per-step subagents with parallel agents when the steps are
 independent.

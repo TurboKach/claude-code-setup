@@ -56,8 +56,8 @@ it — so don't offer it as a deselectable option. Suggested:
 
 Explain briefly: the **default path** (background subagents + Workflows) needs
 nothing beyond the skill + agents — no flags, no extra tools. gstack is
-optional — it powers `/office-hours`, `/ship`, `/context-save`
-referenced by the workflow; without it, use plain git.
+optional — it powers `/browse`, the workflow's browser verification;
+without it, use another browser tool.
 
 ## Step 2 — Execute (only chosen + only missing)
 
