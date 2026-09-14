@@ -20,7 +20,7 @@ the master's view of it.
    ```
    python3 ~/.claude/skills/analyze-arcs/scripts/analyze.py --since YYYY-MM-DD --out <scratchpad>/arcs/report.md
    ```
-   Per session: span, models, peak context, subagent roster (type, pin, turns, minutes, KB,
+   Per session: span, models, Claude Code version, peak context, subagent roster (type, pin, turns, minutes, KB,
    model actually seen), every `codex-challenge.sh` launch with its range, `--out`, run
    minutes and verdict size, every gate with how long it waited, pushes, killed background
    tasks. Then the **flags** — mechanical checks only:

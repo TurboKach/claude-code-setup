@@ -121,13 +121,14 @@ def scan_master(p):
 def scan_master_records(recs, path=None):
     r = dict(path=path, first=None, last=None, cwd=None, models=set(), user_turns=0, first_prompt='', peak=0,
              spawns=[], codex=[], edits=[], gates=[], pushes=[], killed=[], fw_loaded=None, path_call=None,
-             plan_approved=[], exit_plan=[], enter_plan=[], reads=[], first_edit=None, api_errors=0, bash_diff=False)
+             plan_approved=[], exit_plan=[], enter_plan=[], reads=[], first_edit=None, api_errors=0, bash_diff=False, versions=set())
     pending_q = {}
     for d in recs:
         t = d.get('type'); T = d.get('timestamp')
         if T:
             r['first'] = r['first'] or T; r['last'] = T
         if d.get('cwd') and not r['cwd']: r['cwd'] = d['cwd']
+        if d.get('version'): r['versions'].add(d['version'])
         m = d.get('message', {}) or {}
         if t == 'assistant':
             if d.get('isApiErrorMessage'): r['api_errors'] += 1
@@ -278,7 +279,7 @@ def main():
     flags_all = []
     for p, sd, nsub in masters:
         r = scan_master(p); subs = scan_subagents(sd); sid = os.path.basename(p)[:8]; proj = os.path.basename(os.path.dirname(p))
-        L += [f"## {proj} / {sid}", f"- {r['first']} → {r['last']}, user turns {r['user_turns']}, models {sorted(r['models'])}, peak context {r['peak']:,}, api errors {r['api_errors']}",
+        L += [f"## {proj} / {sid}", f"- {r['first']} → {r['last']}, user turns {r['user_turns']}, models {sorted(r['models'])}, claude code {sorted(r['versions']) or '?'}, peak context {r['peak']:,}, api errors {r['api_errors']}",
               f"- prompt: {r['first_prompt']}", f"- feature-workflow loaded: {r['fw_loaded'] or 'no'}; path call line: {r['path_call'] or 'none'}; first master edit: {r['first_edit'] or 'none'}; Bash writes: {'recorded by the harness' if r['bash_diff'] else 'not recorded (Edit/Write only — needs 2.1.269+ with bashEditDiffEnabled)'}",
               f"- subagents {len(subs)} ({sum(s['kb'] for s in subs)//1024} MB), codex launches {len(r['codex'])}, pushes {len(r['pushes'])}, background tasks killed {len(r['killed'])}"]
         flags = []
