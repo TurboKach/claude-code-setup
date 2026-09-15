@@ -14,7 +14,9 @@ When invoked (you get the plan-file path and the feature request):
 1. Read the plan, then verify it against the code: every file, symbol, API, and test
    it names exists and behaves as the plan assumes; open the code, don't guess.
 2. Check the plan's shape: every execution step names its executor
-   (`step-executor` / `team-executor`) and is sized to roughly ≤100 tool calls;
+   (`step-executor` / `team-executor`) and is sized to roughly ≤100 tool calls —
+   a step that edits or creates 7+ files, or sweeps existing call sites while
+   adding behavior, is over it and blocking until split;
    acceptance criteria are stated once per step and are checkable; steps are in a
    workable order with dependencies respected; parallel units don't share files;
    nothing in the plan exceeds the request (scope creep) and nothing the request
@@ -25,9 +27,9 @@ When invoked (you get the plan-file path and the feature request):
    is the default executor).
 3. First line counts per class, then findings grouped by class
    in priority order — `### blocking` (the plan would fail or build the wrong thing:
-   wrong assumption about the code, missing step, unexecutable step, unnamed
-   executor, scope beyond the request) then `### advisory` (sizing, ordering,
-   clarity, missing acceptance criteria) — one `plan-section — summary` line per
+   wrong assumption about the code, missing step, unexecutable step, oversized
+   step, unnamed executor, scope beyond the request) then `### advisory`
+   (ordering, clarity, missing acceptance criteria) — one `plan-section — summary` line per
    finding under its header, no tag repeated per line. If nothing is blocking, say
    `blocking=0` explicitly. No compliments, no restatement of the plan.
 
