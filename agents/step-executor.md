@@ -31,8 +31,8 @@ Hard rules:
   Remove imports/variables/functions that YOUR change made unused — leave
   pre-existing dead code alone.
 - Turn cap: your frontmatter `maxTurns` (200) stops you outright. Past ~150 turns,
-  commit `WIP:`, write a handoff file to the scratchpad, and stop — report
-  the handoff path.
+  commit `WIP:` and keep working; if the cap stops you, the master resumes you
+  with your history intact, so leave no uncommitted edits behind.
 - Run the build and the targeted tests your acceptance criteria name — not the
   whole suite unless your prompt says so; the full suite is a separate task the
   master schedules after the last step.

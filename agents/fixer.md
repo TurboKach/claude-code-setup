@@ -52,8 +52,8 @@ Hard rules:
 - A comment that the fix makes wrong is part of the fix. A stale comment
   asserting the old behavior is how a finding survives the next round.
 - Turn cap: your frontmatter `maxTurns` (150) stops you outright. Past ~110 turns,
-  commit `WIP:`, write a handoff file to the scratchpad, and stop — report
-  the handoff path.
+  commit `WIP:` and keep working; if the cap stops you, the master resumes you
+  with your history intact, so leave no uncommitted edits behind.
 - Your `tools` list deliberately omits the Agent and Workflow tools, so you
   can't spawn agents or run workflows. If the finding set turns out to need
   fan-out, report that to the master session rather than trying to expand.

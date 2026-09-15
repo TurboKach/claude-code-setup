@@ -32,8 +32,8 @@ Hard rules:
 - Commit your work in your worktree; don't merge to the base branch — the
   merger does that after review, then removes your worktree and branch.
 - Turn cap: your frontmatter `maxTurns` (200) stops you outright. Past ~150 turns,
-  commit `WIP:`, write a handoff file to the scratchpad, and stop — report
-  the handoff path.
+  commit `WIP:` and keep working; if the cap stops you, the master resumes you
+  with your history intact, so leave no uncommitted edits behind.
 - Run the build and the targeted tests your acceptance criteria name — not the
   whole suite unless your prompt says so; the full suite is a separate task the
   master schedules after the last step.
