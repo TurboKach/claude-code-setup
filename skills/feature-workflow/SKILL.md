@@ -5,7 +5,7 @@ description: The user's six-stage feature pipeline (discuss → plan in native p
 
 # Feature workflow
 
-For pipeline-path work (global CLAUDE.md → Feature workflow): a design/product/UI choice, 4+ files, irreversible, or a real multi-step arc. One-shot work (≤3 files, no design choice, reversible) skips this skill entirely — but not the codex cross-review: it still runs one `codex-challenge.sh <pre-change-sha>..HEAD` run on its diff under the stage-5 rules before the change counts as done.
+For pipeline-path work (global CLAUDE.md → Feature workflow): a design/product/UI choice, irreversible, or a real multi-step arc. One-shot work (no design choice, reversible, no plan needed — any file count) skips this skill entirely — but not the codex cross-review: it still runs one `codex-challenge.sh <pre-change-sha>..HEAD` run on its diff under the stage-5 rules before the change counts as done.
 
 One **master session** owns the feature end-to-end. It stays thin by running every token-heavy stage **out of main context** — in a subagent or an agent-team agent. The master coordinates, authors the plan, and ingests summaries; it does not implement. Plan files live in the repo at `docs/prompts/<feature>-plan.md`.
 
