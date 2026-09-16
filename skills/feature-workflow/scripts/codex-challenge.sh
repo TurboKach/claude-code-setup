@@ -84,8 +84,19 @@ set +e; mcp_json=$(cd "$dir" && "$to" -k 10 30 "$codex_bin" mcp list --json 2>>"
 if [ "$mcp_rc" != 0 ] || [ -z "$mcp_json" ]; then
   echo "warning: codex mcp list failed (exit $mcp_rc) — MCP servers stay enabled for this run" | tee -a "$out.log" >&2
 fi
+# Only servers that have a `[mcp_servers.<name>]` table in a config.toml can be overridden: an
+# `enabled=false` override for a server codex loaded from a plugin manifest (the ChatGPT app's bundled
+# `codex_app` / `cua_repl`, 2026-09-15) creates a bare table with no command/url and the loader fails
+# with "invalid transport" on every attempt. Plugin servers are left as they are (codex_app ships
+# disabled; cua_repl stays enabled — no reviewer tool reaches through it in read-only exec).
+mcp_cfgs=("${CODEX_HOME:-$HOME/.codex}/config.toml" "$dir/.codex/config.toml")
 while IFS= read -r name; do
   case $name in *[!A-Za-z0-9_-]*|'') continue;; esac
+  defined=0
+  for cfg in "${mcp_cfgs[@]}"; do
+    [ -f "$cfg" ] && grep -qE "^[[:space:]]*\[mcp_servers\.(\"${name}\"|${name})(\.|\])" "$cfg" && { defined=1; break; }
+  done
+  [ "$defined" = 1 ] || continue
   mcp_off+=(-c "mcp_servers.${name}.enabled=false")
 done < <(printf '%s\n' "$mcp_json" | sed -nE 's/^[[:space:]]*"name":[[:space:]]*"(.*)",?$/\1/p' | sort -u)
 # approval_policy=never: the read-only sandbox denies writes outside the checkout, but an "allow"
@@ -104,11 +115,11 @@ for attempt in 1 2 3; do
   set +e
   echo "=== attempt $attempt ===" >>"$out.log"
   mark=$(wc -c <"$out.log" 2>/dev/null || echo 0)
-  "$to" -k 60 2400 "$codex_bin" exec "$prompt" -C "$dir" -s read-only --ephemeral -c 'approval_policy="never"' -c "model=\"$model\"" -c "model_reasoning_effort=\"$effort\"" -c 'web_search="cached"' -c 'project_doc_max_bytes=0' ${mcp_off[@]+"${mcp_off[@]}"} ${trace[@]+"${trace[@]}"} -o "$out.msg" </dev/null >>"$out.log" 2>&1
+  "$to" -k 60 900 "$codex_bin" exec "$prompt" -C "$dir" -s read-only --ephemeral -c 'approval_policy="never"' -c "model=\"$model\"" -c "model_reasoning_effort=\"$effort\"" -c 'web_search="cached"' -c 'project_doc_max_bytes=0' ${mcp_off[@]+"${mcp_off[@]}"} ${trace[@]+"${trace[@]}"} -o "$out.msg" </dev/null >>"$out.log" 2>&1
   rc=$?
   set -e
   if [ "$rc" = 0 ]; then break; fi
-  if [ "$rc" = 124 ] || [ "$rc" = 137 ]; then rc=124; break; fi   # 124/137 = 40-min stall (137 when -k had to SIGKILL a TERM-ignoring codex), not an outage
+  if [ "$rc" = 124 ] || [ "$rc" = 137 ]; then rc=124; break; fi   # 124/137 = 15-min stall (137 when -k had to SIGKILL a TERM-ignoring codex), not an outage
   echo "attempt $attempt exit $rc" >>"$out.log"
   # A model/effort the API rejects is an immediate HTTP 400, not an outage: retrying it costs 10 min of
   # silence and still returns no review. codex exec's exit code does not distinguish 400 from a network
