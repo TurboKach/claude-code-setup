@@ -18,6 +18,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --out) [ $# -ge 2 ] || { echo "$usage" >&2; exit 64; }; case "$2" in --*) echo "$usage" >&2; exit 64;; esac; out=$2; shift;;
   *) echo "unknown arg $1" >&2; exit 64;;
 esac; shift; done
+start=$(date +%s)   # whole-run wall clock: setup, the mcp preflight and every retry sleep count
 repo=$(git rev-parse --show-toplevel)
 base=$(git -C "$repo" rev-parse --verify "${range%%..*}^{commit}")
 head=$(git -C "$repo" rev-parse --verify "${range##*..}^{commit}")
@@ -110,7 +111,7 @@ done < <(printf '%s\n' "$mcp_json" | sed -nE 's/^[[:space:]]*"name":[[:space:]]*
 # `${VAR:-default}` is safe under `set -u`; a bare `$VAR` is not.
 model=${CODEX_REVIEW_MODEL:-gpt-5.6-sol}
 effort=${CODEX_REVIEW_EFFORT:-medium}
-start=$(date +%s); rc=1
+rc=1
 for attempt in 1 2 3; do
   set +e
   echo "=== attempt $attempt ===" >>"$out.log"
@@ -147,6 +148,11 @@ for attempt in 1 2 3; do
   [ "$attempt" -lt 3 ] && sleep 300
 done
 rm -f "$out"
-{ echo "# codex challenge — range $base..$head — checkout $dir — model $model/$effort — exit $rc — $(( $(date +%s) - start ))s"
+secs=$(( $(date +%s) - start ))
+{ echo "# codex challenge — range $base..$head — checkout $dir — model $model/$effort — exit $rc — ${secs}s"
   cat "$out.msg" 2>/dev/null || echo "(no final message; see $out.log)"; } >"$out"
+# Elapsed on stderr, not stdout: stdout stays the verdict path alone so `out=$(codex-challenge.sh ...)`
+# keeps working. The master may not read the verdict file, so the header's seconds are invisible to it;
+# a background Bash surfaces both streams, which is where the caller sees this.
+printf 'codex-challenge: exit %s after %dm%02ds (%ss)\n' "$rc" "$((secs / 60))" "$((secs % 60))" "$secs" >&2
 echo "$out"; exit "$rc"
