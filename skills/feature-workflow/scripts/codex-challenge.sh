@@ -146,7 +146,12 @@ for attempt in 1 2 3; do
     # It is retried like an outage without this branch, which is 10m25s of silence for an answer codex
     # already gave: a capacity crunch on one model does not clear in the ladder's 5 minutes, and the fix
     # is a different model, not a later attempt. Bail and let the caller choose one.
-    if grep -E 'at capacity' <<<"$chunk" >/dev/null; then
+    # Matched on the anchor line itself, unlike the 400 branch below: codex puts this message inside its
+    # own error event ({"type":"error","message":"Selected model is at capacity..."}), and the phrase also
+    # appears in the diff text of any review whose range includes THIS file — a chunk-wide grep turns a
+    # transient outage in such a review into a false capacity bail (verified red 2026-09-17). A non-trace
+    # format that splits the phrase off the anchor line simply falls back to the retry ladder.
+    if grep -E '^(ERROR:|\{"type":"(error|turn\.failed)").*at capacity' <<<"$chunk" >/dev/null; then
       echo "model $model is at capacity on attempt $attempt — not retrying; rerun later or set CODEX_REVIEW_MODEL to another model; see $out.log" | tee -a "$out.log" >&2
       break
     fi
@@ -164,5 +169,9 @@ secs=$(( $(date +%s) - start ))
 # Elapsed on stderr, not stdout: stdout stays the verdict path alone so `out=$(codex-challenge.sh ...)`
 # keeps working. The master may not read the verdict file, so the header's seconds are invisible to it;
 # a background Bash surfaces both streams, which is where the caller sees this.
-printf 'codex-challenge: exit %s after %dm%02ds (%ss)\n' "$rc" "$((secs / 60))" "$((secs % 60))" "$secs" >&2
+# `|| true`: a diagnostic write must never decide the exit. Under `set -e` a closed or broken stderr
+# (backgrounded run, disconnected consumer) makes this printf fail and kills the script before the
+# `echo "$out"` below, so `out=$(codex-challenge.sh ...)` captures nothing and rc becomes the printf's
+# — even though the verdict file was written (verified red 2026-09-17).
+printf 'codex-challenge: exit %s after %dm%02ds (%ss)\n' "$rc" "$((secs / 60))" "$((secs % 60))" "$secs" >&2 || true
 echo "$out"; exit "$rc"
