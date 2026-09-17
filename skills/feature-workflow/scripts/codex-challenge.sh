@@ -140,10 +140,20 @@ for attempt in 1 2 3; do
   # never `grep -q`: under `set -o pipefail` a -q match kills the writer with SIGPIPE and the pipeline
   # reports 141 == no match.
   chunk=$(tail -c +$((mark + 1)) "$out.log")
-  if grep -E '^(ERROR:|\{"type":"(error|turn\.failed)")' <<<"$chunk" >/dev/null \
-    && grep -E '("status": ?400|invalid_request_error|invalid_enum_value|not supported when using Codex)' <<<"$chunk" >/dev/null; then
-    echo "permanent API error on attempt $attempt (bad CODEX_REVIEW_MODEL/EFFORT?) — not retrying; see $out.log" | tee -a "$out.log" >&2
-    break
+  if grep -E '^(ERROR:|\{"type":"(error|turn\.failed)")' <<<"$chunk" >/dev/null; then
+    # Capacity is server-side, not a config error, and carries no status code or retry-after — verbatim:
+    # {"type":"error","message":"Selected model is at capacity. Please try a different model."} (2026-09-17).
+    # It is retried like an outage without this branch, which is 10m25s of silence for an answer codex
+    # already gave: a capacity crunch on one model does not clear in the ladder's 5 minutes, and the fix
+    # is a different model, not a later attempt. Bail and let the caller choose one.
+    if grep -E 'at capacity' <<<"$chunk" >/dev/null; then
+      echo "model $model is at capacity on attempt $attempt — not retrying; rerun later or set CODEX_REVIEW_MODEL to another model; see $out.log" | tee -a "$out.log" >&2
+      break
+    fi
+    if grep -E '("status": ?400|invalid_request_error|invalid_enum_value|not supported when using Codex)' <<<"$chunk" >/dev/null; then
+      echo "permanent API error on attempt $attempt (bad CODEX_REVIEW_MODEL/EFFORT?) — not retrying; see $out.log" | tee -a "$out.log" >&2
+      break
+    fi
   fi
   [ "$attempt" -lt 3 ] && sleep 300
 done
