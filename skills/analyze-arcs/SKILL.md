@@ -24,7 +24,7 @@ the master's view of it.
    model actually seen), every `codex-challenge.sh` launch with its range, `--out`, run
    minutes and verdict size, every gate with how long it waited, pushes, killed background
    tasks. Then the **flags** — mechanical checks only:
-   - unpinned `Agent` spawn, or a pin off the doctrine tier (plan-reviewer `fable`,
+   - unpinned `Agent` spawn, or a pin off the doctrine tier (plan-reviewer unpinned — it inherits the session's model,
      team-reviewer `opus`, executors/fixers/triage `sonnet`) with whether the prompt states a reason
    - named spawn (delivery rerouted to the mailbox)
    - `codex-challenge.sh` run in the foreground; `--out` outside the session scratchpad

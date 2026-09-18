@@ -191,13 +191,13 @@ from those, not from prose "done".
 ## Models + effort per role
 
 Per-role `model:` and `effort:` come from the agent definition files and are
-honored when the role runs as a subagent. Judgment roles run on the top tier at
-moderate effort; high-volume roles run on Sonnet.
+honored when the role runs as a subagent. Plan review runs on the session's model and
+effort, diff review on Opus; high-volume roles run on Sonnet.
 
 | Role | Spawned as | Model | Effort | Rationale |
 |------|-----------|-------|--------|-----------|
-| Orchestrator (lead) | main session | whatever the owner picked at session start — Fable 5.1 recommended | the session's effort — `medium` recommended on Fable 5.1 (persisted per model) | coordination, authoring, gates |
-| `team-plan-reviewer` | subagent | Fable 5.1 | medium | validates the plan against the code before the gate; read-only |
+| Orchestrator (lead) | main session | whatever the owner picked at session start | the session's effort | coordination, authoring, gates |
+| `team-plan-reviewer` | subagent | the session's model (`inherit`); Opus when Fable is rate-limited | the session's | validates the plan against the code before the gate; read-only |
 | `team-executor` | **background subagent** | Sonnet (Opus only when the plan justifies it) | high | token-heavy fan-out; Sonnet 5 guide: high for most work, xhigh only for the hardest |
 | `team-reviewer` | subagent | Opus | medium | adversarial bug-hunting on a bounded diff |
 | `team-merger` | subagent | Sonnet | medium | mechanical merge/verify |

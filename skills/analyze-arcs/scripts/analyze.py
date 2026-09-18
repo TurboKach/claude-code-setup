@@ -5,7 +5,7 @@ Reads master transcripts, their subagents/*.jsonl, and the codex-challenge --out
 Judgment findings (verification proved only negatives, review escapes) are NOT detected here."""
 import argparse, datetime as dt, glob, json, os, re, shlex, sys
 
-PINS = {'team-plan-reviewer': 'fable', 'team-reviewer': 'opus',
+PINS = {'team-plan-reviewer': 'inherit', 'team-reviewer': 'opus',
         'step-executor': 'sonnet', 'team-executor': 'sonnet', 'fixer': 'sonnet',
         'codex-triage': 'sonnet', 'spec-reviewer': 'sonnet', 'explorer': 'sonnet', 'general-purpose': 'sonnet'}
 FW = re.compile(r'Base directory for this skill: \S*/feature-workflow\b')
@@ -287,7 +287,11 @@ def main():
         if not r['fw_loaded'] and not r['path_call'] and any(product_file(e['file']) for e in r['edits']): flags.append('product edits without a one-shot/pipeline call line')
         for s in r['spawns']:
             want = PINS.get(s['type'])
-            if s['model'] is None: flags.append(f"{s['t'][11:16]} unpinned spawn {s['type']} ({s['desc']})")
+            if want == 'inherit':
+                if s['model'] is not None:
+                    reason = bool(REASON.search(s['prompt']))
+                    flags.append(f"{s['t'][11:16]} {s['type']} pinned {s['model']} (doctrine: inherit){' — reason stated' if reason else ' — no reason in prompt'}")
+            elif s['model'] is None: flags.append(f"{s['t'][11:16]} unpinned spawn {s['type']} ({s['desc']})")
             elif want and s['model'] != want:
                 reason = bool(REASON.search(s['prompt']))
                 flags.append(f"{s['t'][11:16]} {s['type']} pinned {s['model']} (doctrine {want}){' — reason stated' if reason else ' — no reason in prompt'}")

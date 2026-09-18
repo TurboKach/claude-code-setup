@@ -30,7 +30,7 @@ frontmatter, worktrees, permissions) comes from here and nowhere else.
 | Subagent concurrency caps at 20 | 2.1.217 | `global/CLAUDE.md`, `skills/agent-teams/` |
 | A `maxTurns` stop returns partial output, resumable via `SendMessage` | 2.1.246 | `global/CLAUDE.md` |
 | `CLAUDE_CODE_SUBAGENT_MODEL` is a default; pins and agent `model:` win | 2.1.251 | `settings.example.json`, `global/CLAUDE.md` |
-| Claude Fable 5.1 is the default `fable` model; the alias is deliberately unpinned | 2.1.257 | `agents/team-plan-reviewer.md`, `README.md` |
+| Claude Fable 5.1 is the default `fable` model; the alias is deliberately unpinned | 2.1.257 | `README.md` |
 | `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` overrides every pin — never set it | 2.1.257 | `global/CLAUDE.md` |
 | Subagents auto-continue after a mid-stream cutoff (sleep, dropped connection, server error) | 2.1.257 | `global/CLAUDE.md` |
 | Built-in `Explore` runs on the session model capped at Opus | 2.1.198 | `global/CLAUDE.md` |
