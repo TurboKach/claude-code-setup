@@ -253,6 +253,126 @@ check("(f) cycle 1 read is attributed to cycle 1's span", inside_f1, ['src/cycle
 check("(f) cycle 2 read is attributed to cycle 2's span", inside_f2, ['src/cycle2_read.py'])
 check("(f) read after cycle 2's approval is outside every span", outside_f2, ['src/after_approve.py'])
 
+# ---------------------------------------------------------------- --semantic: PATH_CALL candidate collection
+def text_msg(T, text):
+    return dict(type='assistant', timestamp=T, message=dict(model='claude-x', content=[dict(type='text', text=text)]))
+
+def user_str(T, text):
+    return dict(type='user', timestamp=T, message=dict(content=text))
+
+recs_cap = [text_msg(t(i), 'x' * 700) for i in range(10)] + \
+    [user_str(t(20), 'Base directory for this skill: /foo/feature-workflow'), text_msg(t(21), 'after fw text')]
+r_cap = analyze.scan_master_records(recs_cap)
+check("path_call_candidates capped at 8 per session", len(r_cap['path_call_candidates']), 8)
+check("each candidate truncated to 600 chars", all(len(c['text']) == 600 for c in r_cap['path_call_candidates']), True)
+check("candidates only precede fw_loaded", all(c['t'] < r_cap['fw_loaded'] for c in r_cap['path_call_candidates']), True)
+check("text after fw_loaded is not a candidate", any(c['t'] == t(21) for c in r_cap['path_call_candidates']), False)
+
+recs_edit_cutoff = [text_msg(t(0), 'before the edit'), edit_use(t(1), 'ed1', 'Edit', 'src/app.py'),
+                     tool_result(t(2), 'ed1', content='edited'), text_msg(t(3), 'after the edit')]
+r_ec = analyze.scan_master_records(recs_edit_cutoff)
+check("first_product_edit recorded", r_ec['first_product_edit'], t(1))
+check("only the pre-edit block is a candidate", [c['text'] for c in r_ec['path_call_candidates']], ['before the edit'])
+
+recs_nonproduct_edit = [text_msg(t(0), 'before'), edit_use(t(1), 'ed1', 'Edit', 'docs/prompts/plan.md'),
+                         tool_result(t(2), 'ed1', content='edited'), text_msg(t(3), 'still collected')]
+r_np = analyze.scan_master_records(recs_nonproduct_edit)
+check("an edit to a non-product file does not close the cutoff", r_np['first_product_edit'], None)
+check("both blocks are candidates when the edit is not a product file",
+      [c['text'] for c in r_np['path_call_candidates']], ['before', 'still collected'])
+
+# ---------------------------------------------------------------- --semantic: resolve_path_call_semantic (post-scan pass)
+# analyze.py's own `import jev` is lazy (main(), --semantic only); these tests exercise the
+# semantic-override functions directly, so they import jev themselves, same as main() would.
+sys.path.insert(0, os.path.expanduser('~/.claude/local/analyze-arcs'))
+try:
+    import jev
+    analyze.jev = jev
+except ImportError:   # the local-only semantic layer is not shipped with the kit
+    jev = None
+
+if jev is not None:
+    def make_r(candidates, path_call=None):
+        return dict(path_call=path_call, path_call_candidates=candidates, path_call_regex_fallback=False)
+
+    class FakePathCallAskMany:
+        def __init__(self, fn):
+            self.calls = []
+            self.fn = fn
+
+        def __call__(self, items, workers=8):
+            self.calls.append(list(items))
+            return [self.fn(kw['state']['text']) for kw in items]
+
+    def yn_answer(text):
+        if text == 'FAIL':
+            return None
+        return {'path_call': {'type': 'noul', 'noul': 0.9 if 'yes' in text else 0.1}}
+
+    r_a = make_r([dict(t='ta0', text='yes text'), dict(t='ta1', text='irrelevant')])
+    r_b = make_r([dict(t='tb0', text='no1'), dict(t='tb1', text='no2'), dict(t='tb2', text='yes3')])
+    r_c = make_r([dict(t='tc0', text='no')])
+    r_e = make_r([dict(t='te0', text='no')], path_call='regex_ts')
+
+    fake_pc = FakePathCallAskMany(yn_answer)
+    orig_ask_many = analyze.jev.ask_many
+    analyze.jev.ask_many = fake_pc
+    try:
+        analyze.resolve_path_call_semantic([r_a, r_b, r_c, r_e])
+    finally:
+        analyze.jev.ask_many = orig_ask_many
+
+    check("session stops at its first yes candidate", r_a['path_call'], 'ta0')
+    check("session keeps trying later candidates until it finds a yes", r_b['path_call'], 'tb2')
+    check("session exhausted with no yes keeps its (None) regex path_call", r_c['path_call'], None)
+    check("session exhausted with no yes is not marked as a failure fallback", r_c['path_call_regex_fallback'], False)
+    check("session with an existing regex path_call and no yes keeps that value", r_e['path_call'], 'regex_ts')
+    check("3 rounds run (the longest candidate list has 3 entries)", len(fake_pc.calls), 3)
+    check("round 0 batches every session with a candidate", len(fake_pc.calls[0]), 4)
+    check("round 1 drops the session that already found yes or exhausted a 1-candidate list",
+          len(fake_pc.calls[1]), 1)
+    check("round 2 only the still-undecided session remains", len(fake_pc.calls[2]), 1)
+
+    r_fail = make_r([dict(t='td0', text='FAIL')])
+    analyze.jev.ask_many = fake_pc
+    fake_pc.calls.clear()
+    try:
+        analyze.resolve_path_call_semantic([r_fail])
+    finally:
+        analyze.jev.ask_many = orig_ask_many
+    check("a failed call (no key or exhausted retries) keeps the regex path_call", r_fail['path_call'], None)
+    check("a failed call marks the session for the ' (regex)' flag suffix", r_fail['path_call_regex_fallback'], True)
+
+    fake_pc.calls.clear()
+    analyze.jev.ask_many = fake_pc
+    try:
+        analyze.resolve_path_call_semantic([make_r([])])
+    finally:
+        analyze.jev.ask_many = orig_ask_many
+    check("no sessions with candidates -> no-op, no call made", fake_pc.calls, [])
+
+    # ---------------------------------------------------------------- --semantic: REASON override (both directions) + fallback
+    orig_ask = analyze.jev.ask
+    try:
+        analyze.jev.ask = lambda **kw: {'reason': {'type': 'noul', 'noul': 0.1}}
+        check("regex hits but semantic overrides to 'no reason'",
+              analyze.reason_suffix("the reason is money", "fixer", "opus", "sonnet", True), ' — no reason in prompt')
+
+        analyze.jev.ask = lambda **kw: {'reason': {'type': 'noul', 'noul': 0.9}}
+        check("regex misses but semantic overrides to 'reason stated'",
+              analyze.reason_suffix("just do it, opus please", "fixer", "opus", "sonnet", True), ' — reason stated')
+
+        analyze.jev.ask = lambda **kw: None
+        check("no key/failed call falls back to the regex, suffixed ' (regex)'",
+              analyze.reason_suffix("the reason is clear", "fixer", "opus", "sonnet", True), ' — reason stated (regex)')
+
+        check("without --semantic, only the regex runs, no suffix ever",
+              analyze.reason_suffix("the reason is clear", "fixer", "opus", "sonnet", False), ' — reason stated')
+    finally:
+        analyze.jev.ask = orig_ask
+else:
+    print("skip semantic tests: jev.py (local-only semantic layer) not present")
+
 print()
 if fails:
     print(f"{fails} FAILED")

@@ -5,7 +5,7 @@ description: Measure the Claude Code pipeline sessions since a date — master t
 
 # Analyze arcs
 
-Two scripts, both read-only. Times in the report are UTC; transcripts are under
+The scripts are read-only. Times in the report are UTC; transcripts are under
 `~/.claude/projects/<project>/<session>.jsonl` with subagent transcripts beside them in
 `<session>/subagents/`. The master transcript is a partial record: owner↔subagent messages
 and everything a subagent did live only in the subagent files, so never judge an agent from
@@ -60,6 +60,10 @@ the master's view of it.
    - `ExitPlanMode` or `AskUserQuestion` that waited more than an hour, or was never answered
    - `feature-workflow` loaded with no one-shot/pipeline call line before it; product edits with no call line at all
    - subagents that died on an API error before doing work; subagents that hit their turn cap
+
+   `--semantic` upgrades the reason-stated and one-shot/pipeline-call-line checks above to a typed
+   judgment from the local-only semantic layer (`jev.py`/`semantic.py`), expected at
+   `~/.claude/local/analyze-arcs/`. Without it, the command's output and network use are unchanged.
 3. **Read the timelines at the flagged times.** A flag is a place to look, not a verdict:
    ```
    python3 ~/.claude/skills/analyze-arcs/scripts/timeline.py <session>.jsonl <scratchpad>/arcs/<name>.txt

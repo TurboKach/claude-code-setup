@@ -8,6 +8,11 @@ docs/reviews/**/*.msg
 
 # local-only history
 docs/history.local.md
+# analyze-arcs semantic layer: maintainer-only, needs a paid TYPESAFE_API_KEY and sends
+# transcript prose to a third-party API — lives at ~/.claude/local/analyze-arcs/, outside
+# the repo entirely, so install.sh's rm -rf+cp -R of the skill directory can't wipe it
+docs/todos/semantic-round2-deferred-p1s.md
+docs/todos/typesafe-retune-deferred.md
 # review verdicts stay local
 docs/reviews/
 # plan files stay local

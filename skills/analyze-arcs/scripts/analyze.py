@@ -4,6 +4,8 @@ usage: analyze.py --since YYYY-MM-DD [--projects-dir ~/.claude/projects] --out <
 Reads master transcripts, their subagents/*.jsonl, and the codex-challenge --out logs the masters named.
 Judgment findings (verification proved only negatives, review escapes) are NOT detected here."""
 import argparse, datetime as dt, glob, json, os, re, shlex, sys
+# jev import is lazy (see semantic_reason/resolve_path_call_semantic): --semantic needs the
+# local-only semantic layer (jev.py), not shipped with the kit; without --semantic it's absent.
 
 PINS = {'team-plan-reviewer': 'inherit', 'team-reviewer': 'opus',
         'step-executor': 'sonnet', 'team-executor': 'sonnet', 'fixer': 'sonnet',
@@ -16,6 +18,49 @@ SCRATCH_PREFIX = ('/tmp/', '/private/tmp/', '/dev/')   # only at the start of an
 PATH_CALL = re.compile(r'(?i)\bpath call\b|^\s*\**\s*(one-shot|pipeline)\b(?!-)|\b(one-shot|pipeline)\**\s*[:\u2014\u2013]|\b(one-shot|pipeline)\**\s+-\s')
 # A stated reason for an off-doctrine pin: the doctrine's own categories (structural / same-mechanism / fable rate-limited) count.
 REASON = re.compile(r'(?i)reason|opus for|structural|mechanism|rate.?limit|429')
+
+# --semantic: Noul >= this counts as "yes" for analyze.py's own reason/path_call questions.
+# semantic.py's judgments have their own per-judgment thresholds (FLAG_THRESHOLDS); this constant
+# is independent and does not need to track them.
+NOUL_YES = 0.5
+# --semantic candidate blocks for PATH_CALL: at most this many assistant text blocks per session,
+# each truncated to this many characters, are ever sent (collected in scan_master_records below).
+PATH_CALL_MAX_CANDIDATES = 8
+PATH_CALL_CANDIDATE_CHARS = 600
+
+# jev.py questions (named-field JSON state, instructions + criteria, self-contained meaning —
+# question ids are never sent to the model), per docs.typesafe.ai/primitives/noul.md.
+REASON_QUESTION = {
+    'reason': {
+        'type': 'noul',
+        'instructions': (
+            "The text in `prompt` is a spawn prompt for a `subagent_type` subagent pinned to "
+            "`pinned_model`, off the kit's doctrine (`default_model`). Does the prompt give a "
+            "genuine reason for that off-default pin?"
+        ),
+        'criteria': {
+            'true': "The prompt states an actual justification for pinning this model -- e.g. a "
+                    "structural need, a same-mechanism fix, a rate-limit workaround -- not just "
+                    "naming the pin.",
+            'false': "The prompt pins the model with no stated justification.",
+        },
+    },
+}
+PATH_CALL_QUESTION = {
+    'path_call': {
+        'type': 'noul',
+        'instructions': (
+            "The text in `text` is the start of an assistant message from a Claude Code session. "
+            "Does it state the one-shot versus pipeline sizing call -- i.e. commit explicitly to "
+            "running the work one-shot or as a pipeline?"
+        ),
+        'criteria': {
+            'true': "The text names the one-shot/pipeline call explicitly, stating which path "
+                    "this work follows.",
+            'false': "The text does not state a one-shot/pipeline sizing call.",
+        },
+    },
+}
 # Read commands, and the options whose value is a separate token (`--opt=value` is always one token).
 # Short options listed here consume the rest of their cluster when attached (`-ePAT`, `-n5`), else the next token.
 READ_CMDS = {
@@ -121,7 +166,8 @@ def scan_master(p):
 def scan_master_records(recs, path=None):
     r = dict(path=path, first=None, last=None, cwd=None, models=set(), user_turns=0, first_prompt='', peak=0,
              spawns=[], codex=[], edits=[], gates=[], pushes=[], killed=[], fw_loaded=None, path_call=None,
-             plan_approved=[], exit_plan=[], enter_plan=[], reads=[], first_edit=None, api_errors=0, bash_diff=False, versions=set())
+             plan_approved=[], exit_plan=[], enter_plan=[], reads=[], first_edit=None, first_product_edit=None,
+             api_errors=0, bash_diff=False, versions=set(), path_call_candidates=[], path_call_regex_fallback=False)
     pending_q = {}
     for d in recs:
         t = d.get('type'); T = d.get('timestamp')
@@ -138,8 +184,14 @@ def scan_master_records(recs, path=None):
             r['peak'] = max(r['peak'], tot)
             for c in m.get('content', []) or []:
                 if not isinstance(c, dict): continue
-                if c.get('type') == 'text' and r['path_call'] is None:
-                    if PATH_CALL.search(c['text'][:200]): r['path_call'] = T
+                if c.get('type') == 'text':
+                    tx = c['text']
+                    if r['path_call'] is None and PATH_CALL.search(tx[:200]): r['path_call'] = T
+                    # --semantic candidate collection (network-free here): only text seen before
+                    # fw_loaded or the first product edit, capped — asked about in resolve_path_call_semantic().
+                    if (r['fw_loaded'] is None and r['first_product_edit'] is None
+                            and len(r['path_call_candidates']) < PATH_CALL_MAX_CANDIDATES):
+                        r['path_call_candidates'].append(dict(t=T, text=tx[:PATH_CALL_CANDIDATE_CHARS]))
                 if c.get('type') != 'tool_use': continue
                 n = c['name']; i = c.get('input', {}) or {}
                 if n == 'Agent':
@@ -162,6 +214,7 @@ def scan_master_records(recs, path=None):
                     ed = dict(t=T, tool=n, file=i.get('file_path') or i.get('notebook_path') or '', error=True)
                     r['edits'].append(ed)
                     r['first_edit'] = r['first_edit'] or T
+                    if r['first_product_edit'] is None and product_file(ed['file']): r['first_product_edit'] = T
                     pending_q[c['id']] = ed
                 elif n == 'Read':
                     r['reads'].append(dict(t=T, tool='Read', file=i.get('file_path')))
@@ -179,6 +232,7 @@ def scan_master_records(recs, path=None):
                 r['bash_diff'] = True
                 for f in bed['changedFiles']:
                     r['edits'].append(dict(t=T, tool='Bash', file=f, error=False)); r['first_edit'] = r['first_edit'] or T
+                    if r['first_product_edit'] is None and product_file(f): r['first_product_edit'] = T
             c = m.get('content')
             if isinstance(c, str):
                 if not d.get('isMeta'):
@@ -263,10 +317,72 @@ def plan_span_end(x0, exit_plan, plan_approved, edits, enter_plan, last):
     candidates = [c for c in (approved_end, edit_end, bound) if c is not None]
     return min(candidates) if candidates else last
 
+def semantic_reason(prompt, subagent_type, pinned_model, default_model):
+    """--semantic override of REASON: ask jev whether `prompt` gives a genuine reason for the
+    off-default pin. True/False on a real answer; None on no key or a failed call, so the caller
+    falls back to the regex and suffixes the flag text ' (regex)'."""
+    state = {'prompt': prompt[:6000], 'subagent_type': subagent_type,
+             'pinned_model': pinned_model, 'default_model': default_model}
+    answers = jev.ask(state=state, questions=REASON_QUESTION)
+    if answers is None: return None
+    ans = answers.get('reason')
+    return ans is not None and ans.get('noul', 0) >= NOUL_YES
+
+def reason_suffix(prompt, subagent_type, pinned_model, default_model, semantic):
+    """' — reason stated'/' — no reason in prompt', from the REASON regex by default. Under
+    --semantic, jev's Noul answer overrides it in both directions (regex hit but no genuine
+    reason, or regex miss but a genuine reason); a no-key or failed call falls back to the regex
+    result and appends ' (regex)'."""
+    reason = bool(REASON.search(prompt))
+    fallback = False
+    if semantic:
+        sem = semantic_reason(prompt, subagent_type, pinned_model, default_model)
+        if sem is None: fallback = True
+        else: reason = sem
+    text = ' — reason stated' if reason else ' — no reason in prompt'
+    return text + (' (regex)' if fallback else '')
+
+def resolve_path_call_semantic(sessions, workers=8):
+    """--semantic's post-scan PATH_CALL pass (the only source of its network use; the scan itself
+    stays network-free). Round by round, asks jev.py's pool about the i-th candidate block of
+    every session that still has one and hasn't been decided, and stops a session at its first
+    yes by dropping it from the next round. A session whose candidates run out cleanly keeps its
+    regex-derived path_call, unflagged; a session where a call returns None (no key or a failed
+    call) does too, but is marked so its flag text gets suffixed ' (regex)'."""
+    pending = {id(r): r for r in sessions if r['path_call_candidates']}
+    if not pending: return
+    max_rounds = max(len(r['path_call_candidates']) for r in pending.values())
+    for i in range(max_rounds):
+        batch, batch_r = [], []
+        for key, r in list(pending.items()):
+            cands = r['path_call_candidates']
+            if i >= len(cands):
+                del pending[key]   # exhausted cleanly: regex stands, no suffix
+                continue
+            batch.append(dict(state={'text': cands[i]['text']}, questions=PATH_CALL_QUESTION))
+            batch_r.append((key, r, cands[i]))
+        if not batch: continue
+        for (key, r, cand), ans in zip(batch_r, jev.ask_many(batch, workers=workers)):
+            if ans is None:
+                r['path_call_regex_fallback'] = True
+                del pending[key]
+                continue
+            noul_ans = ans.get('path_call')
+            if noul_ans is not None and noul_ans.get('noul', 0) >= NOUL_YES:
+                r['path_call'] = cand['t']
+                del pending[key]
+            # else: a real "no" -- stays pending for the next round's candidate
+
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--since', required=True); ap.add_argument('--projects-dir', default=os.path.expanduser('~/.claude/projects'))
     ap.add_argument('--out', required=True); ap.add_argument('--min-kb', type=int, default=150)
+    ap.add_argument('--semantic', action='store_true', help='override REASON/PATH_CALL with jev.py judgments (see SKILL.md); requires the local-only semantic layer (jev.py), not shipped with the kit')
     a = ap.parse_args(); since = dt.datetime.strptime(a.since, '%Y-%m-%d').timestamp()
+    if a.semantic:
+        global jev
+        sys.path.insert(0, os.path.expanduser('~/.claude/local/analyze-arcs'))
+        try: import jev
+        except ImportError: sys.exit('--semantic requires the local-only semantic layer (jev.py), expected at ~/.claude/local/analyze-arcs/')
     masters = []
     for p in glob.glob(os.path.join(a.projects_dir, '*', '*.jsonl')):
         if os.path.getmtime(p) < since: continue
@@ -277,24 +393,26 @@ def main():
     L = [f"# Arc analysis since {a.since} (generated {dt.datetime.now():%Y-%m-%d %H:%M})", '',
          f"Sessions ≥{a.min_kb} KB or with subagents: {len(masters)}. Times are UTC. Flags are mechanical; judgment findings need the timelines.", '']
     flags_all = []
-    for p, sd, nsub in masters:
-        r = scan_master(p); subs = scan_subagents(sd); sid = os.path.basename(p)[:8]; proj = os.path.basename(os.path.dirname(p))
+    scanned = [(scan_master(p), scan_subagents(sd), os.path.basename(p)[:8], os.path.basename(os.path.dirname(p))) for p, sd, nsub in masters]
+    if a.semantic: resolve_path_call_semantic([r for r, *_ in scanned])   # post-scan pass: the scan above stayed network-free
+    for r, subs, sid, proj in scanned:
         L += [f"## {proj} / {sid}", f"- {r['first']} → {r['last']}, user turns {r['user_turns']}, models {sorted(r['models'])}, claude code {sorted(r['versions']) or '?'}, peak context {r['peak']:,}, api errors {r['api_errors']}",
               f"- prompt: {r['first_prompt']}", f"- feature-workflow loaded: {r['fw_loaded'] or 'no'}; path call line: {r['path_call'] or 'none'}; first master edit: {r['first_edit'] or 'none'}; Bash writes: {'recorded by the harness' if r['bash_diff'] else 'not recorded (Edit/Write only — needs 2.1.269+ with bashEditDiffEnabled)'}",
               f"- subagents {len(subs)} ({sum(s['kb'] for s in subs)//1024} MB), codex launches {len(r['codex'])}, pushes {len(r['pushes'])}, background tasks killed {len(r['killed'])}"]
         flags = []
-        if r['fw_loaded'] and not (r['path_call'] and r['path_call'] <= r['fw_loaded']): flags.append('no one-shot/pipeline call line before feature-workflow loaded')
-        if not r['fw_loaded'] and not r['path_call'] and any(product_file(e['file']) for e in r['edits']): flags.append('product edits without a one-shot/pipeline call line')
+        path_call_suffix = ' (regex)' if a.semantic and r['path_call_regex_fallback'] else ''
+        if r['fw_loaded'] and not (r['path_call'] and r['path_call'] <= r['fw_loaded']): flags.append('no one-shot/pipeline call line before feature-workflow loaded' + path_call_suffix)
+        if not r['fw_loaded'] and not r['path_call'] and any(product_file(e['file']) for e in r['edits']): flags.append('product edits without a one-shot/pipeline call line' + path_call_suffix)
         for s in r['spawns']:
             want = PINS.get(s['type'])
             if want == 'inherit':
                 if s['model'] is not None:
-                    reason = bool(REASON.search(s['prompt']))
-                    flags.append(f"{s['t'][11:16]} {s['type']} pinned {s['model']} (doctrine: inherit){' — reason stated' if reason else ' — no reason in prompt'}")
+                    suffix = reason_suffix(s['prompt'], s['type'], s['model'], 'inherit', a.semantic)
+                    flags.append(f"{s['t'][11:16]} {s['type']} pinned {s['model']} (doctrine: inherit){suffix}")
             elif s['model'] is None: flags.append(f"{s['t'][11:16]} unpinned spawn {s['type']} ({s['desc']})")
             elif want and s['model'] != want:
-                reason = bool(REASON.search(s['prompt']))
-                flags.append(f"{s['t'][11:16]} {s['type']} pinned {s['model']} (doctrine {want}){' — reason stated' if reason else ' — no reason in prompt'}")
+                suffix = reason_suffix(s['prompt'], s['type'], s['model'], want, a.semantic)
+                flags.append(f"{s['t'][11:16]} {s['type']} pinned {s['model']} (doctrine {want}){suffix}")
             if s['name']: flags.append(f"{s['t'][11:16]} named spawn {s['type']} name={s['name']}")
         for c in r['codex']:
             if not c['bg']: flags.append(f"{c['t'][11:16]} codex-challenge run in the foreground")
