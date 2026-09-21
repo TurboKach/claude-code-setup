@@ -10,7 +10,7 @@
   "worktree": {
     "baseRef": "head"
   },
-  "bashOutputMaxChars": 64000,
+  "bashOutputMaxChars": 30000,
   "bashEditDiffEnabled": true,
   "hooks": {
     "SessionStart": [

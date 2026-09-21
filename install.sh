@@ -12,8 +12,8 @@ set -euo pipefail
 # subagent floor, BASH_DEFAULT_TIMEOUT_MS=900000 so a build or test run
 # with no explicit timeout is not auto-backgrounded at 2 minutes, and
 # CODEX_REVIEW_MODEL / CODEX_REVIEW_EFFORT for the codex cross-review gate),
-# plus bashOutputMaxChars=64000 (a valid command result stays inline up to
-# 64k characters instead of ~30k before it is saved to a file; 2.1.261+) and
+# plus bashOutputMaxChars=30000 (a valid command result over 30k characters
+# arrives as a file path + 2k preview instead of flooding the context; 2.1.261+) and
 # bashEditDiffEnabled=true (the transcript records which files each Bash
 # command changed, in every permission mode; /analyze-arcs reads it; 2.1.269+).
 # It also
@@ -277,6 +277,8 @@ for k, v in ex["env"].items():
 # remote default — otherwise they can't see the plan file or prior units' work.
 d.setdefault("worktree", {}).setdefault("baseRef", ex["worktree"]["baseRef"])
 # Inline output ceiling for a valid Bash result (sizes the read-back window too; 2.1.261+).
+if d.get("bashOutputMaxChars") == 64000:   # the kit's earlier value; a user's own choice is left alone
+    d["bashOutputMaxChars"] = ex["bashOutputMaxChars"]
 d.setdefault("bashOutputMaxChars", ex["bashOutputMaxChars"])
 # Changed-file record on every Bash result, in every permission mode (analyze-arcs reads it; 2.1.269+).
 d.setdefault("bashEditDiffEnabled", ex["bashEditDiffEnabled"])
