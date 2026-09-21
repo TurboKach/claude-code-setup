@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PreToolUse hook on Bash (settings.example.json registers it; install.sh
 # merges it). Hook JSON on stdin; a deny is printed as the documented
-# hookSpecificOutput JSON on stdout, exit 0. Two rules:
+# hookSpecificOutput JSON on stdout, exit 0. Three rules:
 #
 #   A. run_in_background:true inside a subagent (hook input carries agent_id
 #      only there) is denied. With fork mode on — the interactive default
@@ -18,6 +18,11 @@
 #      so an echo, a commit message or a grep that mentions the loop is
 #      allowed. Known gaps, accepted: a loop inside `bash -c "…"` is quoted
 #      and passes; a heredoc body line that starts with the loop is denied.
+#   C. a bare wait on a process — an until/while loop whose head tests
+#      pgrep, pidof, `kill -0` or ps — is denied everywhere. The Bash tool
+#      timeout backgrounds such a loop instead of ending it, so the wait must
+#      run under the `timeout` command: `timeout <N> bash -c "until …"`. That
+#      form is quoted and passes. Same boundary and quote-stripping as B.
 #
 # Why: 2026-09-04 clipsy_ios arc — a fixer's `xcodebuild test` (no timeout)
 # was auto-backgrounded at the 2-min default; its `sleep 90; tail` was blocked
@@ -67,6 +72,13 @@ def polls_marker(cmd):
     return re.search(r"(?:^|[;&|(){}\n])\s*(until|while)\b[^;\n]*output\.done",
                      stripped) is not None
 
+def polls_process(cmd):
+    # Rule C: same boundary and quote-stripping as polls_marker; the loop head
+    # must test a process (pgrep, pidof, kill -0, ps), not a file or a URL.
+    stripped = re.sub(r"\"[^\"]*\"|\x27[^\x27]*\x27", "", cmd)
+    return re.search(r"(?:^|[;&|(){}\n])\s*(until|while)\b[^;\n]*\b(pgrep|pidof|kill -0|ps )",
+                     stripped) is not None
+
 reason = None
 if polls_marker(command):
     reason = ("Denied: no `.output.done` marker is ever written for a background task, "
@@ -82,6 +94,13 @@ elif in_subagent and tool_input.get("run_in_background") is True:
               "its timeout a simple command is auto-backgrounded and a pipeline is "
               "killed). If a command was already auto-backgrounded, " + WAIT +
               " Never poll for a `.output.done` marker; none is written.")
+elif polls_process(command):
+    reason = ("Denied: a bare wait on a process never ends on its own — the Bash tool timeout "
+              "backgrounds a loop instead of stopping it. Wait once, under the timeout command, "
+              "sized to the remaining run: `timeout <N> bash -c \"until ! pgrep -f [x]codebuild "
+              ">/dev/null; do sleep 10; done\"`, then read the task .output file. If that wait "
+              "expires the run is hung: `pkill -f` its process tree, change the code under test, "
+              "and never rerun identical code or write a second wait.")
 
 if reason:
     print(json.dumps({

@@ -88,6 +88,32 @@ expect_deny "loop on its own line after a newline -> deny" \
   '{"tool_name":"Bash","tool_input":{"command":"set -e\nwhile [ ! -f /tmp/tasks/x.output.done ]; do sleep 2; done"}}' \
   "output.done"
 
+# Rule C — a bare wait on a process is denied in every context; the same wait
+# under the timeout command is quoted and passes; file polls are not processes.
+expect_deny "subagent bare until-pgrep wait -> deny" \
+  '{"tool_name":"Bash","agent_id":"a1","agent_type":"fixer","tool_input":{"command":"until ! pgrep -f \"[x]codebuild\" >/dev/null; do sleep 10; done; echo done"}}' \
+  "hung"
+
+expect_deny "master bare while-pgrep wait -> deny" \
+  '{"tool_name":"Bash","tool_input":{"command":"while pgrep -f xcodebuild >/dev/null; do sleep 5; done"}}' \
+  "hung"
+
+expect_deny "until kill -0 pid wait -> deny" \
+  '{"tool_name":"Bash","agent_id":"a1","tool_input":{"command":"until ! kill -0 1234 2>/dev/null; do sleep 5; done"}}' \
+  "hung"
+
+expect_allow "wait under timeout bash -c (single-quoted) -> allow" \
+  "{\"tool_name\":\"Bash\",\"agent_id\":\"a1\",\"tool_input\":{\"command\":\"timeout 600 bash -c 'until ! pgrep -f \\\"[x]codebuild\\\"; do sleep 10; done'\"}}"
+
+expect_allow "wait under gtimeout bash -c (double-quoted) -> allow" \
+  '{"tool_name":"Bash","agent_id":"a1","tool_input":{"command":"gtimeout 600 bash -c \"until ! pgrep -f [x]codebuild; do sleep 10; done\""}}'
+
+expect_allow "master file poll (grep on a log) -> allow" \
+  '{"tool_name":"Bash","tool_input":{"command":"until grep -q \"Ready\" dev.log; do sleep 1; done","run_in_background":true}}'
+
+expect_allow "pgrep without a loop -> allow" \
+  '{"tool_name":"Bash","agent_id":"a1","tool_input":{"command":"pgrep -f xcodebuild | wc -l"}}'
+
 # Fail-open: never block on anything the hook does not understand.
 expect_allow "tool_name Read -> allow" \
   '{"tool_name":"Read","agent_id":"a1","tool_input":{"file_path":"/tmp/x"}}'
