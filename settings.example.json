@@ -6,6 +6,12 @@
     "CODEX_REVIEW_MODEL": "gpt-6-sol",
     "CODEX_REVIEW_EFFORT": "medium"
   },
+  "model": "opus",
+  "modelSettings": {
+    "claude-opus-5-5": {
+      "effortLevel": "xhigh"
+    }
+  },
   "worktree": {
     "baseRef": "head"
   },

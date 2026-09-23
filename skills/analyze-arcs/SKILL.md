@@ -25,7 +25,7 @@ the master's view of it.
    minutes and verdict size, every gate with how long it waited, pushes, killed background
    tasks. Then the **flags** — mechanical checks only:
    - unpinned `Agent` spawn, or a pin off the doctrine tier (plan-reviewer unpinned — it inherits the session's model,
-     team-reviewer `opus`, executors/fixers/triage `sonnet`) with whether the prompt states a reason
+     team-reviewer, executors and fixers `opus`, triage `sonnet`) with whether the prompt states a reason
    - named spawn (delivery rerouted to the mailbox)
    - `codex-challenge.sh` run in the foreground; `--out` outside the session scratchpad
    - master `Edit`/`Write` on a product file after `feature-workflow` loaded — or a Bash command that
@@ -73,7 +73,7 @@ the master's view of it.
 4. **The judgment findings the script cannot make** — check them by hand every time:
    a verification step that proved only the negative path (curl, unit suites) before a deploy;
    a review escape (what codex rounds missed and why); whether a long gate wait was a legitimate
-   taste gate or a delegated approval the master should not have blocked on; whether an Opus pin's
+   taste gate or a delegated approval the master should not have blocked on; whether an off-tier pin's
    stated reason holds; whether a relaunch or respawn was warranted by the agent's own timestamps.
 5. **Report with the numbers**, held vs failed, ranked by cost. Every doctrine change proposed
    from it goes as before/after text through "would removing this line cause mistakes?", and the

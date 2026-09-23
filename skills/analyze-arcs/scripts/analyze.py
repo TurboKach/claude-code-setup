@@ -8,7 +8,7 @@ import argparse, datetime as dt, glob, json, os, re, shlex, sys
 # local-only semantic layer (jev.py), not shipped with the kit; without --semantic it's absent.
 
 PINS = {'team-plan-reviewer': 'inherit', 'team-reviewer': 'opus',
-        'step-executor': 'sonnet', 'team-executor': 'sonnet', 'fixer': 'sonnet',
+        'step-executor': 'opus', 'team-executor': 'opus', 'fixer': 'opus',
         'codex-triage': 'sonnet', 'spec-reviewer': 'sonnet', 'explorer': 'sonnet', 'general-purpose': 'sonnet'}
 FW = re.compile(r'Base directory for this skill: \S*/feature-workflow\b')
 NON_PRODUCT = ('/.claude', '/memory/', '/MEMORY.md', '/docs/prompts/', '/docs/reviews/', '/docs/todos/', '/TODOS.md', '/tech-debt', '/__pycache__/')   # anywhere in the path

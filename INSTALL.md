@@ -125,7 +125,9 @@ explicit timeout is not auto-backgrounded at 2 minutes, and `bashOutputMaxChars`
 to 30000 so a valid command result over 30k characters arrives as a file path
 plus a 2k preview instead of flooding the context, and `bashEditDiffEnabled` to true so the
 transcript records which files each Bash command changed (`/analyze-arcs`
-reads it). Hooks are read at
+reads it). Where the user hasn't chosen their own, the default model becomes
+`opus` with Opus 5.5 at effort `xhigh` — the session they open is the master that
+plans. Hooks are read at
 session start: the new hook takes effect in the next session, or after
 reviewing it in `/hooks`.
 

@@ -1,8 +1,8 @@
 ---
 name: fixer
-description: Feature-workflow fixer. Implements one review round's finding set — codex P0/P1 findings plus their adjacent P2s, playtest regressions — on the session's own branch, with no other writer running at the same time. Spawn UNNAMED (never pass name:) so its final report auto-delivers. Use for post-review fixes; a plan step goes to step-executor instead. Sonnet at effort medium — a finding set is bounded work at a known file:line, and higher effort buys ramp-up, not accuracy; Opus only for a same-mechanism structural fix, with the reason stated at spawn.
+description: Feature-workflow fixer. Implements one review round's finding set — codex P0/P1 findings plus their adjacent P2s, playtest regressions — on the session's own branch, with no other writer running at the same time. Spawn UNNAMED (never pass name:) so its final report auto-delivers. Use for post-review fixes; a plan step goes to step-executor instead. Opus at effort medium — a finding set is bounded work at a known file:line, and higher effort buys ramp-up, not accuracy.
 tools: Read, Write, Edit, Bash, Glob, Grep
-model: sonnet
+model: opus
 effort: medium
 maxTurns: 150
 ---

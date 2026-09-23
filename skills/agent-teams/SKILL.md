@@ -169,7 +169,7 @@ and reports completion.
 5. CODEX     (lead launches `codex-challenge.sh` as one background Bash; `codex-triage` agent triages)
    → ONE `~/.claude/skills/feature-workflow/scripts/codex-challenge.sh <feature-base-sha>..HEAD`
      on the merged feature diff — full output to a file, triaged verdict shown; P0/P1 (plus
-     adjacent P2s) → fresh Sonnet fixer on the base branch → re-challenge until
+     adjacent P2s) → fresh fixer on the base branch → re-challenge until
      convergence (feature-workflow stage 5 rules: a P0/P1 round hitting the
      mechanism an earlier round already patched forces the structural branch,
      two consecutive same-mechanism rounds end the loop; a third consecutive
@@ -192,19 +192,19 @@ from those, not from prose "done".
 
 Per-role `model:` and `effort:` come from the agent definition files and are
 honored when the role runs as a subagent. Plan review runs on the session's model and
-effort, diff review on Opus; high-volume roles run on Sonnet.
+effort, diff review and code-writing roles on Opus; search and mechanical roles run on Sonnet.
 
 | Role | Spawned as | Model | Effort | Rationale |
 |------|-----------|-------|--------|-----------|
 | Orchestrator (lead) | main session | whatever the owner picked at session start | the session's effort | coordination, authoring, gates |
 | `team-plan-reviewer` | subagent | the session's model (`inherit`) | the session's | validates the plan against the code before the gate; read-only |
-| `team-executor` | **background subagent** | Sonnet (Opus only when the plan justifies it) | high | token-heavy fan-out; Sonnet 5 guide: high for most work, xhigh only for the hardest |
+| `team-executor` | **background subagent** | Opus | medium | writes code; medium is Opus's default for well-scoped work |
 | `team-reviewer` | subagent | Opus | medium | adversarial bug-hunting on a bounded diff |
 | `team-merger` | subagent | Sonnet | medium | mechanical merge/verify |
 | `explorer` | subagent | Sonnet | medium | codebase search, read-only, effort pinned by frontmatter (built-in `Explore` floats with the session's effort and runs on Opus under a Fable or Opus master) |
 
 The global spawn-pin rule applies; the table above is this pipeline's role→model
-mapping. Override per spawn only when the plan marks a unit Opus with a reason. As background subagents these roles honor their `effort:`
+mapping. As background subagents these roles honor their `effort:`
 frontmatter.
 
 ## Spawn prompt contract (the lead writes these inline)
@@ -217,8 +217,7 @@ prompt-writing agent only puts the same words through another context on the way
 back to you.
 
 State the unit's **goal and its boundaries**, then stop — don't enumerate
-procedure. Sonnet 5 takes an explicit scope statement literally, which is what
-earns it its place; step-by-step instructions written for prior models reduce
+procedure. Step-by-step instructions written for prior models reduce
 quality on current ones.
 
 Every prompt carries:
@@ -234,8 +233,7 @@ Every prompt carries:
 - **The worktree/branch** it works in. (Retirement is mechanical — each agent's
   `maxTurns` frontmatter cap; spawn prompts carry no budget line, per
   feature-workflow's token-discipline rule.)
-- **The model pin** from the table above (`sonnet`, or `opus` only where the
-  approved plan marks that unit Opus with a reason) — set via the Agent tool's
+- **The model pin** from the table above (`opus`) — set via the Agent tool's
   `model:` parameter on the spawn call, not text inside the prompt.
 
 One concern per prompt, sized so the executor finishes in roughly ≤100 tool

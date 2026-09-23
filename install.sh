@@ -13,7 +13,9 @@ set -euo pipefail
 # plus bashOutputMaxChars=30000 (a valid command result over 30k characters
 # arrives as a file path + 2k preview instead of flooding the context; 2.1.261+) and
 # bashEditDiffEnabled=true (the transcript records which files each Bash
-# command changed, in every permission mode; /analyze-arcs reads it; 2.1.269+).
+# command changed, in every permission mode; /analyze-arcs reads it; 2.1.269+),
+# and the master default — model "opus" with Opus 5.5 at effort xhigh — again
+# only where you haven't chosen a model or an Opus 5.5 effort yourself.
 # It also
 # installs two hooks: a SessionStart hook that checks once a day whether this
 # repo has moved past the SHA you installed (and stamps that SHA so the check
@@ -280,6 +282,15 @@ if d.get("bashOutputMaxChars") == 64000:   # the kit's earlier value; a user's o
 d.setdefault("bashOutputMaxChars", ex["bashOutputMaxChars"])
 # Changed-file record on every Bash result, in every permission mode (analyze-arcs reads it; 2.1.269+).
 d.setdefault("bashEditDiffEnabled", ex["bashEditDiffEnabled"])
+# Master default: the latest Opus at xhigh. Effort goes per model — a top-level effortLevel
+# does not reach Opus 5.5, and CLAUDE_CODE_EFFORT_LEVEL would override the agents' frontmatter effort.
+d.setdefault("model", ex["model"])
+ms = d.setdefault("modelSettings", {})
+if isinstance(ms, dict):
+    for mid, cfg in ex["modelSettings"].items():
+        entry = ms.setdefault(mid, {})
+        if isinstance(entry, dict):
+            entry.setdefault("effortLevel", cfg["effortLevel"])
 
 def norm_path(cmd):
     # Representation-independent comparison: a command written as
@@ -345,7 +356,7 @@ for label, event, matcher, path, timeout in (
     warning = register_hook(event, matcher, path, timeout)
     (skipped_hooks if warning else installed_hooks).append((label, warning))
 
-merged_desc = "env + worktree.baseRef + bashOutputMaxChars + bashEditDiffEnabled"
+merged_desc = "env + model + modelSettings + worktree.baseRef + bashOutputMaxChars + bashEditDiffEnabled"
 json.dump(d, open(settings, "w"), indent=2)
 for label, warning in skipped_hooks:
     print(f"  WARNING: settings.json's {warning} — skipped installing the {label}.")
