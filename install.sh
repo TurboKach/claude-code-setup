@@ -265,6 +265,8 @@ for k, v in ex["env"].items():
     if k == "CODEX_REVIEW_MODEL" and codex_model:
         v = codex_model
     env.setdefault(k, v)  # model pins etc. — never clobber an existing choice
+if not codex_model:  # the kit's earlier review models move to their successors; a user's own choice is left alone
+    env["CODEX_REVIEW_MODEL"] = {"gpt-5.6-sol": "gpt-6-sol", "gpt-5.6-luna": "gpt-6-luna"}.get(env["CODEX_REVIEW_MODEL"], env["CODEX_REVIEW_MODEL"])
 if opus_pin_set:
     env.setdefault("ANTHROPIC_DEFAULT_OPUS_MODEL", opus_pin)
 elif env.get("ANTHROPIC_DEFAULT_OPUS_MODEL") == "claude-opus-5":  # the kit's earlier pin; a user's own choice is left alone

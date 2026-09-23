@@ -46,9 +46,9 @@ it — so don't offer it as a deselectable option. Suggested:
    their settings `env`: ask which model the codex cross-review gate (the
    always-on push gate) uses. All three run at `medium` reasoning effort.
    Options:
-   - `gpt-5.6-sol` *(recommended, the repo default — reliable everyday workhorse, 272k context; a feature-range review takes 3–8 min)*
+   - `gpt-6-sol` *(recommended, the repo default — reliable everyday workhorse, 272k context; a feature-range review takes 3–8 min)*
    - `gpt-6-astra` *(most capable, 272k context — slower per run)*
-   - `gpt-5.6-luna` *(fast and affordable, 272k context)*
+   - `gpt-6-luna` *(fast and affordable, 272k context)*
 
    Tell them this sticks: `install.sh` never clobbers an existing value, so
    changing it later means editing `~/.claude/settings.json` by hand.
@@ -76,11 +76,13 @@ Translate the Step 1 answers into flags and run it once:
 - **CLAUDE.md handling was *append*** → `--claude-md=append`.
 - **CLAUDE.md handling was *replace*** → `--claude-md=replace`.
 - **CLAUDE.md handling was *leave mine untouched*** → `--claude-md=leave`.
-- **Codex review model answer was *gpt-5.6-sol*** → `--codex-model=gpt-5.6-sol`.
+- **Codex review model answer was *gpt-6-sol*** → `--codex-model=gpt-6-sol`.
 - **Codex review model answer was *gpt-6-astra*** → `--codex-model=gpt-6-astra`.
-- **Codex review model answer was *gpt-5.6-luna*** → `--codex-model=gpt-5.6-luna`.
+- **Codex review model answer was *gpt-6-luna*** → `--codex-model=gpt-6-luna`.
 - **The question was skipped because `CODEX_REVIEW_MODEL` already exists** →
-  pass no `--codex-model` flag (the existing value is never clobbered).
+  pass no `--codex-model` flag (the existing value is never clobbered, except
+  the kit's earlier `gpt-5.6-sol` / `gpt-5.6-luna`, which move to their GPT-6
+  successors).
 
 Every codex-model answer passes its own explicit flag, including the
 recommended one — there is no "recommended → pass no flag" branch, so the

@@ -109,7 +109,7 @@ done < <(printf '%s\n' "$mcp_json" | sed -nE 's/^[[:space:]]*"name":[[:space:]]*
 # here is wiped by the next reinstall. Leaving them unset inherited ~/.codex/config.toml's interactive
 # TUI model, which silently flipped gpt-5.6-sol -> gpt-6-astra on 2026-09-05 after a codex-cli upgrade.
 # `${VAR:-default}` is safe under `set -u`; a bare `$VAR` is not.
-model=${CODEX_REVIEW_MODEL:-gpt-5.6-sol}
+model=${CODEX_REVIEW_MODEL:-gpt-6-sol}
 effort=${CODEX_REVIEW_EFFORT:-medium}
 rc=1
 for attempt in 1 2 3; do
