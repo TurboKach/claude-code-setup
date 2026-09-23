@@ -57,7 +57,7 @@ I never ask for the pipeline by name; recognizing which path the work is on is y
 ## Tooling
 
 - **Context7 MCP**: automatically look up current documentation for libraries and frameworks before implementing — don't wait to be told.
-- **gstack** (installed at `~/.claude/skills/gstack`): use `/browse` for all web browsing — never `mcp__claude-in-chrome__*` tools; `/context-save` + `/context-restore` bridge a master handoff. Nothing else in gstack is part of the workflow.
+- **gstack** (installed at `~/.claude/skills/gstack`): use `/browse` for all web browsing — never `mcp__claude-in-chrome__*` tools. Nothing else in gstack is part of the workflow.
 - **Plan gate cap**: before `ExitPlanMode`, surface only the materially-divergent taste items (target ≤5) in one AskUserQuestion; every surfaced item's options include the simplest choice (often "remove it entirely" / "do nothing").
 
 ## Scope
