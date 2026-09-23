@@ -54,7 +54,7 @@ CLAUDE.md only if none exists yet, and leave the master model untouched.
                          printing the notice until the recommendation changes.
   --master=MODEL_ID[:EFFORT]
                          Write "model" = MODEL_ID and, with EFFORT (low, medium, high,
-                         xhigh, max), modelSettings.MODEL_ID.effortLevel = EFFORT.
+                         xhigh), modelSettings.MODEL_ID.effortLevel = EFFORT.
                          recommended and MODEL_ID[:EFFORT] clear master-dont-ask.
 EOF
 }
@@ -124,9 +124,13 @@ if [ "$MASTER_SET" = 1 ]; then
       if [ "$MASTER_MODEL" != "$MASTER" ]; then
         MASTER_EFFORT="${MASTER#*:}"
         case "$MASTER_EFFORT" in
-          low|medium|high|xhigh|max) ;;
+          low|medium|high|xhigh) ;;
+          max)
+            echo "install.sh: --master effort max can't be saved as a default — Claude Code applies max to the current session only; use /effort max in a session or set CLAUDE_CODE_EFFORT_LEVEL=max" >&2
+            exit 1
+            ;;
           *)
-            echo "install.sh: invalid --master effort: '$MASTER_EFFORT' (expected low, medium, high, xhigh, or max)" >&2
+            echo "install.sh: invalid --master effort: '$MASTER_EFFORT' (expected low, medium, high, or xhigh)" >&2
             exit 1
             ;;
         esac

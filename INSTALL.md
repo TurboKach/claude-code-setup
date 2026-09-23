@@ -61,7 +61,7 @@ it — so don't offer it as a deselectable option. Suggested:
    - *don't ask again* *(keeps current; `/stack-update` stops asking until the
      recommendation changes)*
    - other: the user types `MODEL_ID` or `MODEL_ID:EFFORT` (effort is one of
-     `low`, `medium`, `high`, `xhigh`, `max`)
+     `low`, `medium`, `high`, `xhigh`; `max` can't be saved as a default)
 
 Explain briefly: the **default path** (background subagents + Workflows) needs
 nothing beyond the skill + agents — no flags, no extra tools. gstack is
