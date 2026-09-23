@@ -25,3 +25,4 @@ Maintenance rules:
 - **`skills/analyze-arcs/scripts/analyze.py` — plan-mode read flag tokenizer/window edges** — nine codex P2/theoretical shapes (`LC_ALL=C cat`, `cat<file`, `#` comments, `rg --files`, heredoc apostrophe…) → docs/todos/analyze-arcs-plan-mode-read-heuristics.md
 - **`skills/feature-workflow/scripts/codex-challenge.sh` — elapsed-line accuracy gaps** — no timing line on setup exits; pinned runs exclude cleanup from the reported elapsed → docs/todos/codex-challenge-elapsed-accuracy.md
 - **`skills/analyze-arcs/scripts/analyze.py` — ExitPlanMode wait-time flag pairs by time, not call id** — a rejected exit is credited with a later approval's wait → docs/todos/analyze-arcs-exit-plan-wait-pairing.md
+- **Deferred from the Opus-executors / master-model arc** — `--master` colon split on Bedrock IDs; analyze-arcs same-day pin cutover → docs/todos/deferred-opus-executors-arc.md
