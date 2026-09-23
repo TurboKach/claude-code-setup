@@ -284,7 +284,8 @@ d.setdefault("bashOutputMaxChars", ex["bashOutputMaxChars"])
 d.setdefault("bashEditDiffEnabled", ex["bashEditDiffEnabled"])
 # Master default: the latest Opus at xhigh. Effort goes per model — a top-level effortLevel
 # does not reach Opus 5.5, and CLAUDE_CODE_EFFORT_LEVEL would override the agents' frontmatter effort.
-d.setdefault("model", ex["model"])
+if not any(k in env or k in os.environ for k in ("ANTHROPIC_MODEL", "ANTHROPIC_DEFAULT_MODEL")):  # a user's env-set default is left alone
+    d.setdefault("model", ex["model"])
 ms = d.setdefault("modelSettings", {})
 if isinstance(ms, dict):
     for mid, cfg in ex["modelSettings"].items():

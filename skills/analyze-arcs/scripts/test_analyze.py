@@ -373,6 +373,15 @@ if jev is not None:
 else:
     print("skip semantic tests: jev.py (local-only semantic layer) not present")
 
+# --- pins_for: a session is judged by the pins in force when it started ---
+check("pre-cutover session: executor doctrine is sonnet",
+      analyze.pins_for("2026-09-20T10:00:00.000Z")['step-executor'], 'sonnet')
+check("pre-cutover session: fixer doctrine is sonnet",
+      analyze.pins_for("2026-09-22T23:59:59.000Z")['fixer'], 'sonnet')
+check("post-cutover session: executor doctrine is opus",
+      analyze.pins_for("2026-09-23T00:00:01.000Z")['team-executor'], 'opus')
+check("unknown start: current pins", analyze.pins_for(None), analyze.PINS)
+
 print()
 if fails:
     print(f"{fails} FAILED")

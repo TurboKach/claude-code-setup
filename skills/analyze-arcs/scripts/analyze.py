@@ -10,6 +10,12 @@ import argparse, datetime as dt, glob, json, os, re, shlex, sys
 PINS = {'team-plan-reviewer': 'inherit', 'team-reviewer': 'opus',
         'step-executor': 'opus', 'team-executor': 'opus', 'fixer': 'opus',
         'codex-triage': 'sonnet', 'spec-reviewer': 'sonnet', 'explorer': 'sonnet', 'general-purpose': 'sonnet'}
+# Sessions are judged by the pins in force when they started: executors and fixer moved sonnet -> opus on this date.
+PINS_CUTOVER = '2026-09-23'
+PINS_BEFORE = {**PINS, 'step-executor': 'sonnet', 'team-executor': 'sonnet', 'fixer': 'sonnet'}
+
+def pins_for(start):
+    return PINS_BEFORE if start and start < PINS_CUTOVER else PINS
 FW = re.compile(r'Base directory for this skill: \S*/feature-workflow\b')
 NON_PRODUCT = ('/.claude', '/memory/', '/MEMORY.md', '/docs/prompts/', '/docs/reviews/', '/docs/todos/', '/TODOS.md', '/tech-debt', '/__pycache__/')   # anywhere in the path
 HANDOFF_DOC = re.compile(r'HANDOFF[^/]*\.md$')   # a handoff doc by basename, wherever it lives
@@ -404,7 +410,7 @@ def main():
         if r['fw_loaded'] and not (r['path_call'] and r['path_call'] <= r['fw_loaded']): flags.append('no one-shot/pipeline call line before feature-workflow loaded' + path_call_suffix)
         if not r['fw_loaded'] and not r['path_call'] and any(product_file(e['file']) for e in r['edits']): flags.append('product edits without a one-shot/pipeline call line' + path_call_suffix)
         for s in r['spawns']:
-            want = PINS.get(s['type'])
+            want = pins_for(r['first']).get(s['type'])
             if want == 'inherit':
                 if s['model'] is not None:
                     suffix = reason_suffix(s['prompt'], s['type'], s['model'], 'inherit', a.semantic)
