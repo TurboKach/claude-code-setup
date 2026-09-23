@@ -197,7 +197,7 @@ effort, diff review on Opus; high-volume roles run on Sonnet.
 | Role | Spawned as | Model | Effort | Rationale |
 |------|-----------|-------|--------|-----------|
 | Orchestrator (lead) | main session | whatever the owner picked at session start | the session's effort | coordination, authoring, gates |
-| `team-plan-reviewer` | subagent | the session's model (`inherit`); Opus when Fable is rate-limited | the session's | validates the plan against the code before the gate; read-only |
+| `team-plan-reviewer` | subagent | the session's model (`inherit`) | the session's | validates the plan against the code before the gate; read-only |
 | `team-executor` | **background subagent** | Sonnet (Opus only when the plan justifies it) | high | token-heavy fan-out; Sonnet 5 guide: high for most work, xhigh only for the hardest |
 | `team-reviewer` | subagent | Opus | medium | adversarial bug-hunting on a bounded diff |
 | `team-merger` | subagent | Sonnet | medium | mechanical merge/verify |

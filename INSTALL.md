@@ -36,12 +36,11 @@ it — so don't offer it as a deselectable option. Suggested:
    exists, just install this repo's `CLAUDE.md` (no need to ask).
 3. **Opus version** — only if `ANTHROPIC_DEFAULT_OPUS_MODEL` isn't already in
    their settings `env`: ask which Opus the `opus` alias should mean (via
-   AskUserQuestion), so agent files saying `model: opus` don't silently follow
-   new Opus releases. Options:
-   - `claude-opus-5` *(recommended, the repo default — pinned so a future Opus
-     won't silently bump it; control token use via effort + prompt tuning)*
-   - `claude-opus-4-8` *(previous generation, if you want the older behavior)*
-   - *don't pin* — the alias keeps following whatever Anthropic ships as Opus
+   AskUserQuestion). Options:
+   - *don't pin* *(recommended, the repo default — the alias follows whatever
+     Anthropic ships as Opus)*
+   - `claude-opus-5-5` *(pinned, so a future Opus release won't change or
+     re-price agent files saying `model: opus` until you move it)*
    - custom: any full model ID the user types (the "Other" answer)
 4. **Codex review model** — only if `CODEX_REVIEW_MODEL` isn't already in
    their settings `env`: ask which model the codex cross-review gate (the
@@ -68,12 +67,10 @@ along with every other key in `settings.example.json`'s `env` block — added
 only if that key isn't already set, never clobbering your existing value.
 Translate the Step 1 answers into flags and run it once:
 
-- **Opus answer was *claude-opus-5*, or the question was skipped because a
-  pin already exists** → pass neither `--opus-pin` nor `--no-opus-pin` (the
-  default already `setdefault`s `claude-opus-5` and never clobbers an
-  existing value).
-- **Opus answer was *claude-opus-4-8* or a custom ID** → `--opus-pin=<that id>`.
-- **Opus answer was *don't pin*** → `--no-opus-pin`.
+- **Opus answer was *don't pin*, or the question was skipped because a pin
+  already exists** → pass no `--opus-pin` (an existing value is never
+  clobbered, except the kit's earlier `claude-opus-5` pin, which is removed).
+- **Opus answer was *claude-opus-5-5* or a custom ID** → `--opus-pin=<that id>`.
 - **`~/.claude/CLAUDE.md` didn't exist** → pass no `--claude-md` flag (the
   default installs it).
 - **CLAUDE.md handling was *append*** → `--claude-md=append`.

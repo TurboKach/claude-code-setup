@@ -30,7 +30,7 @@ in parallel, no extra setup).
 | `agents/spec-reviewer.md` | At the final gate, checks the feature's whole diff against the approved plan file — missing requirements, scope creep, wrong-logic-vs-spec; gaps only, in parallel with the whole-range codex challenge *(Sonnet medium)* |
 | `agents/team-reviewer.md` | Adversarially verifies each diff before merge — read-only, no worktree *(Opus)* |
 | `agents/team-merger.md` | Merges approved worktrees into the base branch, removes each worktree + branch after landing, reports done *(Sonnet)* |
-| `settings.example.json` | The model pin (`ANTHROPIC_DEFAULT_OPUS_MODEL` — see [Model pinning](#model-pinning)), `worktree.baseRef: "head"` so executor worktrees branch from your in-progress branch rather than the remote default, `CLAUDE_CODE_ENABLE_TODO_TOOLS` (the task-list feature), `CLAUDE_CODE_SUBAGENT_MODEL` (the Sonnet floor for unpinned spawns — see [Model pinning](#model-pinning)), `BASH_DEFAULT_TIMEOUT_MS: 900000` (a build or test run with no explicit timeout is no longer auto-backgrounded at 2 minutes; this is also the ceiling), `CODEX_REVIEW_MODEL` + `CODEX_REVIEW_EFFORT` (which codex model and reasoning effort the cross-review gate uses — set here, not in the script, because install.sh replaces the skill directory on every run; reinstalling never overrides an existing value, so change it by editing `settings.json`), `bashOutputMaxChars: 30000` (a valid command result over 30k characters arrives as a file path plus a 2k preview instead of flooding the context), `bashEditDiffEnabled: true` (the transcript records which files each Bash command changed — `/analyze-arcs` reads that instead of parsing commands; on by default only in auto mode, so it is pinned for every mode; never shown to the model), the `SessionStart` update-check hook, and the `PreToolUse` subagent-no-background hook |
+| `settings.example.json` | `worktree.baseRef: "head"` so executor worktrees branch from your in-progress branch rather than the remote default, `CLAUDE_CODE_ENABLE_TODO_TOOLS` (the task-list feature), `CLAUDE_CODE_SUBAGENT_MODEL` (the Sonnet floor for unpinned spawns — see [Model pinning](#model-pinning)), `BASH_DEFAULT_TIMEOUT_MS: 900000` (a build or test run with no explicit timeout is no longer auto-backgrounded at 2 minutes; this is also the ceiling), `CODEX_REVIEW_MODEL` + `CODEX_REVIEW_EFFORT` (which codex model and reasoning effort the cross-review gate uses — set here, not in the script, because install.sh replaces the skill directory on every run; reinstalling never overrides an existing value, so change it by editing `settings.json`), `bashOutputMaxChars: 30000` (a valid command result over 30k characters arrives as a file path plus a 2k preview instead of flooding the context), `bashEditDiffEnabled: true` (the transcript records which files each Bash command changed — `/analyze-arcs` reads that instead of parsing commands; on by default only in auto mode, so it is pinned for every mode; never shown to the model), the `SessionStart` update-check hook, and the `PreToolUse` subagent-no-background hook |
 | `hooks/subagent-no-background.sh` | PreToolUse on Bash: denies `run_in_background` inside any subagent (with fork mode on every spawn is a background subagent, whose background commands keep running past its final report — nobody stops them) and any `until`/`while` poll on a `.output.done` marker (the harness never writes one). Fail-open on anything it does not understand; tests in `hooks/tests/` |
 | `hooks/stack-update-check.sh` | Runs once per session start: at most once a day, checks whether this repo's `master` differs from the SHA you installed, and whether the running Claude Code differs from the version the doctrine was last validated against (`docs/references.md`, stamped by `install.sh`) — one line each if so, silent otherwise (no update, no network, disabled, cached) |
 | `skills/stack-update/SKILL.md` | Applies a pending update: clones the repo, summarizes what changed, asks for your approval before writing anything, re-runs `install.sh`, and re-stamps |
@@ -122,16 +122,16 @@ Claude Code resolves the aliases through `ANTHROPIC_DEFAULT_OPUS_MODEL` /
 frontmatter, and per-spawn model choices. The `fable` alias is deliberately
 left unpinned.
 
-`settings.example.json` pins Opus to `claude-opus-5` so a new Opus release
-never silently changes (or re-prices) your agents:
+The kit leaves `opus` unpinned, so it follows the latest Opus. To hold a
+version (a new Opus release then won't change or re-price your agents), install
+with `--opus-pin=<model id>` or set it yourself:
 
 ```json
-"env": { "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5" }
+"env": { "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5-5" }
 ```
 
-Change the value to move to a different version, delete the key to follow the
-latest Opus again, or add the `_SONNET_`/`_HAIKU_` variants to pin those tiers
-too.
+`install.sh` removes the kit's earlier `claude-opus-5` pin and leaves any other
+value alone. The `_SONNET_`/`_HAIKU_` variants pin those tiers the same way.
 
 It also sets `CLAUDE_CODE_SUBAGENT_MODEL` to `sonnet` as a **floor**, not an
 override: an agent definition's `model:` and an explicit per-spawn model both

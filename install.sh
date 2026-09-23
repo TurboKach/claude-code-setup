@@ -5,10 +5,8 @@ set -euo pipefail
 # Copies CLAUDE.md, the agent-teams skill, and the team-* agents into ~/.claude,
 # backing up anything it would overwrite. The kit's default path (background
 # subagents + Workflows) needs nothing else. This also merges the settings keys
-# from settings.example.json: the model pin (ANTHROPIC_DEFAULT_OPUS_MODEL —
-# keeps the "opus" alias on a fixed version; added only if you haven't set your
-# own value), and every other key in that file's "env" block the same way
-# (CLAUDE_CODE_ENABLE_TODO_TOOLS for the task-list feature, the Sonnet
+# from settings.example.json: every key in that file's "env" block, added only
+# if you haven't set your own value (CLAUDE_CODE_ENABLE_TODO_TOOLS for the task-list feature, the Sonnet
 # subagent floor, BASH_DEFAULT_TIMEOUT_MS=900000 so a build or test run
 # with no explicit timeout is not auto-backgrounded at 2 minutes, and
 # CODEX_REVIEW_MODEL / CODEX_REVIEW_EFFORT for the codex cross-review gate),
@@ -30,12 +28,12 @@ usage() {
   cat <<EOF
 Usage: install.sh [--opus-pin=MODEL_ID | --no-opus-pin] [--codex-model=MODEL_ID] [--claude-md=append|replace|leave]
 
-No flags: setdefault the Opus pin from settings.example.json, and install
-CLAUDE.md only if none exists yet.
+No flags: leave the "opus" alias unpinned (it follows the latest Opus), and
+install CLAUDE.md only if none exists yet.
 
-  --opus-pin=MODEL_ID    Setdefault ANTHROPIC_DEFAULT_OPUS_MODEL to MODEL_ID instead of
-                         the repo default (never clobbers an existing value).
-  --no-opus-pin          Don't set ANTHROPIC_DEFAULT_OPUS_MODEL at all.
+  --opus-pin=MODEL_ID    Setdefault ANTHROPIC_DEFAULT_OPUS_MODEL to MODEL_ID (never
+                         clobbers an existing value).
+  --no-opus-pin          Don't set ANTHROPIC_DEFAULT_OPUS_MODEL (the default).
   --codex-model=MODEL_ID Setdefault CODEX_REVIEW_MODEL to MODEL_ID instead of the repo
                          default (never clobbers an existing value).
   --claude-md=append     Append this repo's Feature workflow section to an existing
@@ -243,9 +241,8 @@ if VALIDATED="$(grep -oE 'validated against Claude Code v[0-9]+(\.[0-9]+)+' "$SR
 fi
 
 # settings.json — merge the example keys, preserving everything else.
-# The Opus pin env var is added only when absent (never clobbering a
-# user's own pin), using --opus-pin's value if given, or skipped entirely if
-# --no-opus-pin was given.
+# The Opus pin env var is added only with --opus-pin, and only when absent
+# (never clobbering a user's own pin).
 SETTINGS="$DEST/settings.json"
 HOOK_PATH="$DEST/hooks/stack-update-check.sh"
 BG_HOOK_PATH="$DEST/hooks/subagent-no-background.sh"
@@ -255,7 +252,6 @@ import json, os, sys
 settings, example, hook_path, dest = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 opus_pin_set = sys.argv[5] == "1"
 opus_pin = sys.argv[6]
-opus_skip = sys.argv[7] == "1"
 bg_hook_path = sys.argv[8]
 codex_model = sys.argv[9]
 ex = json.load(open(example))
@@ -266,13 +262,13 @@ else:
     d = {}
 env = d.setdefault("env", {})
 for k, v in ex["env"].items():
-    if k == "ANTHROPIC_DEFAULT_OPUS_MODEL":
-        if opus_skip:
-            continue  # user chose not to pin the "opus" alias
-        v = opus_pin if opus_pin_set else v
-    elif k == "CODEX_REVIEW_MODEL" and codex_model:
+    if k == "CODEX_REVIEW_MODEL" and codex_model:
         v = codex_model
     env.setdefault(k, v)  # model pins etc. — never clobber an existing choice
+if opus_pin_set:
+    env.setdefault("ANTHROPIC_DEFAULT_OPUS_MODEL", opus_pin)
+elif env.get("ANTHROPIC_DEFAULT_OPUS_MODEL") == "claude-opus-5":  # the kit's earlier pin; a user's own choice is left alone
+    del env["ANTHROPIC_DEFAULT_OPUS_MODEL"]
 # Executor worktrees must branch from the session's in-progress branch, not the
 # remote default — otherwise they can't see the plan file or prior units' work.
 d.setdefault("worktree", {}).setdefault("baseRef", ex["worktree"]["baseRef"])

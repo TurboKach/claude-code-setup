@@ -3,7 +3,7 @@
 Sources this kit's doctrine is built on. Facts you can't infer from the code —
 not a reading list.
 
-> **Doctrine validated against Claude Code v2.1.273 — 2026-09-16.**
+> **Doctrine validated against Claude Code v2.1.280 — 2026-09-23.**
 > Re-check when `claude --version` has moved: read the changelog from the stamped
 > version forward, decide what it means for the pipeline, then re-stamp this line.
 > The claims in *Harness* below are version-dependent; the rest are not.
@@ -48,9 +48,18 @@ frontmatter, worktrees, permissions) comes from here and nowhere else.
 | `effort:` frontmatter on subagents, skills and commands was silently ignored on models whose default effort is pinned (Opus 4.7, Opus 4.8, Fable 5); honored from here | 2.1.267 | `agents/*.md` `effort:` lines |
 | `maxEffortLevel` (top-level or per model under `modelSettings`) caps effort on every provider; the lowest cap from any scope applies | 2.1.267 | nothing yet — lever |
 | A running session could silently switch to the organization's default model when another Claude Code process refreshed a stale model-access entry (fixed) — a `model seen` mismatch in an analyze-arcs report from before this is not evidence against the pins | 2.1.268 | `skills/analyze-arcs/SKILL.md` limits |
+| The `opus` alias resolves to Opus 5.5 when `ANTHROPIC_DEFAULT_OPUS_MODEL` is unset; the kit no longer pins it and `install.sh` removes its earlier `claude-opus-5` pin — docs `model-config` | 2.1.280 | `settings.example.json`, `install.sh` |
+| The "Delivering work" system-prompt block (keep going, ambiguity calls) is gated on Fable 5.1 or a flag, not Opus 5.5 — read from the 2.1.280 binary, and absent from an Opus 5.5 session's prompt | 2.1.280 | `global/CLAUDE.md` keep-going line |
 | `bashEditDiffEnabled`: the harness records the files a Bash command changed (git working tree, ≤200 absolute paths in the transcript's `toolUseResult.bashEditDiff.changedFiles`, also passed to PostToolUse Bash hooks); default on only in auto/bypass mode; never surfaced to the model; no record for a command that exits non-zero or runs `run_in_background` — read from the 2.1.269 binary and verified in a headless and an interactive session 2026-09-12 | 2.1.269 | `settings.example.json` (true, every mode), `skills/analyze-arcs/scripts/analyze.py` |
 
 ## Model behavior — what the pipeline is tuned against
+
+- Prompting Claude Opus 5.5 —
+  <https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5>
+  Default effort `medium` (≥ Opus 5 at `high` on coding); thinks more per turn
+  than Opus 5 at the same level; sometimes ends a turn to report instead of
+  continuing — name the stops you want; can't read Fable thinking blocks, so a
+  mid-session `/model` switch from Fable drops earlier reasoning.
 
 - Opus 5 prompting guide —
   <https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5>
