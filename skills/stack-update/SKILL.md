@@ -59,7 +59,8 @@ no state-dir file is written, until the approval gate in step 4 passes.
    - `skills/*` → which skills are new or changed.
    - `agents/*` → which role agents changed.
    - `global/rules/*` → which path-scoped user rules are new or changed.
-   - `install.sh` / `settings.example.json` → what the installer will now do differently.
+   - `install.sh` / `settings.example.json` → what the installer will now do differently,
+     including a changed recommended master (`model` / `modelSettings`) — step 6 may ask about it.
    Omit a group with no changes.
 
 4. **Approval gate #1 — apply the update at all?** `AskUserQuestion`: "Apply this update?" with
@@ -74,7 +75,7 @@ no state-dir file is written, until the approval gate in step 4 passes.
    - Only *Apply* proceeds past this point.
 
 5. **The `CLAUDE.md` three-way diff and approval gate #2 — this is the step that justifies the
-   skill.** Step 6 below runs `install.sh` with no flags, so its default (`--claude-md` unset,
+   skill.** Step 6 below runs `install.sh` with no `--claude-md` flag, so its default (`--claude-md` unset,
    i.e. "auto") mode applies: it deliberately never overwrites an existing `~/.claude/CLAUDE.md`
    (see `install.sh:136-143`) — it just prints a reminder to merge by hand. So step 6's install
    refreshes skills and agents but silently skips the single most important file, and a
@@ -112,7 +113,21 @@ no state-dir file is written, until the approval gate in step 4 passes.
    the user decide by hand / skip `CLAUDE.md` entirely. **Never** rewrite
    `~/.claude/CLAUDE.md` without an explicit answer to this question — silence is not approval.
 
-6. **Install.** Run `./install.sh` from the clone. It already backs up skills and agents to
+6. **Install.** First, the master-model question — asked on every update unless the user
+   already has it or said not to. Ask only when both hold:
+   - the live `~/.claude/settings.json` doesn't match the clone's `settings.example.json`
+     recommendation: `model` differs, or any `modelSettings.<id>.effortLevel` there differs;
+   - `~/.claude/.claude-code-setup/master-dont-ask` is absent, or its content differs from
+     `python3 -c 'import json,sys; e=json.load(open(sys.argv[1])); print(json.dumps({"model": e["model"], "modelSettings": e["modelSettings"]}, separators=(",", ":"), sort_keys=True))' settings.example.json`
+     run in the clone (a changed recommendation asks again).
+
+   Then `AskUserQuestion`, showing their current `model` and effort, with options *the recommended
+   model and effort, named from the clone's `settings.example.json` (recommended)* →
+   `--master=recommended` / *keep current, ask next time* →
+   `--master=keep` / *don't ask again* → `--master=dont-ask` / other, the user types
+   `MODEL_ID` or `MODEL_ID:EFFORT` → `--master=<typed>`. Not asked → no `--master` flag.
+
+   Run `./install.sh` from the clone, with that `--master` flag if one was chosen. It already backs up skills and agents to
    `~/.claude/.backup-<stamp>` and merges settings.json keys — reuse it, don't reimplement its
    logic here.
    - **If it exits non-zero:** stop — do not write `installed` or `claude-md-installed`, the run

@@ -13,9 +13,12 @@ set -euo pipefail
 # plus bashOutputMaxChars=30000 (a valid command result over 30k characters
 # arrives as a file path + 2k preview instead of flooding the context; 2.1.261+) and
 # bashEditDiffEnabled=true (the transcript records which files each Bash
-# command changed, in every permission mode; /analyze-arcs reads it; 2.1.269+),
-# and the master default — model "opus" with Opus 5.5 at effort xhigh — again
-# only where you haven't chosen a model or an Opus 5.5 effort yourself.
+# command changed, in every permission mode; /analyze-arcs reads it; 2.1.269+).
+# The master model (settings "model" + "modelSettings") is written only on an
+# explicit --master answer; with no flag it is left alone and a one-line notice
+# points at the recommendation when your settings don't already match it —
+# unless --master=dont-ask recorded that recommendation in
+# .claude-code-setup/master-dont-ask (a changed recommendation asks again).
 # It also
 # installs two hooks: a SessionStart hook that checks once a day whether this
 # repo has moved past the SHA you installed (and stamps that SHA so the check
@@ -29,9 +32,10 @@ set -euo pipefail
 usage() {
   cat <<EOF
 Usage: install.sh [--opus-pin=MODEL_ID | --no-opus-pin] [--codex-model=MODEL_ID] [--claude-md=append|replace|leave]
+                  [--master=recommended|keep|dont-ask|MODEL_ID[:EFFORT]]
 
-No flags: leave the "opus" alias unpinned (it follows the latest Opus), and
-install CLAUDE.md only if none exists yet.
+No flags: leave the "opus" alias unpinned (it follows the latest Opus), install
+CLAUDE.md only if none exists yet, and leave the master model untouched.
 
   --opus-pin=MODEL_ID    Setdefault ANTHROPIC_DEFAULT_OPUS_MODEL to MODEL_ID (never
                          clobbers an existing value).
@@ -42,6 +46,16 @@ install CLAUDE.md only if none exists yet.
                          ~/.claude/CLAUDE.md (no-op if that section is already there).
   --claude-md=replace    Back up and overwrite ~/.claude/CLAUDE.md with this repo's copy.
   --claude-md=leave      Leave an existing ~/.claude/CLAUDE.md untouched.
+  --master=recommended   Write settings.example.json's "model" and each
+                         modelSettings.<id>.effortLevel, overwriting existing values.
+  --master=keep          Leave "model" and "modelSettings" untouched (no notice this run).
+  --master=dont-ask      Same as keep, and record the current recommendation in
+                         .claude-code-setup/master-dont-ask so no-flag runs stop
+                         printing the notice until the recommendation changes.
+  --master=MODEL_ID[:EFFORT]
+                         Write "model" = MODEL_ID and, with EFFORT (low, medium, high,
+                         xhigh, max), modelSettings.MODEL_ID.effortLevel = EFFORT.
+                         recommended and MODEL_ID[:EFFORT] clear master-dont-ask.
 EOF
 }
 
@@ -51,6 +65,8 @@ OPUS_SKIP=0
 CODEX_MODEL=""
 CODEX_MODEL_SET=0
 CLAUDE_MD_MODE="auto"
+MASTER=""
+MASTER_SET=0
 
 for arg in "$@"; do
   case "$arg" in
@@ -58,6 +74,7 @@ for arg in "$@"; do
     --no-opus-pin) OPUS_SKIP=1 ;;
     --codex-model=*) CODEX_MODEL="${arg#--codex-model=}"; CODEX_MODEL_SET=1 ;;
     --claude-md=*) CLAUDE_MD_MODE="${arg#--claude-md=}" ;;
+    --master=*) MASTER="${arg#--master=}"; MASTER_SET=1 ;;
     -h|--help) usage; exit 0 ;;
     *)
       echo "install.sh: unrecognized flag: $arg" >&2
@@ -88,6 +105,34 @@ fi
 if [ "$CODEX_MODEL_SET" = 1 ] && [ -z "$CODEX_MODEL" ]; then
   echo "install.sh: --codex-model requires a non-empty MODEL_ID" >&2
   exit 1
+fi
+
+# --master → mode (none|recommended|keep|dont-ask|model) plus MODEL_ID and optional EFFORT.
+MASTER_MODE="none"
+MASTER_MODEL=""
+MASTER_EFFORT=""
+if [ "$MASTER_SET" = 1 ]; then
+  case "$MASTER" in
+    recommended|keep|dont-ask) MASTER_MODE="$MASTER" ;;
+    *)
+      MASTER_MODE="model"
+      MASTER_MODEL="${MASTER%%:*}"
+      if [ -z "$MASTER_MODEL" ]; then
+        echo "install.sh: --master requires recommended, keep, dont-ask, or a non-empty MODEL_ID[:EFFORT]" >&2
+        exit 1
+      fi
+      if [ "$MASTER_MODEL" != "$MASTER" ]; then
+        MASTER_EFFORT="${MASTER#*:}"
+        case "$MASTER_EFFORT" in
+          low|medium|high|xhigh|max) ;;
+          *)
+            echo "install.sh: invalid --master effort: '$MASTER_EFFORT' (expected low, medium, high, xhigh, or max)" >&2
+            exit 1
+            ;;
+        esac
+      fi
+      ;;
+  esac
 fi
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -249,13 +294,14 @@ SETTINGS="$DEST/settings.json"
 HOOK_PATH="$DEST/hooks/stack-update-check.sh"
 BG_HOOK_PATH="$DEST/hooks/subagent-no-background.sh"
 if command -v python3 >/dev/null 2>&1; then
-  python3 - "$SETTINGS" "$SRC/settings.example.json" "$HOOK_PATH" "$DEST" "$OPUS_PIN_SET" "$OPUS_PIN" "$OPUS_SKIP" "$BG_HOOK_PATH" "$CODEX_MODEL" <<'PY'
+  python3 - "$SETTINGS" "$SRC/settings.example.json" "$HOOK_PATH" "$DEST" "$OPUS_PIN_SET" "$OPUS_PIN" "$OPUS_SKIP" "$BG_HOOK_PATH" "$CODEX_MODEL" "$MASTER_MODE" "$MASTER_MODEL" "$MASTER_EFFORT" <<'PY'
 import json, os, sys
 settings, example, hook_path, dest = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 opus_pin_set = sys.argv[5] == "1"
 opus_pin = sys.argv[6]
 bg_hook_path = sys.argv[8]
 codex_model = sys.argv[9]
+master_mode, master_model, master_effort = sys.argv[10], sys.argv[11], sys.argv[12]
 ex = json.load(open(example))
 if os.path.exists(settings):
     d = json.load(open(settings))
@@ -282,16 +328,42 @@ if d.get("bashOutputMaxChars") == 64000:   # the kit's earlier value; a user's o
 d.setdefault("bashOutputMaxChars", ex["bashOutputMaxChars"])
 # Changed-file record on every Bash result, in every permission mode (analyze-arcs reads it; 2.1.269+).
 d.setdefault("bashEditDiffEnabled", ex["bashEditDiffEnabled"])
-# Master default: the latest Opus at xhigh. Effort goes per model — a top-level effortLevel
-# does not reach Opus 5.5, and CLAUDE_CODE_EFFORT_LEVEL would override the agents' frontmatter effort.
-if not any(k in env or k in os.environ for k in ("ANTHROPIC_MODEL", "ANTHROPIC_DEFAULT_MODEL")):  # a user's env-set default is left alone
-    d.setdefault("model", ex["model"])
-ms = d.setdefault("modelSettings", {})
-if isinstance(ms, dict):
-    for mid, cfg in ex["modelSettings"].items():
-        entry = ms.setdefault(mid, {})
-        if isinstance(entry, dict):
-            entry.setdefault("effortLevel", cfg["effortLevel"])
+# Master model — written only on an explicit --master answer (it overwrites: the user chose).
+# Effort goes per model — a top-level effortLevel does not reach Opus 5.5, and
+# CLAUDE_CODE_EFFORT_LEVEL would override the agents' frontmatter effort. A
+# modelSettings that isn't the shape we expect is skipped with a warning, never rewritten.
+master_written, master_warnings = [], []
+def set_effort(mid, effort):
+    ms = d.setdefault("modelSettings", {})
+    if not isinstance(ms, dict):
+        return master_warnings.append(f'"modelSettings" is not an object — skipped setting {mid} effort {effort}')
+    entry = ms.setdefault(mid, {})
+    if not isinstance(entry, dict):
+        return master_warnings.append(f'"modelSettings.{mid}" is not an object — skipped setting its effort {effort}')
+    entry["effortLevel"] = effort
+    if "modelSettings" not in master_written:
+        master_written.append("modelSettings")
+if master_mode in ("recommended", "model"):
+    d["model"] = ex["model"] if master_mode == "recommended" else master_model
+    master_written.append("model")
+    efforts = {mid: cfg["effortLevel"] for mid, cfg in ex["modelSettings"].items()} if master_mode == "recommended" \
+        else ({master_model: master_effort} if master_effort else {})
+    for mid, effort in efforts.items():
+        set_effort(mid, effort)
+    if "ANTHROPIC_MODEL" in env or "ANTHROPIC_MODEL" in os.environ:
+        master_warnings.append('ANTHROPIC_MODEL is set — it outranks the settings "model" field, so the master stays on it until you unset it')
+# The dont-ask record is the recommendation it was given for, so a changed recommendation asks again.
+dont_ask_path = os.path.join(dest, ".claude-code-setup", "master-dont-ask")
+recommendation = json.dumps({"model": ex["model"], "modelSettings": ex["modelSettings"]}, separators=(",", ":"), sort_keys=True)
+if master_mode == "dont-ask":
+    os.makedirs(os.path.dirname(dont_ask_path), exist_ok=True)
+    open(dont_ask_path, "w").write(recommendation + "\n")
+elif master_mode in ("recommended", "model") and os.path.exists(dont_ask_path):
+    os.remove(dont_ask_path)
+dont_ask = os.path.exists(dont_ask_path) and open(dont_ask_path).read().strip() == recommendation
+master_matches = d.get("model") == ex["model"] and isinstance(d.get("modelSettings"), dict) and all(
+    isinstance(d["modelSettings"].get(mid), dict) and d["modelSettings"][mid].get("effortLevel") == cfg["effortLevel"]
+    for mid, cfg in ex["modelSettings"].items())
 
 def norm_path(cmd):
     # Representation-independent comparison: a command written as
@@ -357,8 +429,13 @@ for label, event, matcher, path, timeout in (
     warning = register_hook(event, matcher, path, timeout)
     (skipped_hooks if warning else installed_hooks).append((label, warning))
 
-merged_desc = "env + model + modelSettings + worktree.baseRef + bashOutputMaxChars + bashEditDiffEnabled"
+merged_desc = " + ".join(["env"] + master_written + ["worktree.baseRef", "bashOutputMaxChars", "bashEditDiffEnabled"])
 json.dump(d, open(settings, "w"), indent=2)
+for warning in master_warnings:
+    print(f"  WARNING: {warning}.")
+if master_mode == "none" and not master_matches and not dont_ask:
+    efforts = ", ".join(f"{mid} at effort {cfg['effortLevel']}" for mid, cfg in ex["modelSettings"].items())
+    print(f"  Recommended master: model \"{ex['model']}\", {efforts} — rerun with --master=recommended (or --master=dont-ask to stop this notice).")
 for label, warning in skipped_hooks:
     print(f"  WARNING: settings.json's {warning} — skipped installing the {label}.")
     print(f"  Add it by hand: copy its entry from the \"hooks\" block in {example} into {settings}.")

@@ -52,6 +52,16 @@ it — so don't offer it as a deselectable option. Suggested:
 
    Tell them this sticks: `install.sh` never clobbers an existing value, so
    changing it later means editing `~/.claude/settings.json` by hand.
+5. **Master model** — always ask: the master is the session they open, which
+   plans and coordinates. First show their current `model` and
+   `modelSettings.claude-opus-5-5.effortLevel` from `~/.claude/settings.json`
+   ("not set" where absent). Options:
+   - *Opus 5.5 at xhigh* *(recommended)*
+   - *keep current, ask next time*
+   - *don't ask again* *(keeps current; `/stack-update` stops asking until the
+     recommendation changes)*
+   - other: the user types `MODEL_ID` or `MODEL_ID:EFFORT` (effort is one of
+     `low`, `medium`, `high`, `xhigh`, `max`)
 
 Explain briefly: the **default path** (background subagents + Workflows) needs
 nothing beyond the skill + agents — no flags, no extra tools. gstack is
@@ -83,6 +93,11 @@ Translate the Step 1 answers into flags and run it once:
   pass no `--codex-model` flag (the existing value is never clobbered, except
   the kit's earlier `gpt-5.6-sol` / `gpt-5.6-luna`, which move to their GPT-6
   successors).
+
+- **Master model answer was *Opus 5.5 at xhigh*** → `--master=recommended`.
+- **Master model answer was *keep current, ask next time*** → `--master=keep`.
+- **Master model answer was *don't ask again*** → `--master=dont-ask`.
+- **Master model answer was a typed `MODEL_ID[:EFFORT]`** → `--master=<what they typed>`.
 
 Every codex-model answer passes its own explicit flag, including the
 recommended one — there is no "recommended → pass no flag" branch, so the
@@ -125,9 +140,10 @@ explicit timeout is not auto-backgrounded at 2 minutes, and `bashOutputMaxChars`
 to 30000 so a valid command result over 30k characters arrives as a file path
 plus a 2k preview instead of flooding the context, and `bashEditDiffEnabled` to true so the
 transcript records which files each Bash command changed (`/analyze-arcs`
-reads it). Where the user hasn't chosen their own, the default model becomes
-`opus` with Opus 5.5 at effort `xhigh` — the session they open is the master that
-plans. Hooks are read at
+reads it). The master model is whatever they answered in Step 1 — `install.sh`
+writes `model` / `modelSettings` only for *Opus 5.5 at xhigh* or a typed model,
+and warns if `ANTHROPIC_MODEL` is set, since that outranks the settings `model`.
+Hooks are read at
 session start: the new hook takes effect in the next session, or after
 reviewing it in `/hooks`.
 
