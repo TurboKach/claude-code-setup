@@ -48,9 +48,10 @@ Hard rules:
   run: `timeout 600 bash -c 'until ! pgrep -f "<[p]attern>"; do sleep 10;
   done'` (bracket the pattern's first letter so pgrep can't match its own
   command line), then its task `.output` file is read. A wait that expires
-  means the run is hung — `pkill -f` its process tree, treat the code under
-  test as the cause, change it, and never rerun identical code or write a
-  second wait. No `.output.done` marker is ever written.
+  means the run is hung — treat the code under test as the cause, change it,
+  and never rerun identical code or write a second wait. Don't `pkill` by
+  pattern: sibling executors run the same tools, so the pattern can match
+  their runs too; name the hung command in your report and the lead stops it. No `.output.done` marker is ever written.
 - Filter build and test output before it enters your context — e.g.
   `<build or test command> 2>&1 | tail -n 80`, or
   `… 2>&1 | grep -nE 'error:|failed' || true` (grep exits 1 on a clean log;
