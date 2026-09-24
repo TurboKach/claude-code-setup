@@ -99,7 +99,8 @@ elif polls_process(command):
               "backgrounds a loop instead of stopping it. Wait once, under the timeout command, "
               "sized to the remaining run: `timeout <N> bash -c \"until ! pgrep -f <[p]attern> "
               ">/dev/null; do sleep 10; done\"`, then read the task .output file. If that wait "
-              "expires the run is hung: `pkill -f` its process tree, change the code under test, "
+              "expires the run is hung: stop its process tree (`pkill -f`), or report it to the lead when "
+              "sibling agents run the same tool; change the code under test, "
               "and never rerun identical code or write a second wait.")
 
 if reason:

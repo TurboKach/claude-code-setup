@@ -62,23 +62,21 @@ Hard rules:
 - For long builds and test suites, pass an explicit Bash `timeout` sized to the
   run. The default is 15 min (the kit's settings set `BASH_DEFAULT_TIMEOUT_MS`,
   which is also the ceiling). Past its timeout a simple command is not killed —
-  it is auto-backgrounded and keeps running — while a pipeline (the
-  `| grep` form below) is killed and must be rerun with a bigger
-  `timeout`. A hook denies `run_in_background` in subagents — your background
-  commands would outlive your report — so an auto-backgrounded command is
-  waited for in the foreground exactly once, under the `timeout` command sized
-  to the remaining run: `timeout 600 bash -c 'until ! pgrep -f "<[p]attern>";
-  do sleep 10; done'` (bracket the pattern's first letter so pgrep can't match
-  its own command line), then its task `.output` file is read. A bare poll loop is
-  denied by the hook: the Bash tool's own timeout backgrounds a loop instead of
-  ending it. A wait that expires means the run is hung — `pkill -f` its process
-  tree, treat the code under test as the cause, change it, and never rerun
-  identical code or write a second wait. No `.output.done` marker is ever
-  written.
-- Filter build and test output before it enters your context — e.g.
-  `<build or test command> 2>&1 | tail -n 80`, or
-  `… 2>&1 | grep -nE 'error:|failed' || true` (grep exits 1 on a clean log;
-  the producer's status is what you report) — never dump a raw build or test log.
-  Keep the producer's exit code — `set -o pipefail` (or check
-  `${PIPESTATUS[0]}`) — so a filtered pipeline can never turn a failed build or
-  test run green.
+  it is auto-backgrounded and keeps running — while a pipeline is killed and
+  must be rerun with a bigger `timeout`. A hook denies `run_in_background` in
+  subagents — your background commands would outlive your report — so an
+  auto-backgrounded command is waited for in the foreground exactly once, under
+  the `timeout` command sized to the remaining run: `timeout 600 bash -c 'until
+  ! pgrep -f "<[p]attern>"; do sleep 10; done'` (bracket the pattern's first
+  letter so pgrep can't match its own command line), then its task `.output`
+  file is read. A bare poll loop is denied by the hook: the Bash tool's own
+  timeout backgrounds a loop instead of ending it. A wait that expires means the
+  run is hung — `pkill -f` its process tree, treat the code under test as the
+  cause, change it, and never rerun identical code or write a second wait. No
+  `.output.done` marker is ever written.
+- Filter build and test output before it enters your context: write it to a
+  log, record the exit code, then filter the log —
+  `<build or test command> > <log> 2>&1; echo "exit=$?"`, then
+  `grep -nE 'error:|failed' <log> | tail -n 40` — never dump a raw build or
+  test log. The command's exit code is the result, never the filter's
+  (`${PIPESTATUS[0]}` is bash-only; the Bash tool may run zsh).
