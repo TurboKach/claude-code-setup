@@ -86,3 +86,8 @@ Codex run minutes come from the log file's birth and modification times, so a ru
 `--out` was reused or deleted reads `?`. Spawn rows are matched to subagent transcripts by
 order of start time; a spawn that died before writing a transcript shifts the rows after it —
 compare the `model seen` column with the pin when that happens.
+
+Summing tokens by hand: Claude Code writes one JSONL line per content block, each repeating the
+response's usage, so count each message id once (per-line sums overcount 2–3.5×). In subagent
+transcripts `output_tokens` holds a stream-start value (tens of tokens per message) rather than the
+final count, so turns, context size and cache reads are reliable there and output is not.
