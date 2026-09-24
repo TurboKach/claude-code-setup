@@ -39,17 +39,22 @@ Hard rules:
   master schedules after the last step.
 - For long builds and test suites, pass an explicit Bash `timeout` sized to the
   run. The default is 15 min (the kit's settings set `BASH_DEFAULT_TIMEOUT_MS`,
-  which is also the ceiling). Past its timeout a simple command is
-  auto-backgrounded, while a pipeline (the `| xcbeautify` form below) is killed
-  and must be rerun with a bigger `timeout`. A hook denies `run_in_background`
-  in subagents — your background commands would outlive your report — so an
-  auto-backgrounded command is waited for in the foreground (`until ! pgrep -f
-  '<pattern>'; do sleep 10; done` under its own `timeout`) and its task
-  `.output` file read afterwards. No `.output.done` marker is ever written.
+  which is also the ceiling). Past its timeout a simple command is not killed —
+  it is auto-backgrounded and keeps running — while a pipeline (the `| grep`
+  form below) is killed and must be rerun with a bigger `timeout`. A hook
+  denies `run_in_background` in subagents — your background commands would
+  outlive your report — so an auto-backgrounded command is waited for in the
+  foreground exactly once, under the `timeout` command sized to the remaining
+  run: `timeout 600 bash -c 'until ! pgrep -f "<[p]attern>"; do sleep 10;
+  done'` (bracket the pattern's first letter so pgrep can't match its own
+  command line), then its task `.output` file is read. A wait that expires
+  means the run is hung — `pkill -f` its process tree, treat the code under
+  test as the cause, change it, and never rerun identical code or write a
+  second wait. No `.output.done` marker is ever written.
 - Filter build and test output before it enters your context — e.g.
-  `xcodebuild … 2>&1 | xcbeautify --quiet`, `xcodebuild … 2>&1 | tail -n 60`,
-  `npm test 2>&1 | tail -n 80`, or `grep -nE 'error:|failed' || true` (grep
-  exits 1 on a clean log; the producer's status is what you report) — never
-  dump a raw build or test log. Keep the producer's exit code — `set -o pipefail` (or
+  `<build or test command> 2>&1 | tail -n 80`, or
+  `… 2>&1 | grep -nE 'error:|failed' || true` (grep exits 1 on a clean log;
+  the producer's status is what you report) — never dump a raw build or test
+  log. Keep the producer's exit code — `set -o pipefail` (or
   check `${PIPESTATUS[0]}`) — so a filtered pipeline can never turn a failed
   build or test run green.

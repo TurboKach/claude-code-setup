@@ -61,7 +61,7 @@ in_subagent = bool(data.get("agent_id"))
 WAIT = ("wait in the foreground on the process itself: `until ! pgrep -f "
         "<pattern> >/dev/null; do sleep 10; done` under its own `timeout` sized to "
         "the run, then read the task .output file. Bracket the first letter of the "
-        "pattern (`[x]codebuild`) so pgrep cannot match its own command line.")
+        "pattern (`<[p]attern>`) so pgrep cannot match its own command line.")
 
 def polls_marker(cmd):
     # Only a loop that would execute counts: drop quoted text first (an echo,
@@ -97,7 +97,7 @@ elif in_subagent and tool_input.get("run_in_background") is True:
 elif polls_process(command):
     reason = ("Denied: a bare wait on a process never ends on its own — the Bash tool timeout "
               "backgrounds a loop instead of stopping it. Wait once, under the timeout command, "
-              "sized to the remaining run: `timeout <N> bash -c \"until ! pgrep -f [x]codebuild "
+              "sized to the remaining run: `timeout <N> bash -c \"until ! pgrep -f <[p]attern> "
               ">/dev/null; do sleep 10; done\"`, then read the task .output file. If that wait "
               "expires the run is hung: `pkill -f` its process tree, change the code under test, "
               "and never rerun identical code or write a second wait.")
