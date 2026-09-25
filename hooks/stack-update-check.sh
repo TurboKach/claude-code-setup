@@ -5,7 +5,8 @@
 # nothing at all unless there is news, and it must never break or slow a
 # session start (always exit 0, stderr silenced, hard network timeout via
 # `curl -m` since `git ls-remote` has no timeout and macOS ships no
-# `timeout(1)`).
+# `timeout(1)`). The steps' timeouts sum to 3 + 2 + 4 = 9s, under the 10s
+# hook timeout install.sh registers.
 
 STATE="${CLAUDE_HOME:-$HOME/.claude}/.claude-code-setup"
 REPO="${CLAUDE_SETUP_REPO:-TurboKach/claude-code-setup}"
@@ -50,7 +51,7 @@ drift=""
 # timeout instead of just this one.
 if [ $((now - 10#$last_check)) -ge 86400 ] \
   && { echo "$now" > "$STATE/last-check"; } 2>/dev/null; then  # 10# forces base-10: no leading-zero-as-octal trap
-  remote="$(curl -sfm 4 -H 'Accept: application/vnd.github.sha' \
+  remote="$(curl -sfm 3 -H 'Accept: application/vnd.github.sha' \
     "https://api.github.com/repos/${REPO}/commits/${BRANCH}" 2>/dev/null)"
   if is_sha "$remote"; then
     { echo "$installed $SOURCE $remote -" > "$STATE/remote"; } 2>/dev/null
@@ -59,7 +60,7 @@ if [ $((now - 10#$last_check)) -ge 86400 ] \
       # compare body carries file patches (100 KB+). 0 means the install is
       # ahead of the remote — nothing to update. Unknown to GitHub (404) or
       # timed out → no count, the notice still shows.
-      count="$(curl -sfm 3 "https://api.github.com/repos/${REPO}/compare/${installed}...${remote}?per_page=1" 2>/dev/null \
+      count="$(curl -sfm 2 "https://api.github.com/repos/${REPO}/compare/${installed}...${remote}?per_page=1" 2>/dev/null \
         | grep -oE '"ahead_by": *[0-9]+' | head -1 | grep -oE '[0-9]+$')"
       [ -n "$count" ] && { echo "$installed $SOURCE $remote $count" > "$STATE/remote"; } 2>/dev/null
     fi
@@ -74,7 +75,7 @@ if [ $((now - 10#$last_check)) -ge 86400 ] \
   validated="$(cat "$STATE/validated-cc-version" 2>/dev/null)"
   if [[ "$validated" =~ ^[0-9]+(\.[0-9]+)+$ ]]; then
     to="$(command -v gtimeout || command -v timeout)" 2>/dev/null
-    running="$(${to:+"$to" 5} claude --version 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+' | head -1)"
+    running="$(${to:+"$to" 4} claude --version 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+' | head -1)"
     if [ -n "$running" ] && [ "$running" != "$validated" ]; then
       drift="claude-code-setup: Claude Code $running is running, doctrine last validated against $validated — diff the changelog $validated → $running before the next pipeline change"
     fi
