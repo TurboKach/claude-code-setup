@@ -38,7 +38,7 @@ chmod +x "$TMP/bin/curl"
 
 # fresh <installed> → new empty CLAUDE_HOME with that stamp; sets $HOME_DIR, $S
 fresh() {
-  HOME_DIR="$(mktemp -d "$TMP/home.XXXX")"
+  HOME_DIR="$(mktemp -d "$TMP/home.XXXXXX")"
   S="$HOME_DIR/.claude-code-setup"
   mkdir -p "$S"
   [ -n "$1" ] && echo "$1" > "$S/installed"
