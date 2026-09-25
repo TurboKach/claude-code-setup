@@ -110,7 +110,7 @@ their existing `CLAUDE.md`:
 ```
 
 Run it and show the output — it reports what it backed up, installed,
-pruned, and merged (skills, agents, rules, the update-check and
+pruned, and merged (skills, agents, rules, the update-check, session-name and
 subagent-no-background hooks and the update stamp, retired-agent removal, and
 the `settings.json` merge). **If it exits
 non-zero, stop** — report exactly what it printed; nothing after that point
@@ -132,7 +132,19 @@ else. Then suggest a test (background subagents, read-only → no worktrees):
 Also mention: a `SessionStart` hook now checks once a day for a newer
 `claude-code-setup` and prints one line if there's an update — `/stack-update`
 applies it, and nothing is written without approval. Opt out with
-`touch ~/.claude/.claude-code-setup/disabled`. A `PreToolUse` hook on Bash
+`touch ~/.claude/.claude-code-setup/disabled`. A second `SessionStart` hook names
+the session from a `Session name: <project>-<role>` line in the repo's
+CLAUDE.md, so sessions in a project's sibling repos (an app, its API, a web
+client — any number) can find and message each other; tell the user to add
+this block to each sibling repo's CLAUDE.md, or let Claude propose it the
+first time a feature spans repos:
+```
+## Sibling repos
+Session name: acme-ios
+- acme-api (acme/api): the REST API this app consumes
+- acme-web (acme/web): shares the API client types
+```
+A `PreToolUse` hook on Bash
 denies `run_in_background` inside subagents (their background commands would
 outlive them) and any poll loop on a `.output.done` marker (never written), and
 `BASH_DEFAULT_TIMEOUT_MS` is set to 15 minutes so a build or test run with no

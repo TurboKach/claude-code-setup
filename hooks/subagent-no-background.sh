@@ -42,8 +42,9 @@ input="$(cat)"
 
 # The script goes in via -c (single-quoted: no apostrophes inside), not a
 # heredoc — a heredoc would take over python's stdin and the hook JSON would
-# never reach json.load(sys.stdin).
-printf '%s' "$input" | python3 -c '
+# never reach json.load(sys.stdin). -I: no cwd on sys.path, so a json.py in
+# the session's cwd is never imported.
+printf '%s' "$input" | python3 -I -c '
 import json, re, sys
 
 try:

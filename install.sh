@@ -20,10 +20,12 @@ set -euo pipefail
 # unless --master=dont-ask recorded that recommendation in
 # .claude-code-setup/master-dont-ask (a changed recommendation asks again).
 # It also
-# installs two hooks: a SessionStart hook that checks once a day whether this
+# installs three hooks: a SessionStart hook that checks once a day whether this
 # repo has moved past the SHA you installed (and stamps that SHA so the check
-# has something to compare against), and a PreToolUse hook on Bash that denies
-# run_in_background inside subagents — see hooks/subagent-no-background.sh.
+# has something to compare against), a SessionStart hook that names the session
+# from its repo's CLAUDE.md "Session name:" line — see hooks/session-name.sh —
+# and a PreToolUse hook on Bash that denies run_in_background inside
+# subagents — see hooks/subagent-no-background.sh.
 #
 # Flags (all optional — no flags reproduces the behavior above exactly; see
 # --help). INSTALL.md's interactive wizard drives this script with them instead
@@ -297,8 +299,9 @@ fi
 SETTINGS="$DEST/settings.json"
 HOOK_PATH="$DEST/hooks/stack-update-check.sh"
 BG_HOOK_PATH="$DEST/hooks/subagent-no-background.sh"
+NAME_HOOK_PATH="$DEST/hooks/session-name.sh"
 if command -v python3 >/dev/null 2>&1; then
-  python3 - "$SETTINGS" "$SRC/settings.example.json" "$HOOK_PATH" "$DEST" "$OPUS_PIN_SET" "$OPUS_PIN" "$OPUS_SKIP" "$BG_HOOK_PATH" "$CODEX_MODEL" "$MASTER_MODE" "$MASTER_MODEL" "$MASTER_EFFORT" <<'PY'
+  python3 - "$SETTINGS" "$SRC/settings.example.json" "$HOOK_PATH" "$DEST" "$OPUS_PIN_SET" "$OPUS_PIN" "$OPUS_SKIP" "$BG_HOOK_PATH" "$CODEX_MODEL" "$MASTER_MODE" "$MASTER_MODEL" "$MASTER_EFFORT" "$NAME_HOOK_PATH" <<'PY'
 import json, os, sys
 settings, example, hook_path, dest = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 opus_pin_set = sys.argv[5] == "1"
@@ -306,6 +309,7 @@ opus_pin = sys.argv[6]
 bg_hook_path = sys.argv[8]
 codex_model = sys.argv[9]
 master_mode, master_model, master_effort = sys.argv[10], sys.argv[11], sys.argv[12]
+name_hook_path = sys.argv[13]
 ex = json.load(open(example))
 if os.path.exists(settings):
     d = json.load(open(settings))
@@ -428,6 +432,7 @@ def register_hook(event, matcher, path, timeout):
 installed_hooks, skipped_hooks = [], []
 for label, event, matcher, path, timeout in (
     ("SessionStart update-check hook", "SessionStart", "", hook_path, 10),
+    ("SessionStart session-name hook", "SessionStart", "", name_hook_path, 5),
     ("PreToolUse subagent-no-background hook", "PreToolUse", "Bash", bg_hook_path, 5),
 ):
     warning = register_hook(event, matcher, path, timeout)

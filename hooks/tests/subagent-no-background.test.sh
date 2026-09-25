@@ -122,4 +122,14 @@ expect_allow "empty stdin -> allow" ''
 
 expect_allow "malformed JSON -> allow" '{"tool_name":'
 
+# A module in the hook's cwd must never be imported: python3 -c would put
+# the cwd first on sys.path and run this json.py on every Bash call.
+SHADOW="$(mktemp -d)"
+trap 'rm -rf "$SHADOW"' EXIT
+printf 'open(%s, "w").close()\n' "'$SHADOW/marker'" > "$SHADOW/json.py"
+out="$(cd "$SHADOW" && printf '%s' '{"tool_name":"Bash","agent_id":"a1","tool_input":{"command":"ls","run_in_background":true}}' | bash "$HOOK" 2>/dev/null)"
+[ ! -e "$SHADOW/marker" ] || fail "json.py in cwd -> not imported: marker written"
+case "$out" in *'"deny"'*) ;; *) fail "json.py in cwd -> still denies (got: $out)" ;; esac
+pass "json.py in cwd -> not imported, still denies"
+
 echo "all cases passed"
