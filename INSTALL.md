@@ -130,7 +130,7 @@ else. Then suggest a test (background subagents, read-only → no worktrees):
 > one on performance, one on test coverage. Have them report findings.
 
 Also mention: a `SessionStart` hook now checks once a day for a newer
-`claude-code-setup` and prints one line if there's an update — `/stack-update`
+`claude-code-setup` and shows one line at every session start while there's an update — `/stack-update`
 applies it, and nothing is written without approval. Opt out with
 `touch ~/.claude/.claude-code-setup/disabled`. A second `SessionStart` hook names
 the session from a `Session name: <project>-<role>` line in the repo's

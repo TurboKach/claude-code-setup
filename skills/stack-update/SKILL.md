@@ -19,7 +19,8 @@ only writes it when it copied `CLAUDE.md` for a user who had none, so anyone wit
 personal `CLAUDE.md` has no stamp at all; never fall back to `installed`, see step 5),
 `claude-md-skipped` (SHA of upstream's `global/CLAUDE.md` at the point the user last declined to
 reconcile it — suppresses re-showing an identical comparison in step 5; never used as a diff
-base and never implies acceptance), `last-check` (epoch of last poll), `disabled` (presence
+base and never implies acceptance), `last-check` (epoch of last poll), `remote` (`<installed> <remote>` SHAs from the last
+successful poll — replayed at each session start while `installed` still matches), `disabled` (presence
 silences the SessionStart check entirely; `touch` it to opt out).
 
 Repo: `https://github.com/TurboKach/claude-code-setup.git`, default branch **`master`** (not
