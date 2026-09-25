@@ -24,7 +24,7 @@
 #      run under the `timeout` command: `timeout <N> bash -c "until …"`. That
 #      form is quoted and passes. Same boundary and quote-stripping as B.
 #
-# Why: 2026-09-04 clipsy_ios arc — a fixer's `xcodebuild test` (no timeout)
+# Why: a fixer's `xcodebuild test` (no timeout)
 # was auto-backgrounded at the 2-min default; its `sleep 90; tail` was blocked
 # with "use Monitor with an until-loop", a tool the agent's tools: list
 # strips; so it ran `until [ -f <task>.output.done ]; do sleep 5; done` in
