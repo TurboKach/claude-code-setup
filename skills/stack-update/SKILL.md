@@ -19,8 +19,8 @@ only writes it when it copied `CLAUDE.md` for a user who had none, so anyone wit
 personal `CLAUDE.md` has no stamp at all; never fall back to `installed`, see step 5),
 `claude-md-skipped` (SHA of upstream's `global/CLAUDE.md` at the point the user last declined to
 reconcile it — suppresses re-showing an identical comparison in step 5; never used as a diff
-base and never implies acceptance), `last-check` (epoch of last poll), `remote` (`<installed> <repo@branch> <remote> <count>` from the last
-successful poll — replayed at each session start while `installed` and the source still match), `notice` (the
+base and never implies acceptance), `last-check` (epoch of last poll), `remote` (`<installed> <remote> <count>` from the last
+successful poll — replayed at each session start while `installed` still matches), `notice` (the
 session-start notice in the user's language, see step 7), `disabled` (presence
 silences the SessionStart check entirely; `touch` it to opt out).
 
