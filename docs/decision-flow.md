@@ -10,7 +10,7 @@ files named in the "Owned by" column. Keep it in sync when those change.
 
 ```mermaid
 flowchart TD
-    START([User request]) --> G0{"<b>Gate 0</b> — master session, before first edit<br/>design/product/UI/architectural choice OR 4+ files OR irreversible OR plan file exists OR multi-step arc OR fan-out?<br/><i>in doubt → ask in one line</i>"}
+    START([User request]) --> G0{"<b>Gate 0</b> — master session, before first edit<br/>one-shot or pipeline? — the Feature workflow trigger in global CLAUDE.md<br/><i>in doubt → ask in one line</i>"}
 
     G0 -->|no| ONESHOT["<b>One-shot</b><br/>master edits directly, or one step-executor<br/>no plan file · codex-challenge.sh still runs on the diff"]
     G0 -->|yes| LOAD[["load <b>feature-workflow</b><br/>⇒ pipeline is now ACTIVE"]]
@@ -45,7 +45,7 @@ flowchart TD
     RO --> CODEX
     WF --> CODEX
 
-    CODEX["Stage 5 — ONE <b>codex-challenge.sh</b> &lt;feature-base-sha&gt;..HEAD — P1/P2 fixed to convergence<br>⛔ hard gate: no ship without a triaged verdict"] --> SHIP["Stage 6 — push → PR → merge + deploy<br/>⛔ hard gate: push needs user approval"]
+    CODEX["Stage 5 — ONE <b>codex-challenge.sh</b> &lt;feature-base-sha&gt;..HEAD — fix loop per feature-workflow stage 5<br>⛔ hard gate: no ship without a triaged verdict"] --> SHIP["Stage 6 — push → PR → merge + deploy<br/>⛔ hard gate: push needs user approval"]
     SHIP --> DONE([Done])
     ONESHOT --> DONE
 ```
@@ -103,8 +103,8 @@ These are what a logic review should test. Each should hold on every path above.
 ## Known soft spots
 
 - **Gate 0 is self-assessed and unenforced.** Nothing blocks a master that
-  under-counts files from editing directly. Mitigated only by "in doubt, load
-  it". This is the weakest link in the chain.
+  misjudges the call from editing directly. Mitigated only by the call line and
+  "in doubt, ask in one line". This is the weakest link in the chain.
 - **E1 is a detected-late error, not a prevented one.** By the time gate 3 sees
   one writer, gate 2 has already committed to the parallel path. The redirect
   works, but the wasted step is real.

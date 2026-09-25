@@ -169,22 +169,16 @@ and reports completion.
 ```
 5. CODEX     (lead launches `codex-challenge.sh` as one background Bash; `codex-triage` agent triages)
    → ONE `~/.claude/skills/feature-workflow/scripts/codex-challenge.sh <feature-base-sha>..HEAD`
-     on the merged feature diff — full output to a file, triaged verdict shown; P0/P1 (plus
-     adjacent P2s) → fresh fixer on the base branch → re-challenge until
-     convergence (feature-workflow stage 5 rules: a P0/P1 round hitting the
-     mechanism an earlier round already patched forces the structural branch,
-     two consecutive same-mechanism rounds end the loop; a third consecutive
-     round of only new mechanisms gets one fix and one final challenge;
-     standalone-P2/test-gap/theoretical → one fix-now / defer-to-tech-debt
-     question). No further user gates before that.
+     on the merged feature diff — full output to a file, triaged verdict shown;
+     the fix loop, its stop rule and the standalone-finding question are
+     feature-workflow stage 5, verbatim.
 ```
 
 ## No `/goal`
 
 The approved tail (EXECUTE → REVIEW → MERGE → CODEX) runs unprompted from plan
 approval: the lead spawns, ingests summaries, and moves on without returning to
-the user except at the real gates (a P1 still open at a same-mechanism-repeat round, the
-test-gap/theoretical fix-or-defer question, push approval). Roles still return
+the user except at the real gates — those feature-workflow stage 5 names, and push approval. Roles still return
 machine-checkable proof — test exit code + output tail, `git worktree list` /
 `git status`, structured per-unit verdicts — because the lead judges completion
 from those, not from prose "done".
@@ -274,7 +268,7 @@ scales to many units, cross-checks results, and resumes if interrupted.
 
 ## Relationship to the feature workflow
 
-This is the parallel-execution variant of the `feature-workflow` skill's pipeline; its stage-5 codex gate rules (per-feature range, P0/P1 convergence loop, tech-debt deferral) apply verbatim.
+This is the parallel-execution variant of the `feature-workflow` skill's pipeline; its stage-5 codex gate rules apply verbatim.
 Planning (native plan mode) and shipping are unchanged; fan-out only replaces the execute phase's
 sequential per-step subagents with parallel agents when the steps are
 independent. A pair from a feature-workflow plan's `Parallel:` line doesn't run
