@@ -96,18 +96,14 @@ expect_silent "empty stdin -> silent" ''
 r="$(repo symlinked)"; printf 'Session name: via-link\n' > "$r/AGENTS.md"; ln -s AGENTS.md "$r/CLAUDE.md"
 expect_name "CLAUDE.md symlink to a regular file -> name" "$(input startup "$r")" "via-link"
 
-# A module in the hook's cwd must never be imported: python3 -c would put
-# the cwd first on sys.path and run this json.py on every session start.
-r="$(repo shadow)"; printf 'Session name: shadowed\n' > "$r/CLAUDE.md"
-printf 'open(%s, "w").close()\n' "'$TMP/shadow-marker'" > "$r/json.py"
-stdin="$(input startup "$r")"
-out="$(cd "$r" && printf '%s' "$stdin" | bash "$HOOK" 2>/dev/null)"; code=$?
-[ ! -e "$TMP/shadow-marker" ] || fail "json.py in cwd -> not imported: marker written"
-[ "$code" -eq 0 ] && [ -n "$out" ] || fail "json.py in cwd -> still named (got: $out)"
-pass "json.py in cwd -> not imported, still named"
+r="$(repo twofile)"; mkdir -p "$r/.claude"; printf '# Proj\n' > "$r/CLAUDE.md"
+printf 'Session name: second-file\n' > "$r/.claude/CLAUDE.md"
+expect_name "line only in .claude/CLAUDE.md -> name" "$(input startup "$r")" "second-file"
+chmod 000 "$r/CLAUDE.md"
+expect_name "unreadable CLAUDE.md -> .claude/CLAUDE.md name" "$(input startup "$r")" "second-file"
 
 # expect_bounded <case> <stdin>: the hook must finish within 3s, silent, exit
-# 0. Run in the background and killed (with its python child) on overrun, so
+# 0. Run in the background and killed (with its children) on overrun, so
 # a red run fails instead of hanging the suite.
 expect_bounded() {
   printf '%s' "$2" | bash "$HOOK" > "$TMP/out" 2>/dev/null &
