@@ -15,8 +15,7 @@ The owner deferred every standalone line rather than loop on them.
 5. `[P2 conf:0.4] hooks/subagent-no-background.sh:67 — a project's own *.output.done sentinel poll is denied like the harness marker; no such file exists in any owner repo → round2 #3, round3 test-gap #2`
 6. `[P2 conf:0.5] hooks/subagent-no-background.sh:56 — the deny text's pgrep -f wait matches any same-named process system-wide, not the backgrounded task; bracket trick added for the self-match only → round1 #4, round2 #5, round3 #1`
 7. `[P2 conf:0.4] install.sh:309 — register_hook treats an existing same-path entry with a wrong type/timeout as installed and never repairs it → round3 #3`
-8. `[conf:0.3] hooks/subagent-no-background.sh:37 — theoretical: python3 -c puts cwd first on sys.path, so a repo-planted json.py could shadow stdlib before the hook decides; needs a prior repo write → round2 theoretical #1`
-9. `[P2 conf:0.5] skills/feature-workflow/SKILL.md:47 — doctrine: the close-out pgrep -f output.done check is global, not session-scoped → round1 #5 (doctrine, report-only)`
+8. `[P2 conf:0.5] skills/feature-workflow/SKILL.md:47 — doctrine: the close-out pgrep -f output.done check is global, not session-scoped → round1 #5 (doctrine, report-only)`
 
 Not deferred, because triage found it false: install.sh:314 "unquoted hook path" (every
 hook path is a quoted argv element written via json.dump — dropped in all three rounds).

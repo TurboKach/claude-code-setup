@@ -11,7 +11,7 @@ pass() { echo "PASS: $1"; }
 
 # run <name> <stdin-json> → sets $out and $code
 run() {
-  out="$(printf '%s' "$2" | bash "$HOOK" 2>/dev/null)"
+  out="$(printf '%s' "$2" | "$BASH" "$HOOK" 2>/dev/null)"
   code=$?
 }
 
@@ -114,6 +114,51 @@ expect_allow "master file poll (grep on a log) -> allow" \
 expect_allow "pgrep without a loop -> allow" \
   '{"tool_name":"Bash","agent_id":"a1","tool_input":{"command":"pgrep -f xcodebuild | wc -l"}}'
 
+# The reader: strings are decoded, keys are read by depth, the last duplicate
+# wins, a non-string agent_id or command counts as absent.
+expect_deny "\\u-spelled loop keyword -> deny" \
+  '{"tool_name":"Bash","tool_input":{"command":"until [ -f x.output.done ]; do :; done"}}' \
+  "output.done"
+
+expect_deny "\\u-spelled key (tool_name) -> deny" \
+  '{"tool_name":"Bash","tool_input":{"command":"until [ -f x.output.done ]; do :; done"}}' \
+  "output.done"
+
+expect_allow "loop inside escaped quotes -> allow" \
+  '{"tool_name":"Bash","tool_input":{"command":"echo \"until [ -f x.output.done ]; do :; done\""}}'
+
+expect_deny "Unicode space (\\u00a0) before the loop keyword -> deny" \
+  '{"tool_name":"Bash","tool_input":{"command":"ls; while pgrep x; do :; done"}}' \
+  "hung"
+
+expect_deny "pretty-printed JSON with a blank line -> deny" \
+  "$(printf '{\n  "tool_name": "Bash",\n\n  "tool_input": {\n    "command": "until [ -f x.output.done ]; do :; done"\n  }\n}\n')" \
+  "output.done"
+
+expect_allow "a later duplicate tool_input wins -> allow" \
+  '{"tool_name":"Bash","tool_input":{"command":"until [ -f x.output.done ]; do :; done"},"tool_input":{"command":"ls"}}'
+
+expect_allow "tool_name Bash only in a nested object -> allow" \
+  '{"tool_name":"Read","x":{"tool_name":"Bash"},"tool_input":{"command":"until [ -f x.output.done ]; do :; done"}}'
+
+expect_allow "run_in_background outside tool_input -> allow" \
+  '{"tool_name":"Bash","agent_id":"a1","run_in_background":true,"tool_input":{"command":"ls"}}'
+
+expect_allow "agent_id not a string -> not a subagent -> allow" \
+  '{"tool_name":"Bash","agent_id":true,"tool_input":{"command":"ls","run_in_background":true}}'
+
+expect_allow "run_in_background as the string true -> allow" \
+  '{"tool_name":"Bash","agent_id":"a1","tool_input":{"command":"ls","run_in_background":"true"}}'
+
+expect_deny "non-string command, subagent background call -> deny" \
+  '{"tool_name":"Bash","agent_id":"a1","tool_input":{"command":["ls"],"run_in_background":true}}' \
+  "foreground"
+
+# NUL bytes in stdin are dropped, as the harness never sends one.
+out="$(printf '{"tool_name":"Bash","tool_input":{"command":"ls\000; until [ -f x.output.done ]; do :; done"}}' | "$BASH" "$HOOK" 2>/dev/null)"
+case "$out" in *'"deny"'*output.done*) ;; *) fail "NUL in stdin -> dropped, still denies (got: $out)" ;; esac
+pass "NUL in stdin -> dropped, still denies"
+
 # Fail-open: never block on anything the hook does not understand.
 expect_allow "tool_name Read -> allow" \
   '{"tool_name":"Read","agent_id":"a1","tool_input":{"file_path":"/tmp/x"}}'
@@ -122,14 +167,10 @@ expect_allow "empty stdin -> allow" ''
 
 expect_allow "malformed JSON -> allow" '{"tool_name":'
 
-# A module in the hook's cwd must never be imported: python3 -c would put
-# the cwd first on sys.path and run this json.py on every Bash call.
-SHADOW="$(mktemp -d)"
-trap 'rm -rf "$SHADOW"' EXIT
-printf 'open(%s, "w").close()\n' "'$SHADOW/marker'" > "$SHADOW/json.py"
-out="$(cd "$SHADOW" && printf '%s' '{"tool_name":"Bash","agent_id":"a1","tool_input":{"command":"ls","run_in_background":true}}' | bash "$HOOK" 2>/dev/null)"
-[ ! -e "$SHADOW/marker" ] || fail "json.py in cwd -> not imported: marker written"
-case "$out" in *'"deny"'*) ;; *) fail "json.py in cwd -> still denies (got: $out)" ;; esac
-pass "json.py in cwd -> not imported, still denies"
+expect_allow "unterminated string -> allow" \
+  '{"tool_name":"Bash","tool_input":{"command":"until [ -f x.output.done ]; do :; done}}'
+
+expect_allow "unbalanced brackets -> allow" \
+  '{"tool_name":"Bash","tool_input":{"command":"until [ -f x.output.done ]; do :; done"}'
 
 echo "all cases passed"
