@@ -14,17 +14,27 @@ pass() { echo "PASS: $1"; }
 A=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 B=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 C=cccccccccccccccccccccccccccccccccccccccc
-NOTICE_B="claude-code-setup: update available (installed aaaaaaa → remote bbbbbbb) — run /stack-update"
+SRC="TurboKach/claude-code-setup@master"
+notice() { echo "claude-code-setup: $1 (installed aaaaaaa → remote bbbbbbb) — run /stack-update"; }
+NOTICE_B="$(notice "6 new changes")"
 DRIFT="claude-code-setup: Claude Code 9.9.9 is running, doctrine last validated against 1.0.0 — diff the changelog 1.0.0 → 9.9.9 before the next pipeline change"
 
-# Fakes: curl prints $FAKE_REMOTE (empty = offline) and records the call;
-# claude prints $FAKE_CC.
+# Fakes: curl logs each URL; the SHA call prints $FAKE_REMOTE (empty =
+# offline), the compare call a trimmed compare body with $FAKE_AHEAD (empty =
+# 404/timeout). claude prints $FAKE_CC.
 mkdir -p "$TMP/bin"
 cat > "$TMP/bin/curl" <<'EOF'
 #!/usr/bin/env bash
-touch "$FAKE_LOG/curl-called"
-[ -n "$FAKE_REMOTE" ] || exit 7
-printf '%s' "$FAKE_REMOTE"
+url="${*: -1}"
+echo "$url" >> "$FAKE_LOG/curl-called"
+case "$url" in
+  */compare/*)
+    [ -n "$FAKE_AHEAD" ] || exit 22
+    printf '{"status": "ahead", "ahead_by": %s, "behind_by": 0, "files": [{"status": "modified"}]}' "$FAKE_AHEAD" ;;
+  *)
+    [ -n "$FAKE_REMOTE" ] || exit 7
+    printf '%s' "$FAKE_REMOTE" ;;
+esac
 EOF
 cat > "$TMP/bin/claude" <<'EOF'
 #!/usr/bin/env bash
@@ -40,11 +50,11 @@ fresh() {
   [ -n "$1" ] && echo "$1" > "$S/installed"
 }
 
-# run <fake remote> [fake cc version] → sets $out and $code
+# run <fake remote> [fake cc version] [fake ahead_by, default 6] → sets $out and $code
 run() {
   rm -f "$TMP/curl-called"
   out="$(CLAUDE_HOME="$HOME_DIR" PATH="$TMP/bin:$PATH" FAKE_LOG="$TMP" \
-    FAKE_REMOTE="$1" FAKE_CC="${2:-1.0.0}" bash "$HOOK" 2>/dev/null)"
+    FAKE_REMOTE="$1" FAKE_CC="${2:-1.0.0}" FAKE_AHEAD="${3-6}" bash "$HOOK" 2>/dev/null)"
   code=$?
   [ "$code" -eq 0 ] || fail "exit code $code, want 0"
 }
@@ -62,6 +72,7 @@ assert d == {"systemMessage": sys.argv[1], "hookSpecificOutput": {
 }
 
 curl_called() { [ -e "$TMP/curl-called" ]; }
+compare_called() { grep -q /compare/ "$TMP/curl-called" 2>/dev/null; }
 
 [ -f "$HOOK" ] || fail "hook missing at $HOOK"
 
@@ -75,13 +86,15 @@ pass "disabled -> silent, no network"
 
 fresh "$A"
 run "$A"; expect_silent "up to date"
-[ "$(cat "$S/remote")" = "$A $A" ] || fail "up to date: remote cache not written"
-pass "poll, up to date -> silent, cache written"
+[ "$(cat "$S/remote")" = "$A $SRC $A -" ] || fail "up to date: remote cache not written"
+compare_called && fail "up to date: compare called"
+pass "poll, up to date -> silent, cache written, no compare call"
 
 fresh "$A"
 run "$B"; expect_notice "update" "$NOTICE_B" "$NOTICE_B"
-[ "$(cat "$S/remote")" = "$A $B" ] || fail "update: remote cache not written"
-pass "poll, update available -> JSON notice to user and Claude"
+[ "$(cat "$S/remote")" = "$A $SRC $B 6" ] || fail "update: remote cache not written"
+grep -q "/compare/$A...$B?" "$TMP/curl-called" || fail "update: compare not called for installed...remote"
+pass "poll, update available -> JSON notice with count to user and Claude"
 
 run "$C"; expect_notice "replay" "$NOTICE_B" "$NOTICE_B"
 curl_called && fail "replay: curl called inside the 24h window"
@@ -92,19 +105,39 @@ run "$C"; expect_silent "replay after update"
 curl_called && fail "replay after update: curl called inside the 24h window"
 pass "installed moved past the polled SHA -> no stale replay"
 
-fresh "$A"; echo "$A $B" > "$S/remote"; echo 0 > "$S/last-check"
-run ""; expect_silent "offline poll"
-[ "$(cat "$S/remote")" = "$A $B" ] || fail "offline: known update overwritten"
-run ""; expect_notice "offline then replay" "$NOTICE_B" "$NOTICE_B"
-pass "offline poll -> silent, keeps the known update for replay"
+fresh "$A"
+run "$B" 1.0.0 1; expect_notice "one change" "$(notice "1 new change")" "$(notice "1 new change")"
+pass "one commit behind -> singular"
+
+fresh "$A"
+run "$B" 1.0.0 ""; expect_notice "no count" "$(notice "update available")" "$(notice "update available")"
+[ "$(cat "$S/remote")" = "$A $SRC $B -" ] || fail "no count: SHA not cached without count"
+pass "compare fails -> notice without count, SHA still cached"
+
+fresh "$A"
+run "$B" 1.0.0 0; expect_silent "install ahead"
+pass "remote has nothing the install lacks (ahead_by 0) -> silent"
+
+fresh "$A"; echo "$A $SRC $B 6" > "$S/remote"; echo 0 > "$S/last-check"
+run ""; expect_notice "offline poll" "$NOTICE_B" "$NOTICE_B"
+[ "$(cat "$S/remote")" = "$A $SRC $B 6" ] || fail "offline: known update overwritten"
+echo 0 > "$S/last-check"
+run ""; expect_notice "offline again, >24h later" "$NOTICE_B" "$NOTICE_B"
+pass "failed poll -> replays the known update, every time"
+
+fresh "$A"; echo "$(date +%s)" > "$S/last-check"; echo "$A someone/fork@main $B 6" > "$S/remote"
+run "$B"; expect_silent "other source"
+pass "cache from another repo/branch -> no replay"
 
 fresh "$A"; echo "$(date +%s)" > "$S/last-check"
 run "$B"; expect_silent "no cache"
 pass "within 24h, no remote cache -> silent"
 
+fresh "$A"; echo "$(date +%s)" > "$S/last-check"; echo "$A $B" > "$S/remote"
+run "$B"; expect_silent "old two-field cache"
 fresh "$A"; echo "$(date +%s)" > "$S/last-check"; echo "garbage" > "$S/remote"
 run "$B"; expect_silent "corrupt cache"
-pass "within 24h, corrupt remote cache -> silent"
+pass "within 24h, old-format or corrupt remote cache -> silent"
 
 fresh "$A"; echo 1.0.0 > "$S/validated-cc-version"
 run "$B" 9.9.9; expect_notice "drift + update" "$NOTICE_B" "$DRIFT

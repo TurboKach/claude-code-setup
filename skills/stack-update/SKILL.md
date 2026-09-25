@@ -19,8 +19,8 @@ only writes it when it copied `CLAUDE.md` for a user who had none, so anyone wit
 personal `CLAUDE.md` has no stamp at all; never fall back to `installed`, see step 5),
 `claude-md-skipped` (SHA of upstream's `global/CLAUDE.md` at the point the user last declined to
 reconcile it — suppresses re-showing an identical comparison in step 5; never used as a diff
-base and never implies acceptance), `last-check` (epoch of last poll), `remote` (`<installed> <remote>` SHAs from the last
-successful poll — replayed at each session start while `installed` still matches), `disabled` (presence
+base and never implies acceptance), `last-check` (epoch of last poll), `remote` (`<installed> <repo@branch> <remote> <count>` from the last
+successful poll — replayed at each session start while `installed` and the source still match), `disabled` (presence
 silences the SessionStart check entirely; `touch` it to opt out).
 
 Repo: `https://github.com/TurboKach/claude-code-setup.git`, default branch **`master`** (not
@@ -60,12 +60,16 @@ no state-dir file is written, until the approval gate in step 4 passes.
    - `skills/*` → which skills are new or changed.
    - `agents/*` → which role agents changed.
    - `global/rules/*` → which path-scoped user rules are new or changed.
+   - `hooks/*` → what now happens differently at session start or on tool calls.
    - `install.sh` / `settings.example.json` → what the installer will now do differently,
      including a changed recommended master (`model` / `modelSettings`) — step 6 may ask about it.
    Omit a group with no changes.
 
-4. **Approval gate #1 — apply the update at all?** `AskUserQuestion`: "Apply this update?" with
-   options *Apply* / *Show the full diff first* / *Cancel*.
+4. **Approval gate #1 — apply the update at all?** `AskUserQuestion` whose question text opens
+   with step 3's summary — `What's new since <installed short SHA> (<N> commits):` and the
+   bullets, or step 3's divergent-history / no-base label in their place — and ends "Apply this
+   update?", with options *Apply* / *Show the full diff first* / *Cancel*. The summary goes in
+   the question even when the user wrote the commits.
    - *Show the full diff first* → show it, then re-ask this same question; it is not itself an
      answer.
    - *Cancel* → stop here. **Nothing is written and the state dir is left exactly as it was** —
