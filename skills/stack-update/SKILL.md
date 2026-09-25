@@ -20,7 +20,8 @@ personal `CLAUDE.md` has no stamp at all; never fall back to `installed`, see st
 `claude-md-skipped` (SHA of upstream's `global/CLAUDE.md` at the point the user last declined to
 reconcile it — suppresses re-showing an identical comparison in step 5; never used as a diff
 base and never implies acceptance), `last-check` (epoch of last poll), `remote` (`<installed> <repo@branch> <remote> <count>` from the last
-successful poll — replayed at each session start while `installed` and the source still match), `disabled` (presence
+successful poll — replayed at each session start while `installed` and the source still match), `notice` (the
+session-start notice in the user's language, see step 7), `disabled` (presence
 silences the SessionStart check entirely; `touch` it to opt out).
 
 Repo: `https://github.com/TurboKach/claude-code-setup.git`, default branch **`master`** (not
@@ -54,8 +55,9 @@ no state-dir file is written, until the approval gate in step 4 passes.
      short subject, and the last ~10 commit subjects (`git log --oneline -10`) as context — and
      label that list explicitly as *not* a diff against what the user has installed.
 
-   Group bullets by the surfaces the user actually has installed, each stated in user-facing
-   terms (not a hash dump):
+   Write the summary in the language you answer the user in — Claude Code's `language` setting
+   when set, else the conversation's — not the commit subjects' language. Group bullets by the
+   surfaces the user actually has installed, each stated in user-facing terms (not a hash dump):
    - `global/CLAUDE.md` → their always-on rules — what changed, in a sentence.
    - `skills/*` → which skills are new or changed.
    - `agents/*` → which role agents changed.
@@ -157,6 +159,12 @@ no state-dir file is written, until the approval gate in step 4 passes.
        declined or unconfirmed `CLAUDE.md` change stays pending and resurfaces in the next run's
        step 5 instead of being silently dropped or falsely marked accepted.
    - Delete `last-check` so the next session re-polls fresh instead of trusting the 24h cache.
+   - `notice` — the hook shows this line at session start, before the user has typed anything,
+     so it can't take the language from the conversation. Write one line in the language you
+     answer in, with the placeholders `{n}` (commit count, or `?`), `{from}` and `{to}` (short
+     SHAs), phrased so any count reads correctly — e.g. `New changes: {n} ({from} → {to}) — run
+     /stack-update`, translated. When that language is English, delete `notice` instead; the
+     hook's built-in English wording is used.
 
 8. **Tell the user to restart Claude Code.** Skills, agents, hooks, and settings `env` are all
    read at session start — nothing applied by this run is live in the current session until

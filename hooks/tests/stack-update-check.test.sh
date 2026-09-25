@@ -139,6 +139,25 @@ fresh "$A"; echo "$(date +%s)" > "$S/last-check"; echo "garbage" > "$S/remote"
 run "$B"; expect_silent "corrupt cache"
 pass "within 24h, old-format or corrupt remote cache -> silent"
 
+fresh "$A"; echo 'Новых изменений: {n} ({from} → {to}) — запустите /stack-update' > "$S/notice"
+run "$B"; expect_notice "localized" \
+  "claude-code-setup: Новых изменений: 6 (aaaaaaa → bbbbbbb) — запустите /stack-update" "$NOTICE_B"
+pass "notice template -> user's copy in their language, Claude's copy in English"
+
+fresh "$A"; printf '%s\n' 'Say "hi" \ {n}	tab' 'second line ignored' > "$S/notice"
+run "$B" 1.0.0 ""; expect_notice "template escaping" 'claude-code-setup: Say "hi" \ ?tab' "$(notice "update available")"
+pass "template with quotes, backslash, control chars -> valid JSON; unknown count -> ?"
+
+fresh "$A"; echo "$(date +%s)" > "$S/last-check"; echo "$A $SRC $B 5\"x" > "$S/remote"
+run "$B"; expect_notice "corrupt count" "$(notice "update available")" "$(notice "update available")"
+pass "corrupt cached count -> generic notice, valid JSON"
+
+fresh "$A"; echo "$A $SRC $B 6" > "$S/remote"; echo 0 > "$S/last-check"; chmod 444 "$S/last-check"
+run "$B"; expect_notice "stamp unwritable" "$NOTICE_B" "$NOTICE_B"
+curl_called && fail "stamp unwritable: curl called"
+chmod 644 "$S/last-check"
+pass "last-check unwritable -> no network, known update still replayed"
+
 fresh "$A"; echo 1.0.0 > "$S/validated-cc-version"
 run "$B" 9.9.9; expect_notice "drift + update" "$NOTICE_B" "$DRIFT
 $NOTICE_B"

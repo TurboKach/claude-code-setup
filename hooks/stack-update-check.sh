@@ -15,14 +15,22 @@ SOURCE="$REPO@$BRANCH"  # a cached poll is only valid for the source it came fro
 is_sha() { [[ "$1" =~ ^[0-9a-f]{40}$ ]]; }  # full, exact SHA — no partial/trailing-junk matches
 
 # notify <remote-sha> <count or -> [context]: the update notice, to the user
-# and to Claude. Nothing interpolated here can hold a quote or backslash, so no
-# JSON escaping.
+# and to Claude. The user's copy comes from $STATE/notice when present — one
+# line in the user's language, written by /stack-update, with {n} {from} {to}
+# filled in here — and is the only interpolated text that needs JSON escaping.
 notify() {
-  local what="update available"
-  case "$2" in 1) what="1 new change" ;; [1-9]*) what="$2 new changes" ;; esac
+  local what="update available" n="?"
+  case "$2" in ''|*[!0-9]*|0) ;; 1) what="1 new change" n=1 ;; *) what="$2 new changes" n="$2" ;; esac
   local msg="claude-code-setup: $what (installed ${installed:0:7} → remote ${1:0:7}) — run /stack-update"
+  local user="$msg" tpl
+  tpl="$(head -n 1 "$STATE/notice" 2>/dev/null | tr -d '[:cntrl:]')"
+  if [ -n "$tpl" ]; then
+    tpl="${tpl//\\/\\\\}"; tpl="${tpl//\"/\\\"}"
+    tpl="${tpl//\{n\}/$n}"; tpl="${tpl//\{from\}/${installed:0:7}}"; tpl="${tpl//\{to\}/${1:0:7}}"
+    user="claude-code-setup: $tpl"
+  fi
   printf '{"systemMessage":"%s","hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s%s"}}\n' \
-    "$msg" "${3:+$3\\n}" "$msg"
+    "$user" "${3:+$3\\n}" "$msg"
 }
 
 installed="$(cat "$STATE/installed" 2>/dev/null)"
@@ -35,28 +43,13 @@ case "$last_check" in
 esac
 now="$(date +%s)"
 drift=""
-if [ $((now - 10#$last_check)) -ge 86400 ]; then  # 10# forces base-10: no leading-zero-as-octal trap
-  # Stamp before the network call: an offline machine must not pay the curl
-  # timeout on every single session start. Cost: an update found while offline
-  # surfaces up to a day later — the right trade for a startup hook. If the
-  # state dir isn't writable, bail before the network call too, or every
-  # session would pay the curl timeout instead of just this one.
-  { echo "$now" > "$STATE/last-check"; } 2>/dev/null || exit 0
-
-  # Doctrine-vs-harness drift. The kit's rules encode version-dependent harness
-  # behavior; install.sh stamps the version docs/references.md was last validated
-  # against. One line when the running Claude Code differs — the changelog diff
-  # itself stays a manual, discussed step. `claude --version` starts node, so it
-  # sits behind the once-a-day gate above and under gtimeout where available.
-  validated="$(cat "$STATE/validated-cc-version" 2>/dev/null)"
-  if [[ "$validated" =~ ^[0-9]+(\.[0-9]+)+$ ]]; then
-    to="$(command -v gtimeout || command -v timeout)" 2>/dev/null
-    running="$(${to:+"$to" 5} claude --version 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+' | head -1)"
-    if [ -n "$running" ] && [ "$running" != "$validated" ]; then
-      drift="claude-code-setup: Claude Code $running is running, doctrine last validated against $validated — diff the changelog $validated → $running before the next pipeline change"
-    fi
-  fi
-
+# Stamp before the network call: an offline machine must not pay the curl
+# timeout on every single session start. Cost: an update found while offline
+# surfaces up to a day later — the right trade for a startup hook. If the stamp
+# can't be written, skip the network too, or every session would pay the curl
+# timeout instead of just this one.
+if [ $((now - 10#$last_check)) -ge 86400 ] \
+  && { echo "$now" > "$STATE/last-check"; } 2>/dev/null; then  # 10# forces base-10: no leading-zero-as-octal trap
   remote="$(curl -sfm 4 -H 'Accept: application/vnd.github.sha' \
     "https://api.github.com/repos/${REPO}/commits/${BRANCH}" 2>/dev/null)"
   if is_sha "$remote"; then
@@ -69,6 +62,21 @@ if [ $((now - 10#$last_check)) -ge 86400 ]; then  # 10# forces base-10: no leadi
       count="$(curl -sfm 3 "https://api.github.com/repos/${REPO}/compare/${installed}...${remote}?per_page=1" 2>/dev/null \
         | grep -oE '"ahead_by": *[0-9]+' | head -1 | grep -oE '[0-9]+$')"
       [ -n "$count" ] && { echo "$installed $SOURCE $remote $count" > "$STATE/remote"; } 2>/dev/null
+    fi
+  fi
+
+  # Doctrine-vs-harness drift. The kit's rules encode version-dependent harness
+  # behavior; install.sh stamps the version docs/references.md was last validated
+  # against. One line when the running Claude Code differs — the changelog diff
+  # itself stays a manual, discussed step. `claude --version` starts node, so it
+  # sits behind the once-a-day gate, after the polls so their results are saved
+  # even if the hook's timeout cuts it, and under gtimeout where available.
+  validated="$(cat "$STATE/validated-cc-version" 2>/dev/null)"
+  if [[ "$validated" =~ ^[0-9]+(\.[0-9]+)+$ ]]; then
+    to="$(command -v gtimeout || command -v timeout)" 2>/dev/null
+    running="$(${to:+"$to" 5} claude --version 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+' | head -1)"
+    if [ -n "$running" ] && [ "$running" != "$validated" ]; then
+      drift="claude-code-setup: Claude Code $running is running, doctrine last validated against $validated — diff the changelog $validated → $running before the next pipeline change"
     fi
   fi
 fi

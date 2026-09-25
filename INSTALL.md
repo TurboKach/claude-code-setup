@@ -132,7 +132,9 @@ else. Then suggest a test (background subagents, read-only → no worktrees):
 Also mention: a `SessionStart` hook now checks once a day for a newer
 `claude-code-setup` and shows one line at every session start while there's an update — `/stack-update`
 applies it, and nothing is written without approval. Opt out with
-`touch ~/.claude/.claude-code-setup/disabled`. A second `SessionStart` hook names
+`touch ~/.claude/.claude-code-setup/disabled`. Unless you are answering in English, write
+`~/.claude/.claude-code-setup/notice` as `/stack-update` step 7 describes, so that line is in
+the user's language. A second `SessionStart` hook names
 the session from a `Session name: <project>-<role>` line in the repo's
 CLAUDE.md, so sessions in a project's sibling repos (an app, its API, a web
 client — any number) can find and message each other; tell the user to add
