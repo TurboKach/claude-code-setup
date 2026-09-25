@@ -29,7 +29,7 @@ in parallel, no extra setup).
 | `agents/codex-triage.md` | Reads one round's `codex-challenge.sh` output file(s) — all slices of a split round — verifies each finding against `git show <head>:<path>` and `git diff <base> <head>`, and returns the single ≤2k deduped verdict; the run itself is a background Bash in the master, the only context the harness re-wakes on completion *(Sonnet medium)* |
 | `agents/spec-reviewer.md` | At the final gate, checks the feature's whole diff against the approved plan file — missing requirements, scope creep, wrong-logic-vs-spec; gaps only, in parallel with the whole-range codex challenge *(Sonnet medium)* |
 | `agents/team-reviewer.md` | **Parallel fan-out only.** Adversarially verifies each unit's diff before merge — read-only, no worktree *(Opus)* |
-| `agents/team-merger.md` | **Parallel fan-out only.** Merges approved worktrees into the base branch, removes each worktree + branch after landing, reports done *(Sonnet)* |
+| `agents/team-merger.md` | **Parallel fan-out only.** Merges the worktrees the lead names into the base branch, removes each worktree + branch after landing, reports done *(Sonnet)* |
 | `settings.example.json` | `model: "opus"` + `modelSettings.claude-opus-5-5.effortLevel: "xhigh"` (the recommended master — the session you open — the latest Opus at xhigh; the install wizard and `/stack-update` ask: recommended / keep current / don't ask again / another model, and `install.sh --master=recommended` applies it), `worktree.baseRef: "head"` so executor worktrees branch from your in-progress branch rather than the remote default, `CLAUDE_CODE_ENABLE_TODO_TOOLS` (the task-list feature), `CLAUDE_CODE_SUBAGENT_MODEL` (the Sonnet floor for unpinned spawns — see [Model pinning](#model-pinning)), `BASH_DEFAULT_TIMEOUT_MS: 900000` (a build or test run with no explicit timeout is no longer auto-backgrounded at 2 minutes; this is also the ceiling), `CODEX_REVIEW_MODEL` + `CODEX_REVIEW_EFFORT` (which codex model and reasoning effort the cross-review gate uses — set here, not in the script, because install.sh replaces the skill directory on every run; reinstalling never overrides an existing value, so change it by editing `settings.json`), `bashOutputMaxChars: 30000` (a valid command result over 30k characters arrives as a file path plus a 2k preview instead of flooding the context), `bashEditDiffEnabled: true` (the transcript records which files each Bash command changed — `/analyze-arcs` reads that instead of parsing commands; on by default only in auto mode, so it is pinned for every mode; never shown to the model), the `SessionStart` update-check hook, and the `PreToolUse` subagent-no-background hook |
 | `hooks/subagent-no-background.sh` | PreToolUse on Bash: denies `run_in_background` inside any subagent (with fork mode on every spawn is a background subagent, whose background commands keep running past its final report — nobody stops them) and any `until`/`while` poll on a `.output.done` marker (the harness never writes one). Fail-open on anything it does not understand; tests in `hooks/tests/` |
 | `hooks/stack-update-check.sh` | Runs once per session start: at most once a day, checks whether this repo's `master` differs from the SHA you installed, and whether the running Claude Code differs from the version the doctrine was last validated against (`docs/references.md`, stamped by `install.sh`) — one line each if so, silent otherwise (no update, no network, disabled, cached) |
@@ -59,7 +59,10 @@ CODEX (lead) → one codex-challenge.sh <feature-base>..HEAD ─┘   ← triage
 Pick the fan-out mechanism by need: **background subagents** by default;
 **Workflows** for large/deterministic/resumable fan-outs. Worktree isolation
 is added **only** where agents write in parallel and merge — read-only
-fan-out (review, research) skips it.
+fan-out (review, research) skips it. Inside the feature pipeline, each plan
+weighs whether two long, independent steps run as a pair — at most two
+executors at once, each in its own worktree, landed by the merger; every other
+step runs one at a time.
 
 ### Recommended models
 

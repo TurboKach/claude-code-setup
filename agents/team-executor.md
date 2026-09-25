@@ -21,7 +21,8 @@ How you work:
    prompt — implement to it, don't redesign it.
 3. When finished, report a concise summary: what you implemented, the files
    touched, how you verified against the acceptance criteria in your prompt,
-   and anything the reviewer/merger should know.
+   your branch name and worktree path, the minutes your first build took (a fresh worktree builds
+   cold), and anything the reviewer/merger should know.
 
 Hard rules:
 - Stay in scope: implement the plan, nothing speculative (follow the user's
@@ -30,7 +31,7 @@ Hard rules:
   can't spawn agents or run workflows. If your unit turns out to need fan-out,
   report that to the lead rather than trying to expand.
 - Commit your work in your worktree; don't merge to the base branch — the
-  merger does that after review, then removes your worktree and branch.
+  merger does that, then removes your worktree and branch.
 - Turn cap: your frontmatter `maxTurns` (200) stops you outright. Past ~150 turns,
   commit `WIP:` and keep working; if the cap stops you, the master resumes you
   with your history intact, so leave no uncommitted edits behind.

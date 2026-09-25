@@ -50,7 +50,8 @@ the Workflow and Agent tools, so they can't fan out on their own.)
 You're in this skill because the fan-out decision already came back "parallel"
 — that call is made *before* `agent-teams` loads, per the global CLAUDE.md rule
 ("Inside a pipeline, delegation is the default … If one subagent can do it, use
-one") and `feature-workflow`'s "When to offer (lead only)" bullet. So within a
+one") and `feature-workflow`'s "When to offer (lead only)" bullet — inside a
+pipeline, the plan's `Parallel:` line. So within a
 fan-out the rule is simple: **writers that run concurrently get `isolation:
 worktree` each** — even if the plan says their files are disjoint. Read-only
 fan-out (review, research, multi-lens analysis) never gets a worktree,
@@ -276,4 +277,7 @@ scales to many units, cross-checks results, and resumes if interrupted.
 This is the parallel-execution variant of the `feature-workflow` skill's pipeline; its stage-5 codex gate rules (per-feature range, P0/P1 convergence loop, tech-debt deferral) apply verbatim.
 Planning (native plan mode) and shipping are unchanged; fan-out only replaces the execute phase's
 sequential per-step subagents with parallel agents when the steps are
-independent.
+independent. A pair from a feature-workflow plan's `Parallel:` line doesn't run
+this pipeline: `feature-workflow` stage 4 spawns its two `team-executor`s and one
+`team-merger` directly, and the per-step codex round on the merged range stands
+in for `team-reviewer`.

@@ -18,10 +18,13 @@ flowchart TD
     LOAD --> INV0{{"INVARIANT: master writes zero product code<br/>from here until ship"}}
     INV0 --> S123["Stages 1–3<br/>discuss → plan mode: master authors → team-plan-reviewer → ExitPlanMode<br/><b>user approves plan</b> ← only taste gate"]
 
-    S123 --> G2{"<b>Gate 2</b> — stage 4 Execute<br/>are 2+ steps independent AND<br/>running at the same time?"}
+    S123 --> G2{"<b>Gate 2</b> — the plan's <b>Parallel:</b> line<br/>weighed in stage 2, approved with the plan"}
 
-    G2 -->|no — sequential| SEQ["<b>step-executor</b> ×1 per step, in turn<br/>session's own branch · NO worktree<br/>commits per step"]
-    G2 -->|yes — parallel| LOADAT[["load <b>agent-teams</b>"]]
+    G2 -->|none| SEQ["<b>step-executor</b> ×1 per step, in turn<br/>session's own branch · NO worktree<br/>commits per step"]
+    G2 -->|"pair"| PAIR["<b>team-executor</b> ×2, concurrent<br/>worktree each · base = worktree.baseRef: head<br/>no other writer until it lands"]
+    PAIR --> PMERGE["team-merger — lands both, removes worktrees<br/>per-step codex round on the merged range"]
+    PMERGE -->|remaining steps| SEQ
+    G2 -->|"wider fan-out the owner asked for"| LOADAT[["load <b>agent-teams</b>"]]
 
     LOADAT --> G1{"<b>Gate 1</b> — mechanism §2<br/>how big / how deterministic?"}
     G1 -->|"default"| SUB["background subagents"]
@@ -52,8 +55,8 @@ flowchart TD
 | Gate | Question | Owned by | Evaluated when |
 |---|---|---|---|
 | 0 | one-shot or pipeline? | `global/CLAUDE.md` → "Feature workflow" trigger | master session, before its first edit |
-| 2 | sequential or parallel? | `skills/feature-workflow/SKILL.md` → "When to offer (lead only)" | stage 4, after plan approval |
-| 1 | subagents / Workflows? | `skills/agent-teams/SKILL.md` §2 | after gate 2 answers "parallel" |
+| 2 | none, a pair, or a wider fan-out? | `skills/feature-workflow/SKILL.md` → stage 2 "Parallel decision" | stage 2, in the plan — approved with it |
+| 1 | subagents / Workflows? | `skills/agent-teams/SKILL.md` §2 | after gate 2 answers "wider fan-out" |
 | 3 | worktree or not? | `skills/agent-teams/SKILL.md` §3 | after gate 1 answers "subagents" |
 
 Gate 1 is numbered out of order on purpose: it is *inside* the parallel branch,
@@ -64,7 +67,8 @@ so gate 2 always precedes it. Gates fire 0 → 2 → 1 → 3.
 | # | Path | Executor | Worktree | Base branch | Who lands it | Who removes the worktree |
 |---|---|---|---|---|---|---|
 | L1 | gate 0 = no | master itself, or one `step-executor` | no | session | master | n/a |
-| L2 | gate 2 = sequential | `step-executor` ×1 per step | **no** | session | master | n/a |
+| L2 | gate 2 = none | `step-executor` ×1 per step | **no** | session | master | n/a |
+| L2p | gate 2 = pair | `team-executor` ×2 | **yes** (frontmatter) | `baseRef: head` | `team-merger` | `team-merger`, explicitly |
 | L3 | gate 3 = 2+ writers | `team-executor` ×N | **yes** (frontmatter) | `baseRef: head` | `team-merger` | `team-merger`, explicitly |
 | L4 | gate 3 = read-only | ad-hoc subagents | no | session | n/a — nothing written | n/a |
 | L5 | gate 1 = Workflows | workflow script agents | per script | per script | master | script / master |
@@ -74,26 +78,26 @@ so gate 2 always precedes it. Gates fire 0 → 2 → 1 → 3.
 
 These are what a logic review should test. Each should hold on every path above.
 
-1. **No two concurrent writers share a checkout.** Holds on L3 (worktree each).
+1. **No two concurrent writers share a checkout.** Holds on L2p and L3 (worktree each).
    Vacuous on L1/L2/L4.
-2. **Worktree ⟹ something explicitly removes it.** Holds on L3 only, via
+2. **Worktree ⟹ something explicitly removes it.** Holds on L2p and L3, via
    `team-merger`. Neither platform mechanism (no-change auto-removal, the
    `cleanupPeriodDays` sweep) ever fires on an executor worktree, because it has
    unpushed commits. Backstop for an aborted run: the lead's end-of-run check that no
    feature worktrees/branches remain.
 3. **Worktree ⟹ it can see the plan file and prior work.** Requires
-   `worktree.baseRef: "head"`. Under the default `"fresh"`, L3 breaks silently —
+   `worktree.baseRef: "head"`. Under the default `"fresh"`, L2p and L3 break silently —
    executors get a clean `origin/main`.
-4. **Isolation is never a per-spawn judgment call.** L3's worktree comes from
+4. **Isolation is never a per-spawn judgment call.** The L2p/L3 worktree comes from
    `team-executor`'s frontmatter; L2 has no `isolation` field at all. The
    orchestrator picks an *agent*, not a flag.
 5. **Every executor is named by the plan.** Global CLAUDE.md requires each plan
-   step to name its subagent; L2 → `step-executor`, L3 → `team-executor`.
+   step to name its subagent; L2 → `step-executor`, L2p and L3 → `team-executor`.
 6. **Once the pipeline is active, the master writes no product code.** Applies
    from `LOAD` onward — L2 through L5. L1 is the only path where the master
    edits, and it is by definition outside the pipeline.
-7. **Nothing ships without the codex gate, nothing pushes without the user.** Both
-   paths converge on one challenge of the whole feature diff after the last
+7. **Nothing ships without the codex gate, nothing pushes without the user.** Every
+   path converges on one challenge of the whole feature diff after the last
    step/merge.
 
 ## Known soft spots
@@ -104,6 +108,7 @@ These are what a logic review should test. Each should hold on every path above.
 - **E1 is a detected-late error, not a prevented one.** By the time gate 3 sees
   one writer, gate 2 has already committed to the parallel path. The redirect
   works, but the wasted step is real.
-- **Gate 2's "at the same time" is a prediction.** A plan that looks parallel
-  can serialize in practice (units colliding on a hub file). §3's mitigation is to give a hub file to one unit and prefer
+- **Gate 2 is a prediction.** A pair that looks independent can collide in
+  practice (a hub file, a shared simulator or container); `team-plan-reviewer`
+  checks each pair against the code before approval. §3's mitigation is to give a hub file to one unit and prefer
   fewer, larger units.
