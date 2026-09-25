@@ -19,6 +19,7 @@ Maintenance rules:
 - **`skills/feature-workflow/SKILL.md:17` — mixed dependency graph relies on a derived precondition** — Stage 3's mixed dependency graph relies on a derived precondition, not a stated one → docs/todos/feature-workflow-mixed-dependency-graph.md
 - **`skills/feature-workflow/SKILL.md:52` — no fallback if real+regression lines alone exceed the cap** — No fallback when real+regression lines alone exceed the verdict size cap → docs/todos/feature-workflow-verdict-cap-fallback.md
 - **`install.sh:429` — `register_hook` stores hook command paths unquoted** — a `CLAUDE_HOME` with a space splits every kit hook's command and it silently no-ops → docs/todos/install-sh-hook-command-unquoted.md
+- **`skills/feature-workflow/SKILL.md:39` — unattended `claude --bg` handoff may be refused by the auto-mode classifier** — a same-shape launch was denied as "Create Unsafe Agents"; unverified under delegated approval → docs/todos/feature-workflow-bg-launch-classifier.md
 - **`global/CLAUDE.md:12` — simplicity mnemonic cut, salience not replaced** — Simplicity mnemonic line was cut from CLAUDE.md, salience cue not replaced → docs/todos/claude-md-simplicity-mnemonic-cut.md
 - **Deferred from the codex-challenge arc** — Standalone P2/test-gap/theoretical findings deferred after the stage-5 gate went clean → docs/todos/deferred-codex-challenge-arc.md
 - **Deferred from the subagent no-background arc** — Standalone findings deferred after the stage-5 gate went clean across three rounds → docs/todos/deferred-subagent-no-background-arc.md
