@@ -48,8 +48,9 @@ CLAUDE.md only if none exists yet, and leave the master model untouched.
                          ~/.claude/CLAUDE.md (no-op if that section is already there).
   --claude-md=replace    Back up and overwrite ~/.claude/CLAUDE.md with this repo's copy.
   --claude-md=leave      Leave an existing ~/.claude/CLAUDE.md untouched.
-  --master=recommended   Write settings.example.json's "model" and each
-                         modelSettings.<id>.effortLevel, overwriting existing values.
+  --master=recommended   Write settings.example.json's "model" (keeping a trailing [1m]
+                         yours has) and each modelSettings.<id>.effortLevel,
+                         overwriting existing values.
   --master=keep          Leave "model" and "modelSettings" untouched (no notice this run).
   --master=dont-ask      Same as keep, and record the current recommendation in
                          .claude-code-setup/master-dont-ask so no-flag runs stop
@@ -351,8 +352,16 @@ def set_effort(mid, effort):
     entry["effortLevel"] = effort
     if "modelSettings" not in master_written:
         master_written.append("modelSettings")
+# A trailing "[1m]" (any casing) selects the 1M context window of the same model: it
+# never makes a model differ from the recommendation, and "recommended" keeps it.
+def base_model(m):
+    return m[:-4] if isinstance(m, str) and m.lower().endswith("[1m]") else m
 if master_mode in ("recommended", "model"):
-    d["model"] = ex["model"] if master_mode == "recommended" else master_model
+    cur = d.get("model")
+    if master_mode == "recommended":
+        d["model"] = base_model(ex["model"]) + cur[-4:] if base_model(cur) != cur else ex["model"]
+    else:
+        d["model"] = master_model
     master_written.append("model")
     efforts = {mid: cfg["effortLevel"] for mid, cfg in ex["modelSettings"].items()} if master_mode == "recommended" \
         else ({master_model: master_effort} if master_effort else {})
@@ -369,7 +378,7 @@ if master_mode == "dont-ask":
 elif master_mode in ("recommended", "model") and os.path.exists(dont_ask_path):
     os.remove(dont_ask_path)
 dont_ask = os.path.exists(dont_ask_path) and open(dont_ask_path).read().strip() == recommendation
-master_matches = d.get("model") == ex["model"] and isinstance(d.get("modelSettings"), dict) and all(
+master_matches = base_model(d.get("model")) == base_model(ex["model"]) and isinstance(d.get("modelSettings"), dict) and all(
     isinstance(d["modelSettings"].get(mid), dict) and d["modelSettings"][mid].get("effortLevel") == cfg["effortLevel"]
     for mid, cfg in ex["modelSettings"].items())
 

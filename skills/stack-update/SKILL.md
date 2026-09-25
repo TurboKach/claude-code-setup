@@ -123,7 +123,8 @@ no state-dir file is written, until the approval gate in step 4 passes.
 6. **Install.** First, the master-model question — asked on every update unless the user
    already has it or said not to. Ask only when both hold:
    - the live `~/.claude/settings.json` doesn't match the clone's `settings.example.json`
-     recommendation: `model` differs, or any `modelSettings.<id>.effortLevel` there differs;
+     recommendation: `model` differs ignoring a trailing `[1m]` in any casing — it selects the
+     same model's 1M window — or any `modelSettings.<id>.effortLevel` there differs;
    - `~/.claude/.claude-code-setup/master-dont-ask` is absent, or its content differs from
      `python3 -c 'import json,sys; e=json.load(open(sys.argv[1])); print(json.dumps({"model": e["model"], "modelSettings": e["modelSettings"]}, separators=(",", ":"), sort_keys=True))' settings.example.json`
      run in the clone (a changed recommendation asks again).
