@@ -3,7 +3,7 @@
 Sources this kit's doctrine is built on. Facts you can't infer from the code —
 not a reading list.
 
-> **Doctrine validated against Claude Code v2.1.280 — 2026-09-23.**
+> **Doctrine validated against Claude Code v2.1.282 — 2026-09-26.**
 > Re-check when `claude --version` has moved: read the changelog from the stamped
 > version forward, decide what it means for the pipeline, then re-stamp this line.
 > The claims in *Harness* below are version-dependent; the rest are not.
@@ -54,19 +54,23 @@ frontmatter, worktrees, permissions) comes from here and nowhere else.
 
 ## Model behavior — what the pipeline is tuned against
 
-- Prompting Claude Opus 5.5 —
+Each entry carries the page's publish date, or the day the kit last read it
+when the page states none. The guides are revised as models ship, so an old
+*read* date means re-read before citing.
+
+- Prompting Claude Opus 5.5 *(read 2026-09-23)* —
   <https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5>
   Default effort `medium` (≥ Opus 5 at `high` on coding); thinks more per turn
   than Opus 5 at the same level; sometimes ends a turn to report instead of
   continuing — name the stops you want; can't read Fable thinking blocks, so a
   mid-session `/model` switch from Fable drops earlier reasoning.
 
-- Opus 5 prompting guide —
+- Opus 5 prompting guide *(read 2026-09-01)* —
   <https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5>
   Over-verifies when the prompt also demands verification; delegates to subagents
   readily (cap it); review accuracy holds at medium/low effort; review prompts
   should ask for everything and filter in triage.
-- Prompting Claude Fable 5.1 —
+- Prompting Claude Fable 5.1 *(read 2026-09-02)* —
   <https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-1>
   Start at `high`; `medium` ≈ Fable 5; `low` often beats Opus/Sonnet on cost per
   task (untested here — the planning-role experiment is the first measurement).
@@ -75,7 +79,7 @@ frontmatter, worktrees, permissions) comes from here and nowhere else.
   Hypothesis, unverified: Claude Code already injects this guide's snippets
   (progress updates, tool-call batching, finish-the-whole-task, delivering-work
   scope), so the kit does not repeat them.
-- What's new in Claude Fable 5.1 —
+- What's new in Claude Fable 5.1 *(read 2026-09-02)* —
   <https://platform.claude.com/docs/en/models/fable-5-1/whats-new-fable-5-1>
   Cache reads $0.25/MTok; behavior shifts vs Fable 5 (fewer progress updates,
   one tool call per turn in coding loops, whole-file rewrites, extra tests and
@@ -83,10 +87,18 @@ frontmatter, worktrees, permissions) comes from here and nowhere else.
 - Deliberate deviation: this kit keeps per-unit disposable agents because
   measured burn grows with agent lifetime (see the token-discipline rules).
   Evidence-backed, not an oversight.
-- The new rules of context engineering for Claude 5 —
+- The new rules of context engineering for Claude 5 *(published 2026-07-24)* —
   <https://claude.com/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models>
   Trust the model's judgment over prescriptive style rules; keep `CLAUDE.md` to
   gotchas.
+
+- Using Claude Code: Spending your effort *(published 2026-09-25)* —
+  <https://claude.dev/blog/spending-your-effort/>
+  Effort buys verification and edge-case testing, not a better approach; with a
+  detailed spec, outputs converge across levels and only wall time changes; the
+  author implements at low and verifies at high, and names the brownfield bug fix
+  as the high-effort case (reproduce first, check the test catches the bug).
+  Hence `fixer` at `high`; executors stay at `medium`.
 
 ## Patterns — priors and measured tradeoffs, not harness facts
 
@@ -115,7 +127,7 @@ subagent setting. (No `llms.txt`; fetch the index page.)
 
 ## Checking these links
 
-All URLs above returned 200 on 2026-09-02. A 404 in a references file is worse
+All URLs above returned 200 on 2026-09-26. A 404 in a references file is worse
 than no references file, so re-check with the stamp:
 
 ```sh

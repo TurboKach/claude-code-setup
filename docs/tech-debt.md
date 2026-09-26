@@ -11,6 +11,7 @@ Maintenance rules:
 
 ## P2
 
+- **`agents/fixer.md` — effort `high` is a trial, measure then keep or revert** — compare stage-5 rounds and fixer minutes per round on arcs after 2026-09-26 → docs/todos/fixer-high-effort-trial.md
 - **`install.sh:177` — `RETIRED_AGENTS` entries aren't validated as plain basenames** — `RETIRED_AGENTS` array isn't checked for being a bare filename → docs/todos/install-sh-177-retired-agents-basename.md
 - **`install.sh:164-168` vs `install.sh:178-185` — no disjointness check between shipped and retired agents** — Copy loop over `agents/*.md` runs before the retirement-prune loop, no disjointness check → docs/todos/install-sh-no-disjointness-check.md
 - **`install.sh:116-117` — append idempotency check requires an exact `## Feature workflow` heading** — `--claude-md=append` idempotency check matches only the literal `## Feature workflow` line → docs/todos/install-sh-append-idempotency-check.md

@@ -25,7 +25,7 @@ in parallel, no extra setup).
 | `agents/team-plan-reviewer.md` | Validates the plan against the code before the lead presents it via `ExitPlanMode` for **your** approval *(the session's model and effort)* |
 | `agents/team-executor.md` | **Parallel fan-out only.** Implements one unit of the fan-out as a background subagent — carries `isolation: worktree` in its frontmatter, since concurrent writers merge later *(Opus medium)* |
 | `agents/step-executor.md` | Implements one **sequential** step on the session's own branch — no worktree, nothing to merge; the feature-workflow counterpart to `team-executor` *(Opus medium)* |
-| `agents/fixer.md` | Fixes one review round's finding set (P0/P1 plus adjacent P2s) on the session's own branch, test-first red-then-green — a bounded task at a known `file:line`, so it runs cheaper than a plan step *(Opus medium)* |
+| `agents/fixer.md` | Fixes one review round's finding set (P0/P1 plus adjacent P2s) on the session's own branch, test-first red-then-green — a brownfield bug fix, so it runs deeper than a plan step *(Opus high)* |
 | `agents/codex-triage.md` | Reads one round's `codex-challenge.sh` output file(s) — all slices of a split round — verifies each finding against `git show <head>:<path>` and `git diff <base> <head>`, and returns the single ≤2k deduped verdict; the run itself is a background Bash in the master, the only context the harness re-wakes on completion *(Sonnet medium)* |
 | `agents/spec-reviewer.md` | At the final gate, checks the feature's whole diff against the approved plan file — missing requirements, scope creep, wrong-logic-vs-spec; gaps only, in parallel with the whole-range codex challenge *(Sonnet medium)* |
 | `agents/team-reviewer.md` | **Parallel fan-out only.** Adversarially verifies each unit's diff before merge — read-only, no worktree *(Opus)* |
@@ -68,14 +68,14 @@ step runs one at a time.
 ### Recommended models
 
 Opus plans and writes code, and Sonnet handles lookups and mechanical work. The
-planner runs deeper than the executors: same model, higher effort.
+planner and the fixer run deeper than the executors: same model, higher effort.
 
 | Role | Model | Effort | Set by |
 |------|-------|--------|--------|
 | Master — the session you open; plans, coordinates, gates | Opus 5.5 | xhigh | `settings.json` `model` + `modelSettings` — the wizard and `/stack-update` ask (recommended / keep / don't ask again / other); `install.sh --master=recommended` applies it |
 | `team-plan-reviewer` | Opus 5.5 (the master's) | xhigh (the master's) | `model: inherit`, no `effort:` key — follows the session |
 | `step-executor`; `team-executor` *(parallel fan-out only)* | Opus 5.5 | medium | agent frontmatter |
-| `fixer` | Opus 5.5 | medium | agent frontmatter |
+| `fixer` | Opus 5.5 | high | agent frontmatter |
 | `team-reviewer` *(parallel fan-out only)* — reviews each unit's diff before merge | Opus 5.5 | medium | agent frontmatter |
 | `explorer`, `codex-triage`, `spec-reviewer`; `team-merger` *(parallel fan-out only)* | Sonnet 5 | medium | agent frontmatter |
 | Unpinned spawns (`general-purpose`, a bare `Agent` call) | Sonnet 5 | the master's | `CLAUDE_CODE_SUBAGENT_MODEL` floor |
