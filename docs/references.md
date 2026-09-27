@@ -3,7 +3,7 @@
 Sources this kit's doctrine is built on. Facts you can't infer from the code —
 not a reading list.
 
-> **Doctrine validated against Claude Code v2.1.282 — 2026-09-26.**
+> **Doctrine validated against Claude Code v2.1.283 — 2026-09-27.**
 > Re-check when `claude --version` has moved: read the changelog from the stamped
 > version forward, decide what it means for the pipeline, then re-stamp this line.
 > The claims in *Harness* below are version-dependent; the rest are not.
