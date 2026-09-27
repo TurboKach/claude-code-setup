@@ -13,7 +13,7 @@ the master's view of it.
 
 ## Procedure
 
-1. **Version diff first** (global rule: optimize starts with a version diff). `claude --version`
+1. **Version diff first.** `claude --version`
    against the stamp in the kit's `docs/references.md`; if they differ, read the changelog
    between them before blaming the doctrine for a harness change.
 2. **Run the measurement** into the session scratchpad:

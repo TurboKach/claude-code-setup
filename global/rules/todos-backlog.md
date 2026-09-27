@@ -14,7 +14,7 @@ decide what to pick up, so it must pay only for the entries it opens.
 ## Rules
 
 - **Index line**: `- **<Title>** — <≤120-char hook> → <context-file>` (bare path, no
-  `[path](path)` — the duplicate cost 10 KB on a 268-line index), grouped
+  `[path](path)` — the link form states every path twice), grouped
   under `Gates (P1)` / `P2` / `P3` / `Unprioritized`; deploy-blocking gates are marked
   (e.g. `**BLOCKS <target>**`) in the hook.
 - **Context file**: a standalone item gets its own `docs/todos/<slug>.md`

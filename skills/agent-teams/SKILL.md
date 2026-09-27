@@ -73,10 +73,8 @@ worktrees branch from the repository's *remote default branch* unless you
 change this — so with the default (`"fresh"`), every executor starts from a
 clean `origin/main` that has neither `docs/prompts/<feature>-plan.md` nor any
 of the session's in-progress commits, and the merger then drags main↔branch
-divergence into each unit. `settings.example.json` ships `{"worktree":
-{"baseRef": "head"}}`; the docs name this exact case ("use this when isolating
-subagents that need to operate on in-progress work" —
-[docs](https://code.claude.com/docs/en/worktrees#choose-the-base-branch)).
+divergence into each unit. In `settings.json`:
+`{"worktree": {"baseRef": "head"}}`.
 A worktree is also a fresh checkout, so gitignored files don't come along —
 add a `.worktreeinclude` if executors need `.env` or similar to run tests.
 
@@ -103,7 +101,7 @@ worktree.** Claude Code auto-removes a subagent worktree only if the subagent
 made no changes, and the periodic `cleanupPeriodDays` sweep skips any worktree
 still holding work — changed files, untracked files, or **unpushed commits** —
 which describes every executor worktree by construction, since executors commit
-locally and never push ([docs](https://code.claude.com/docs/en/worktrees#clean-up-subagent-and-background-session-worktrees)).
+locally and never push.
 If the merger doesn't remove it, it stays until someone runs `git worktree
 remove --force` by hand. For a run that dies before the merger gets there, the
 backstop is the lead's end-of-run check that no feature worktrees/branches
@@ -174,7 +172,7 @@ and reports completion.
      feature-workflow stage 5, verbatim.
 ```
 
-## No `/goal`
+## The approved tail runs unprompted
 
 The approved tail (EXECUTE → REVIEW → MERGE → CODEX) runs unprompted from plan
 approval: the lead spawns, ingests summaries, and moves on without returning to

@@ -36,8 +36,8 @@ no state-dir file is written, until the approval gate in step 4 passes.
    not modify any state file yet.
 
 2. **Clone.** Full `git clone` (not `--depth`) of the repo into the session scratchpad. Full
-   history, because step 3 needs `<installed>` reachable to diff against; the repo is ~20
-   files, so a shallow clone buys nothing here. The clone is read-only reconnaissance — nothing
+   history, because step 3 needs `<installed>` reachable to diff against; the repo is small,
+   so a shallow clone buys nothing here. The clone is read-only reconnaissance — nothing
    is copied out of it until approval.
 
 3. **Summarize what's new, grouped by surface.** First check history shape with
@@ -84,7 +84,7 @@ no state-dir file is written, until the approval gate in step 4 passes.
 5. **The `CLAUDE.md` three-way diff and approval gate #2 — this is the step that justifies the
    skill.** Step 6 below runs `install.sh` with no `--claude-md` flag, so its default (`--claude-md` unset,
    i.e. "auto") mode applies: it deliberately never overwrites an existing `~/.claude/CLAUDE.md`
-   (see `install.sh:136-143`) — it just prints a reminder to merge by hand. So step 6's install
+   (see the `CLAUDE.md` block in `install.sh`) — it just prints a reminder to merge by hand. So step 6's install
    refreshes skills and agents but silently skips the single most important file, and a
    two-way diff can't tell an upstream improvement apart from the user's own customization. Do
    it properly. Use `claude-md-installed` as the base for this diff, not `installed` — it's the
