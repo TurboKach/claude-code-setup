@@ -3,7 +3,7 @@
 Sources this kit's doctrine is built on. Facts you can't infer from the code —
 not a reading list.
 
-> **Doctrine validated against Claude Code v2.1.283 — 2026-09-27.**
+> **Doctrine validated against Claude Code v2.1.284 — 2026-09-29.**
 > Re-check when `claude --version` has moved: read the changelog from the stamped
 > version forward, decide what it means for the pipeline, then re-stamp this line.
 > The claims in *Harness* below are version-dependent; the rest are not.
@@ -50,6 +50,7 @@ frontmatter, worktrees, permissions) comes from here and nowhere else.
 | A running session could silently switch to the organization's default model when another Claude Code process refreshed a stale model-access entry (fixed) — a `model seen` mismatch in an analyze-arcs report from before this is not evidence against the pins | 2.1.268 | `skills/analyze-arcs/SKILL.md` limits |
 | The `opus` alias resolves to Opus 5.5 when `ANTHROPIC_DEFAULT_OPUS_MODEL` is unset; the kit no longer pins it and `install.sh` removes its earlier `claude-opus-5` pin — docs `model-config` | 2.1.280 | `settings.example.json`, `install.sh` |
 | The "Delivering work" system-prompt block (keep going, ambiguity calls) is gated on Fable 5.1 or a flag, not Opus 5.5 — read from the 2.1.280 binary, and absent from an Opus 5.5 session's prompt | 2.1.280 | `global/CLAUDE.md` keep-going line |
+| The `sonnet` alias resolves to Sonnet 5.5 (`claude-sonnet-5-5`), which runs at `medium` effort by default in Claude Code — changelog 2.1.284, claude.dev "Building with Claude Sonnet 5.5" (2026-09-28) | 2.1.284 | `agents/step-executor.md`, `agents/team-executor.md`, `agents/fixer.md`, `global/CLAUDE.md` |
 | `bashEditDiffEnabled`: the harness records the files a Bash command changed (git working tree, ≤200 absolute paths in the transcript's `toolUseResult.bashEditDiff.changedFiles`, also passed to PostToolUse Bash hooks); default on only in auto/bypass mode; never surfaced to the model; no record for a command that exits non-zero or runs `run_in_background` — read from the 2.1.269 binary and verified in a headless and an interactive session 2026-09-12 | 2.1.269 | `settings.example.json` (true, every mode), `skills/analyze-arcs/scripts/analyze.py` |
 
 ## Model behavior — what the pipeline is tuned against
@@ -57,6 +58,14 @@ frontmatter, worktrees, permissions) comes from here and nowhere else.
 Each entry carries the page's publish date, or the day the kit last read it
 when the page states none. The guides are revised as models ship, so an old
 *read* date means re-read before citing.
+
+- Prompting Claude Sonnet 5.5 *(read 2026-09-29)* —
+  <https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5-5>
+  Agentic coding and multistep tool use: start at `medium` for well-specified
+  tasks, move to `high` for harder or longer ones.
+- Building with Claude Sonnet 5.5, claude.dev *(read 2026-09-29)* —
+  <https://claude.dev/blog/building-with-claude-sonnet-5-5/>
+  In Claude Code it runs at medium effort by default.
 
 - Prompting Claude Opus 5.5 *(read 2026-09-23)* —
   <https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5>

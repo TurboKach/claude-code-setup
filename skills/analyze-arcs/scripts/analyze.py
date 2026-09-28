@@ -8,14 +8,15 @@ import argparse, datetime as dt, glob, json, os, re, shlex, sys
 # local-only semantic layer (jev.py), not shipped with the kit; without --semantic it's absent.
 
 PINS = {'team-plan-reviewer': 'inherit', 'team-reviewer': 'opus',
-        'step-executor': 'opus', 'team-executor': 'opus', 'fixer': 'opus',
+        'step-executor': 'sonnet', 'team-executor': 'sonnet', 'fixer': 'sonnet',
         'codex-triage': 'sonnet', 'spec-reviewer': 'sonnet', 'explorer': 'sonnet', 'general-purpose': 'sonnet'}
-# Sessions are judged by the pins in force when they started: executors and fixer moved sonnet -> opus on this date.
-PINS_CUTOVER = '2026-09-23'
-PINS_BEFORE = {**PINS, 'step-executor': 'sonnet', 'team-executor': 'sonnet', 'fixer': 'sonnet'}
+# Sessions are judged by the pins in force when they started: executors and fixer were sonnet before
+# 2026-09-23, opus from then until 2026-09-29, and sonnet again (Sonnet 5.5) from 2026-09-29.
+OPUS_EXECUTORS_FROM, OPUS_EXECUTORS_UNTIL = '2026-09-23', '2026-09-29'
+PINS_OPUS_EXECUTORS = {**PINS, 'step-executor': 'opus', 'team-executor': 'opus', 'fixer': 'opus'}
 
 def pins_for(start):
-    return PINS_BEFORE if start and start < PINS_CUTOVER else PINS
+    return PINS_OPUS_EXECUTORS if start and OPUS_EXECUTORS_FROM <= start < OPUS_EXECUTORS_UNTIL else PINS
 FW = re.compile(r'Base directory for this skill: \S*/feature-workflow\b')
 NON_PRODUCT = ('/.claude', '/memory/', '/MEMORY.md', '/docs/prompts/', '/docs/reviews/', '/docs/todos/', '/TODOS.md', '/tech-debt', '/__pycache__/')   # anywhere in the path
 HANDOFF_DOC = re.compile(r'HANDOFF[^/]*\.md$')   # a handoff doc by basename, wherever it lives

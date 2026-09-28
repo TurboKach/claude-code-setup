@@ -378,8 +378,14 @@ check("pre-cutover session: executor doctrine is sonnet",
       analyze.pins_for("2026-09-20T10:00:00.000Z")['step-executor'], 'sonnet')
 check("pre-cutover session: fixer doctrine is sonnet",
       analyze.pins_for("2026-09-22T23:59:59.000Z")['fixer'], 'sonnet')
-check("post-cutover session: executor doctrine is opus",
+check("first opus-period session: executor doctrine is opus",
       analyze.pins_for("2026-09-23T00:00:01.000Z")['team-executor'], 'opus')
+check("last opus-period session: fixer doctrine is opus",
+      analyze.pins_for("2026-09-28T23:59:59.000Z")['fixer'], 'opus')
+check("first sonnet-5.5 session: executor doctrine is sonnet",
+      analyze.pins_for("2026-09-29T00:00:01.000Z")['step-executor'], 'sonnet')
+check("sonnet-5.5 period: team-reviewer stays opus",
+      analyze.pins_for("2026-10-01T00:00:00.000Z")['team-reviewer'], 'opus')
 check("unknown start: current pins", analyze.pins_for(None), analyze.PINS)
 
 print()

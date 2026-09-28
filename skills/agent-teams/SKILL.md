@@ -185,13 +185,13 @@ from those, not from prose "done".
 
 Per-role `model:` and `effort:` come from the agent definition files and are
 honored when the role runs as a subagent. Plan review runs on the session's model and
-effort, diff review and code-writing roles on Opus; search and mechanical roles run on Sonnet.
+effort, diff review on Opus; code-writing, search and mechanical roles run on Sonnet.
 
 | Role | Spawned as | Model | Effort | Rationale |
 |------|-----------|-------|--------|-----------|
 | Orchestrator (lead) | main session | whatever the owner picked at session start | the session's effort | coordination, authoring, gates |
 | `team-plan-reviewer` | subagent | the session's model (`inherit`) | the session's | validates the plan against the code before the gate; read-only |
-| `team-executor` | **background subagent** | Opus | medium | writes code; medium is Opus's default for well-scoped work |
+| `team-executor` | **background subagent** | Sonnet | medium | writes code; medium is Sonnet 5.5's starting level for a well-specified task |
 | `team-reviewer` | subagent | Opus | medium | adversarial bug-hunting on a bounded diff |
 | `team-merger` | subagent | Sonnet | medium | mechanical merge/verify |
 | `explorer` | subagent | Sonnet | medium | codebase search, read-only, effort pinned by frontmatter (built-in `Explore` floats with the session's effort and runs on Opus under a Fable or Opus master) |
@@ -226,7 +226,7 @@ Every prompt carries:
 - **The worktree/branch** it works in. (Retirement is mechanical — each agent's
   `maxTurns` frontmatter cap; spawn prompts carry no budget line, per
   feature-workflow's token-discipline rule.)
-- **The model pin** from the table above (`opus`) — set via the Agent tool's
+- **The model pin** from the table above (`opus` for reviewers, `sonnet` for executors) — set via the Agent tool's
   `model:` parameter on the spawn call, not text inside the prompt.
 
 One concern per prompt, sized so the executor finishes in roughly ≤100 tool

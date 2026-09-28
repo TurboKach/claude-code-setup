@@ -25,7 +25,7 @@ the master's view of it.
    minutes and verdict size, every gate with how long it waited, pushes, killed background
    tasks. Then the **flags** — mechanical checks only:
    - unpinned `Agent` spawn, or a pin off the doctrine tier (plan-reviewer unpinned — it inherits the session's model,
-     team-reviewer, executors and fixers `opus`, triage `sonnet`) with whether the prompt states a reason
+     team-reviewer `opus`, executors, fixers and triage `sonnet`) with whether the prompt states a reason
    - named spawn (delivery rerouted to the mailbox)
    - `codex-challenge.sh` run in the foreground; `--out` outside the session scratchpad
    - master `Edit`/`Write` on a product file after `feature-workflow` loaded — or a Bash command that
