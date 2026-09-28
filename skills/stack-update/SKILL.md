@@ -124,9 +124,10 @@ no state-dir file is written, until the approval gate in step 4 passes.
    already has it or said not to. Ask only when both hold:
    - the live `~/.claude/settings.json` doesn't match the clone's `settings.example.json`
      recommendation: `model` differs ignoring a trailing `[1m]` in any casing — it selects the
-     same model's 1M window — or any `modelSettings.<id>.effortLevel` there differs;
+     same model's 1M window — or any master `modelSettings.<id>.effortLevel` there differs (every entry except
+     `claude-sonnet-5-5`, the executors' level, which `install.sh` fills in only where none is saved);
    - `~/.claude/.claude-code-setup/master-dont-ask` is absent, or its content differs from
-     `python3 -c 'import json,sys; e=json.load(open(sys.argv[1])); print(json.dumps({"model": e["model"], "modelSettings": e["modelSettings"]}, separators=(",", ":"), sort_keys=True))' settings.example.json`
+     `python3 -c 'import json,sys; e=json.load(open(sys.argv[1])); print(json.dumps({"model": e["model"], "modelSettings": {k: v for k, v in e["modelSettings"].items() if k != "claude-sonnet-5-5"}}, separators=(",", ":"), sort_keys=True))' settings.example.json`
      run in the clone (a changed recommendation asks again).
 
    Then `AskUserQuestion`, showing their current `model` and effort, with options *the recommended

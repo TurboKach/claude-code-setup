@@ -340,6 +340,10 @@ d.setdefault("bashEditDiffEnabled", ex["bashEditDiffEnabled"])
 # CLAUDE_CODE_EFFORT_LEVEL would override the agents' frontmatter effort. A
 # modelSettings that isn't the shape we expect is skipped with a warning, never rewritten.
 master_written, master_warnings = [], []
+# claude-sonnet-5-5 is the executors' and fixer's effort, not the master's: the master
+# recommendation (notice, --master=recommended, dont-ask record) leaves it out.
+SUBAGENT_MODEL_ID = "claude-sonnet-5-5"
+master_ms = {mid: cfg for mid, cfg in ex["modelSettings"].items() if mid != SUBAGENT_MODEL_ID}
 def set_effort(mid, effort):
     ms = d.setdefault("modelSettings", {})
     if not isinstance(ms, dict):
@@ -361,15 +365,27 @@ if master_mode in ("recommended", "model"):
     else:
         d["model"] = master_model
     master_written.append("model")
-    efforts = {mid: cfg["effortLevel"] for mid, cfg in ex["modelSettings"].items()} if master_mode == "recommended" \
+    efforts = {mid: cfg["effortLevel"] for mid, cfg in master_ms.items()} if master_mode == "recommended" \
         else ({master_model: master_effort} if master_effort else {})
     for mid, effort in efforts.items():
         set_effort(mid, effort)
     if "ANTHROPIC_MODEL" in env or "ANTHROPIC_MODEL" in os.environ:
         master_warnings.append('ANTHROPIC_MODEL is set — it outranks the settings "model" field, so the master stays on it until you unset it')
+# Sonnet spawns (executors, fixer, unpinned) take their effort from this saved level — the agents carry no
+# effort: line. Set only where the user has none saved; a saved level or an unexpected shape is left alone.
+sub_effort = ex["modelSettings"][SUBAGENT_MODEL_ID]["effortLevel"]
+ms = d.setdefault("modelSettings", {})
+if not isinstance(ms, dict):
+    master_warnings.append(f'"modelSettings" is not an object — skipped setting {SUBAGENT_MODEL_ID} effort {sub_effort}')
+elif not isinstance(ms.setdefault(SUBAGENT_MODEL_ID, {}), dict):
+    master_warnings.append(f'"modelSettings.{SUBAGENT_MODEL_ID}" is not an object — skipped setting its effort {sub_effort}')
+elif "effortLevel" not in ms[SUBAGENT_MODEL_ID]:
+    ms[SUBAGENT_MODEL_ID]["effortLevel"] = sub_effort
+    if "modelSettings" not in master_written:
+        master_written.append("modelSettings")
 # The dont-ask record is the recommendation it was given for, so a changed recommendation asks again.
 dont_ask_path = os.path.join(dest, ".claude-code-setup", "master-dont-ask")
-recommendation = json.dumps({"model": ex["model"], "modelSettings": ex["modelSettings"]}, separators=(",", ":"), sort_keys=True)
+recommendation = json.dumps({"model": ex["model"], "modelSettings": master_ms}, separators=(",", ":"), sort_keys=True)
 if master_mode == "dont-ask":
     os.makedirs(os.path.dirname(dont_ask_path), exist_ok=True)
     open(dont_ask_path, "w").write(recommendation + "\n")
@@ -378,7 +394,7 @@ elif master_mode in ("recommended", "model") and os.path.exists(dont_ask_path):
 dont_ask = os.path.exists(dont_ask_path) and open(dont_ask_path).read().strip() == recommendation
 master_matches = base_model(d.get("model")) == base_model(ex["model"]) and isinstance(d.get("modelSettings"), dict) and all(
     isinstance(d["modelSettings"].get(mid), dict) and d["modelSettings"][mid].get("effortLevel") == cfg["effortLevel"]
-    for mid, cfg in ex["modelSettings"].items())
+    for mid, cfg in master_ms.items())
 
 def norm_path(cmd):
     # Representation-independent comparison: a command written as
@@ -450,7 +466,7 @@ json.dump(d, open(settings, "w"), indent=2)
 for warning in master_warnings:
     print(f"  WARNING: {warning}.")
 if master_mode == "none" and not master_matches and not dont_ask:
-    efforts = ", ".join(f"{mid} at effort {cfg['effortLevel']}" for mid, cfg in ex["modelSettings"].items())
+    efforts = ", ".join(f"{mid} at effort {cfg['effortLevel']}" for mid, cfg in master_ms.items())
     print(f"  Recommended master: model \"{ex['model']}\", {efforts} — rerun with --master=recommended (or --master=dont-ask to stop this notice).")
 for label, warning in skipped_hooks:
     print(f"  WARNING: settings.json's {warning} — skipped installing the {label}.")

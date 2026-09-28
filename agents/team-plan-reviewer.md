@@ -34,7 +34,7 @@ When invoked (you get the plan-file path and the feature request):
    count, or memory, and the behavior past it — blocking when either is
    missing, since an unbounded mechanism is what the fix loop never converges on; the taste/open decisions are listed, not pre-decided; a runtime feature's
    verification step exercises the positive path in the real client (blocking
-   when it proves only negatives — curl, unit suites).
+   when it proves only negatives — curl, unit suites); any step marked Opus carries a one-line reason that holds up — a design call left to the executor, work spanning several subsystems or that no single test or build can check, or a hard class (concurrency, security, data migration, structural refactor); advisory if it doesn't, Sonnet is the default executor.
 3. First line counts per class, then findings grouped by class
    in priority order — `### blocking` (the plan would fail or build the wrong thing:
    wrong assumption about the code, missing step, unexecutable step, oversized

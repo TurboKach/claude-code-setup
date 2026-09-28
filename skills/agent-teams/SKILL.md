@@ -185,20 +185,20 @@ from those, not from prose "done".
 
 Per-role `model:` and `effort:` come from the agent definition files and are
 honored when the role runs as a subagent. Plan review runs on the session's model and
-effort, diff review on Opus; code-writing, search and mechanical roles run on Sonnet.
+effort, diff review on Opus; code-writing (Opus when the plan marks a unit), search and mechanical roles run on Sonnet.
 
 | Role | Spawned as | Model | Effort | Rationale |
 |------|-----------|-------|--------|-----------|
 | Orchestrator (lead) | main session | whatever the owner picked at session start | the session's effort | coordination, authoring, gates |
 | `team-plan-reviewer` | subagent | the session's model (`inherit`) | the session's | validates the plan against the code before the gate; read-only |
-| `team-executor` | **background subagent** | Sonnet | medium | writes code; medium is Sonnet 5.5's starting level for a well-specified task |
+| `team-executor` | **background subagent** | Sonnet 5.5 (Opus only when the plan marks the unit with a reason) | the saved `claude-sonnet-5-5` level (high) | writes code; a well-specified unit needs no more model |
 | `team-reviewer` | subagent | Opus | medium | adversarial bug-hunting on a bounded diff |
 | `team-merger` | subagent | Sonnet | medium | mechanical merge/verify |
 | `explorer` | subagent | Sonnet | medium | codebase search, read-only, effort pinned by frontmatter (built-in `Explore` floats with the session's effort and runs on Opus under a Fable or Opus master) |
 
 The global spawn-pin rule applies; the table above is this pipeline's role→model
-mapping. As background subagents these roles honor their `effort:`
-frontmatter.
+mapping. Override per spawn only when the plan marks a unit Opus with a reason (a design call left to the executor, work spanning several subsystems or that no single test or build can check, or a hard class — concurrency, security, data migration, structural refactor). The
+executors carry no `effort:` line: they run at the level saved for their model under `modelSettings`, and the roles that do carry one honor it as background subagents.
 
 ## Spawn prompt contract (the lead writes these inline)
 
@@ -226,7 +226,8 @@ Every prompt carries:
 - **The worktree/branch** it works in. (Retirement is mechanical — each agent's
   `maxTurns` frontmatter cap; spawn prompts carry no budget line, per
   feature-workflow's token-discipline rule.)
-- **The model pin** from the table above (`opus` for reviewers, `sonnet` for executors) — set via the Agent tool's
+- **The model pin** from the table above (`sonnet`, or `opus` only where the
+  approved plan marks that unit Opus with a reason) — set via the Agent tool's
   `model:` parameter on the spawn call, not text inside the prompt.
 
 One concern per prompt, sized so the executor finishes in roughly ≤100 tool

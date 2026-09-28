@@ -1,9 +1,8 @@
 ---
 name: fixer
-description: Feature-workflow fixer. Implements one review round's finding set — codex P0/P1 findings plus their adjacent P2s, playtest regressions — on the session's own branch, with no other writer running at the same time. Spawn UNNAMED (never pass name:) so its final report auto-delivers. Use for post-review fixes; a plan step goes to step-executor instead. Sonnet at effort high — a finding set is a brownfield bug fix, where effort buys reproducing before editing and the adjacent edge cases the next review round would otherwise find.
+description: Feature-workflow fixer. Implements one review round's finding set — codex P0/P1 findings plus their adjacent P2s, playtest regressions — on the session's own branch, with no other writer running at the same time. Spawn UNNAMED (never pass name:) so its final report auto-delivers. Use for post-review fixes; a plan step goes to step-executor instead. Sonnet 5.5 at the effort saved for it in `modelSettings` (high) — a finding set is a brownfield bug fix, where effort buys reproducing before editing and the adjacent edge cases the next review round would otherwise find; Opus when a finding's mechanism survived an earlier fix round, with the reason stated at spawn.
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: sonnet
-effort: high
 maxTurns: 150
 ---
 

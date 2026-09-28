@@ -24,7 +24,7 @@ SCRATCH_PREFIX = ('/tmp/', '/private/tmp/', '/dev/')   # only at the start of an
 # A path call line: "Path call: ...", or a message that opens with one-shot / pipeline, or names one with a colon or dash.
 PATH_CALL = re.compile(r'(?i)\bpath call\b|^\s*\**\s*(one-shot|pipeline)\b(?!-)|\b(one-shot|pipeline)\**\s*[:\u2014\u2013]|\b(one-shot|pipeline)\**\s+-\s')
 # A stated reason for an off-doctrine pin: the doctrine's own categories (structural / same-mechanism / fable rate-limited) count.
-REASON = re.compile(r'(?i)reason|opus for|structural|mechanism|rate.?limit|429')
+REASON = re.compile(r'(?i)reason|opus for|structural|mechanism|rate.?limit|429|judg|design call|subsystem|concurren|security|migrat|long-horizon')
 
 # --semantic: Noul >= this counts as "yes" for analyze.py's own reason/path_call questions.
 # semantic.py's judgments have their own per-judgment thresholds (FLAG_THRESHOLDS); this constant

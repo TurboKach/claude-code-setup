@@ -386,6 +386,12 @@ check("first sonnet-5.5 session: executor doctrine is sonnet",
       analyze.pins_for("2026-09-29T00:00:01.000Z")['step-executor'], 'sonnet')
 check("sonnet-5.5 period: team-reviewer stays opus",
       analyze.pins_for("2026-10-01T00:00:00.000Z")['team-reviewer'], 'opus')
+# --- REASON: the plan-marked Opus categories count as a stated reason ---
+for phrase in ("Opus: a design call the plan leaves to the executor", "Opus: spans several subsystems",
+               "Opus: concurrency in the queue", "Opus: security-sensitive auth change",
+               "Opus: data migration", "Opus: long-horizon structural refactor", "Opus: careful judgment"):
+    check(f"REASON matches: {phrase}", bool(analyze.REASON.search(phrase)), True)
+check("REASON does not match a bare pin", bool(analyze.REASON.search("use opus please")), False)
 check("unknown start: current pins", analyze.pins_for(None), analyze.PINS)
 
 print()

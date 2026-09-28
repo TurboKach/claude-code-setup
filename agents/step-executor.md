@@ -1,9 +1,8 @@
 ---
 name: step-executor
-description: Feature-workflow executor. Implements one sequential step of an approved plan on the session's own branch, with no other writer running at the same time. Spawn UNNAMED (never pass name:) so its final report auto-delivers. Use for the sequential delegated-execute stage; concurrent units in a parallel fan-out go to team-executor instead. Sonnet at effort medium — the Sonnet 5.5 starting level for a well-specified agentic coding task.
+description: Feature-workflow executor. Implements one sequential step of an approved plan on the session's own branch, with no other writer running at the same time. Spawn UNNAMED (never pass name:) so its final report auto-delivers. Use for the sequential delegated-execute stage; concurrent units in a parallel fan-out go to team-executor instead. Sonnet 5.5 by default, at the effort saved for it in `modelSettings` (high) — a well-specified agentic coding task; Opus only when the plan marks the step with a reason: a design call the plan leaves to the executor, work spanning several subsystems or that no single test or build can check, or a hard class (concurrency, security, data migration, structural refactor).
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: sonnet
-effort: medium
 maxTurns: 200
 ---
 
