@@ -27,8 +27,10 @@ When invoked (you get the plan-file path and the feature request):
    fixed ports, a shared local database) — a missing line or a failing pair is
    blocking;
    nothing in the plan exceeds the request (scope creep) and nothing the request
-   named is silently dropped; an existing identifier whose meaning or scope a
-   step changes carries its call-site list (file:line) in that step, and the
+   named is silently dropped; a test the plan deletes names the behavior it
+   guarded and what covers that behavior afterward, or the owner decision that
+   dropped that behavior by name — blocking when neither; an existing
+   identifier whose meaning or scope a step changes carries its call-site list (file:line) in that step, and the
    list is complete — grep it yourself; a new mechanism (parser, cache,
    transform, undo basis) carries a one-line invariant and bound — max size,
    count, or memory, and the behavior past it — blocking when either is
