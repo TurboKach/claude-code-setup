@@ -474,6 +474,13 @@ for label, warning in skipped_hooks:
 installed = " + ".join(label for label, _ in installed_hooks)
 print(f"  merged {merged_desc}{' + ' + installed if installed else ''} into settings.json (backup: settings.json.bak)")
 PY
+  # gpt-6.1-sol needs codex-cli 0.159.0+: an older client gets a 400 and the codex gate stops.
+  codex_ver=""
+  if command -v codex >/dev/null 2>&1; then codex_ver=$(codex --version 2>/dev/null | awk '{print $2}') || true; fi
+  review_model=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("env", {}).get("CODEX_REVIEW_MODEL", ""))' "$SETTINGS" 2>/dev/null) || true
+  if [ -n "$codex_ver" ] && [ "$review_model" = gpt-6.1-sol ] && ! printf '0.159.0\n%s\n' "$codex_ver" | sort -V -C; then
+    echo "  WARNING: CODEX_REVIEW_MODEL is gpt-6.1-sol, which needs codex-cli 0.159.0+ (installed: $codex_ver) — upgrade codex or the codex gate fails."
+  fi
 else
   echo "  python3 not found — add the keys from settings.example.json to $SETTINGS by hand"
 fi

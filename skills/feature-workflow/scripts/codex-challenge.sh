@@ -156,7 +156,7 @@ for attempt in 1 2 3; do
       break
     fi
     if grep -E '("status": ?400|invalid_request_error|invalid_enum_value|not supported when using Codex)' <<<"$chunk" >/dev/null; then
-      echo "permanent API error on attempt $attempt (bad CODEX_REVIEW_MODEL/EFFORT?) — not retrying; see $out.log" | tee -a "$out.log" >&2
+      echo "permanent API error on attempt $attempt (bad CODEX_REVIEW_MODEL/EFFORT, or a codex-cli too old for the model?) — not retrying; see $out.log" | tee -a "$out.log" >&2
       break
     fi
   fi
