@@ -13,12 +13,12 @@ Run these and show the user a short status summary:
 ```bash
 claude --version
 ls -d ~/.claude/skills/gstack 2>/dev/null && echo "gstack: present" || echo "gstack: missing"
-command -v codex >/dev/null && { command -v gtimeout || command -v timeout; } >/dev/null && command -v pgrep >/dev/null && codex exec --help 2>/dev/null | grep -q -- --ephemeral && echo "codex gate: ready" || echo "codex gate: needs codex-cli + GNU timeout + pgrep (macOS: brew install coreutils)"
+command -v codex >/dev/null && { command -v gtimeout || command -v timeout; } >/dev/null && command -v pgrep >/dev/null && codex exec --help 2>/dev/null | grep -q -- --ephemeral && printf '0.159.0\n%s\n' "$(codex --version | awk '{print $2}')" | sort -V -C && echo "codex gate: ready" || echo "codex gate: needs codex-cli 0.159.0+ + GNU timeout + pgrep (macOS: brew install coreutils)"
 test -f ~/.claude/CLAUDE.md && echo "CLAUDE.md: exists" || echo "CLAUDE.md: none"
 ```
 
-- If the codex gate line reports missing: install codex-cli + GNU timeout
-  (macOS: `brew install coreutils`) — the codex gate does not run without them.
+- If the codex gate line reports missing: install or upgrade codex-cli (0.159.0+,
+  the first with `gpt-6.1-sol`) + GNU timeout (macOS: `brew install coreutils`) — the codex gate does not run without them.
 
 ## Step 1 — Ask what to set up (AskUserQuestion)
 
@@ -46,7 +46,7 @@ it — so don't offer it as a deselectable option. Suggested:
    their settings `env`: ask which model the codex cross-review gate (the
    always-on push gate) uses. All three run at `medium` reasoning effort.
    Options:
-   - `gpt-6-sol` *(recommended, the repo default — reliable everyday workhorse, 272k context; a feature-range review takes 3–8 min)*
+   - `gpt-6.1-sol` *(recommended, the repo default — OpenAI's current workhorse, 272k context)*
    - `gpt-6-astra` *(most capable, 272k context — slower per run)*
    - `gpt-6-luna` *(fast and affordable, 272k context)*
 
@@ -86,13 +86,13 @@ Translate the Step 1 answers into flags and run it once:
 - **CLAUDE.md handling was *append*** → `--claude-md=append`.
 - **CLAUDE.md handling was *replace*** → `--claude-md=replace`.
 - **CLAUDE.md handling was *leave mine untouched*** → `--claude-md=leave`.
-- **Codex review model answer was *gpt-6-sol*** → `--codex-model=gpt-6-sol`.
+- **Codex review model answer was *gpt-6.1-sol*** → `--codex-model=gpt-6.1-sol`.
 - **Codex review model answer was *gpt-6-astra*** → `--codex-model=gpt-6-astra`.
 - **Codex review model answer was *gpt-6-luna*** → `--codex-model=gpt-6-luna`.
 - **The question was skipped because `CODEX_REVIEW_MODEL` already exists** →
   pass no `--codex-model` flag (the existing value is never clobbered, except
-  the kit's earlier `gpt-5.6-sol` / `gpt-5.6-luna`, which move to their GPT-6
-  successors).
+  the kit's earlier `gpt-5.6-sol` / `gpt-6-sol` / `gpt-5.6-luna`, which move to
+  `gpt-6.1-sol` / `gpt-6.1-sol` / `gpt-6-luna`).
 
 - **Master model answer was *Opus 5.5 at xhigh*** → `--master=recommended`.
 - **Master model answer was *keep current, ask next time*** → `--master=keep`.
