@@ -3,7 +3,7 @@
 Sources this kit's doctrine is built on. Facts you can't infer from the code —
 not a reading list.
 
-> **Doctrine validated against Claude Code v2.1.284 — 2026-09-29.**
+> **Doctrine validated against Claude Code v2.1.285 — 2026-09-30.**
 > Re-check when `claude --version` has moved: read the changelog from the stamped
 > version forward, decide what it means for the pipeline, then re-stamp this line.
 > The claims in *Harness* below are version-dependent; the rest are not.
@@ -52,6 +52,7 @@ frontmatter, worktrees, permissions) comes from here and nowhere else.
 | The "Delivering work" system-prompt block (keep going, ambiguity calls) is gated on Fable 5.1 or a flag, not Opus 5.5 — read from the 2.1.280 binary, and absent from an Opus 5.5 session's prompt | 2.1.280 | `global/CLAUDE.md` keep-going line |
 | The `sonnet` alias resolves to Sonnet 5.5 (`claude-sonnet-5-5`), which runs at `medium` effort by default in Claude Code — changelog 2.1.284, claude.dev "Building with Claude Sonnet 5.5" (2026-09-28) | 2.1.284 | `agents/step-executor.md`, `agents/team-executor.md`, `agents/fixer.md`, `global/CLAUDE.md` |
 | A subagent's `effort:` frontmatter overrides the session level, and without it the subagent inherits the session's (docs `sub-agents`); the level a model runs at comes from `modelSettings.<id>.effortLevel` — a top-level `effortLevel` doesn't count for Opus 5.5 or later models — else the model default, `medium` for Sonnet 5.5 (docs `model-config`, "Adjust effort level") | 2.1.284 | `settings.example.json`, `install.sh`, `agents/*.md` |
+| A `run_in_background` Bash is stopped at its `timeout` — when the call passes none, the larger of 30 min and `BASH_DEFAULT_TIMEOUT_MS`; max the larger of 2 h and `BASH_MAX_TIMEOUT_MS` — and Claude is notified; the default read from the 2.1.285 binary | 2.1.285 | `skills/feature-workflow/SKILL.md` codex-run and full-suite launches |
 | `bashEditDiffEnabled`: the harness records the files a Bash command changed (git working tree, ≤200 absolute paths in the transcript's `toolUseResult.bashEditDiff.changedFiles`, also passed to PostToolUse Bash hooks); default on only in auto/bypass mode; never surfaced to the model; no record for a command that exits non-zero or runs `run_in_background` — read from the 2.1.269 binary and verified in a headless and an interactive session 2026-09-12 | 2.1.269 | `settings.example.json` (true, every mode), `skills/analyze-arcs/scripts/analyze.py` |
 
 ## Model behavior — what the pipeline is tuned against
