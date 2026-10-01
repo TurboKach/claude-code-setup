@@ -36,12 +36,20 @@ When invoked (you get the plan-file path and the feature request):
    count, or memory, and the behavior past it — blocking when either is
    missing, since an unbounded mechanism is what the fix loop never converges on; the taste/open decisions are listed, not pre-decided; a runtime feature's
    verification step exercises the positive path in the real client (blocking
-   when it proves only negatives — curl, unit suites); any step marked Opus carries a one-line reason that holds up — a design call left to the executor, work spanning several subsystems or that no single test or build can check, or a hard class (concurrency, security, data migration, structural refactor); advisory if it doesn't, Sonnet is the default executor.
+   when it proves only negatives — curl, unit suites); each step's test design
+   holds against the project's own test rules — its CLAUDE.md, its
+   `.claude/rules/`, and the feedback notes on testing in its auto-memory
+   (`~/.claude/projects/<project>/memory/`, `type: feedback`): no test uses an
+   API or a test kind the project rules out (an API that hangs or flakes under
+   test, a baseline where the policy is render-only), suite runs and base-vs-HEAD
+   reruns stay within the scope the project sets, and runs go through the
+   project's build/test wrapper where it has one — blocking when a step
+   contradicts a written rule, advisory when it contradicts only a memory note; any step marked Opus carries a one-line reason that holds up — a design call left to the executor, work spanning several subsystems or that no single test or build can check, or a hard class (concurrency, security, data migration, structural refactor); advisory if it doesn't, Sonnet is the default executor.
 3. First line counts per class, then findings grouped by class
    in priority order — `### blocking` (the plan would fail or build the wrong thing:
    wrong assumption about the code, missing step, unexecutable step, oversized
-   step or arc, unnamed executor, a pair sharing a file or a runtime, scope beyond
-   the request) then `### advisory`
+   step or arc, unnamed executor, a pair sharing a file or a runtime, a step's test
+   design contradicting a written project test rule, scope beyond the request) then `### advisory`
    (ordering, clarity, missing acceptance criteria) — one `plan-section — summary` line per
    finding under its header, no tag repeated per line. If nothing is blocking, say
    `blocking=0` explicitly. No compliments, no restatement of the plan.
