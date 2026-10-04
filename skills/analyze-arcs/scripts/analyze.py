@@ -275,6 +275,13 @@ def scan_master_records(recs, path=None):
                                 if 'User has approved your plan' in rr: r['plan_approved'].append(T)
     return r
 
+def cap_flags(subs, caps):
+    """Turn-cap flags: one per capped subagent row, plus caps the master recorded for a subagent whose transcript file is gone."""
+    n_x = lambda n: f" ({n}x)" if n > 1 else ''
+    flags = [f"{(s['first'] or '')[11:16]} subagent {s['file'][:14]} hit its turn cap{n_x(s['capped'])}" for s in subs if s['capped']]
+    seen = {s['file'][6:-6] for s in subs}
+    return flags + [f"subagent agent-{aid[:8]} hit its turn cap{n_x(n)} (no transcript file)" for aid, n in caps.items() if aid not in seen]
+
 def scan_subagents(session_dir, caps):
     rows = []
     for p in sorted(glob.glob(os.path.join(session_dir, 'subagents', '*.jsonl'))):
@@ -452,8 +459,7 @@ def main():
                 if w is not None and w > 60: flags.append(f"{g['t'][11:16]} AskUserQuestion waited {w} min: {g['q']}")
         deaths = [s for s in subs if s['err'] and s['turns'] <= 1]
         if deaths: flags.append(f"{len(deaths)} subagent(s) died on an API error before doing work")
-        for s in subs:
-            if s['capped']: flags.append(f"{(s['first'] or '')[11:16]} subagent {s['file'][:14]} hit its turn cap" + (f" ({s['capped']}x)" if s['capped'] > 1 else ''))
+        flags += cap_flags(subs, r['caps'])
         L.append('- **flags:** ' + ('; '.join(flags) if flags else 'none'))
         flags_all += [(proj, sid, f) for f in flags]
         if r['spawns']:

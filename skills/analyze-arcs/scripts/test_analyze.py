@@ -412,6 +412,9 @@ caps = analyze.scan_master_records(recs_caps)['caps']
 check("background notifications count per event, per agent id", (caps.get('aaa111'), caps.get('bbb222')), (2, 1))
 check("foreground Agent result maps via toolUseResult.agentId", caps.get('ddd444'), 1)
 check("queue-operation duplicate, prose and agentless results add nothing", sorted(caps), ['aaa111', 'bbb222', 'ddd444'])
+cf = analyze.cap_flags([dict(file='agent-aaa111.jsonl', first='2026-10-04T10:05:00', capped=2)], {'aaa111': 2, 'zzz999': 1})
+check("cap flag for a row keeps its repeat count", cf[0], "10:05 subagent agent-aaa111.j hit its turn cap (2x)")
+check("a cap whose subagent file is missing is still flagged", cf[1:], ["subagent agent-zzz999 hit its turn cap (no transcript file)"])
 with tempfile.TemporaryDirectory() as sd:
     os.makedirs(os.path.join(sd, 'subagents'))
     for aid in ('aaa111', 'bbb222', 'zzz999'):
