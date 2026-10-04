@@ -25,6 +25,10 @@ SCRATCH_PREFIX = ('/tmp/', '/private/tmp/', '/dev/')   # only at the start of an
 # A path call line: "Path call: ...", or a message that opens with one-shot / pipeline, or names one with a colon or dash.
 PATH_CALL = re.compile(r'(?i)\bpath call\b|^\s*\**\s*(one-shot|pipeline)\b(?!-)|\b(one-shot|pipeline)\**\s*[:\u2014\u2013]|\b(one-shot|pipeline)\**\s+-\s')
 # A stated reason for an off-doctrine pin: the doctrine's own categories (structural / same-mechanism / fable rate-limited) count.
+# A subagent's turn-cap stop, as the MASTER transcript records it (never in the subagent's own file): a background
+# <task-notification> (agent id in <task-id>), or a foreground Agent tool_result (agent id in toolUseResult.agentId).
+CAP_NOTE = re.compile(r'<task-id>(\w+)</task-id>(?:(?!</task-notification>).)*?<summary>[^<]*stopped at its \d+-turn limit', re.S)
+CAP_RESULT = re.compile(r'stopped at its \d+-turn limit before finishing')
 REASON = re.compile(r'(?i)reason|opus for|structural|mechanism|rate.?limit|429|judg|design call|subsystem|concurren|security|migrat|long-horizon')
 
 # --semantic: Noul >= this counts as "yes" for analyze.py's own reason/path_call questions.
@@ -173,7 +177,7 @@ def scan_master(p):
 
 def scan_master_records(recs, path=None):
     r = dict(path=path, first=None, last=None, cwd=None, models=set(), user_turns=0, first_prompt='', peak=0,
-             spawns=[], codex=[], edits=[], gates=[], pushes=[], killed=[], fw_loaded=None, path_call=None,
+             spawns=[], codex=[], edits=[], gates=[], pushes=[], killed=[], fw_loaded=None, path_call=None, caps={},   # caps: agent id -> number of turn-cap stops
              plan_approved=[], exit_plan=[], enter_plan=[], reads=[], first_edit=None, first_product_edit=None,
              api_errors=0, bash_diff=False, versions=set(), path_call_candidates=[], path_call_regex_fallback=False)
     pending_q = {}
@@ -247,6 +251,7 @@ def scan_master_records(recs, path=None):
                     r['user_turns'] += 1; r['first_prompt'] = r['first_prompt'] or c[:160].replace('\n', ' ')
                 if FW.search(c): r['fw_loaded'] = r['fw_loaded'] or T
                 if '<status>killed</status>' in c: r['killed'].append(T)
+                for aid in CAP_NOTE.findall(c): r['caps'][aid] = r['caps'].get(aid, 0) + 1
             elif isinstance(c, list):
                 for x in c:
                     if not isinstance(x, dict): continue
@@ -254,7 +259,11 @@ def scan_master_records(recs, path=None):
                         tx = x.get('text', '')
                         if FW.search(tx): r['fw_loaded'] = r['fw_loaded'] or T
                         if '<status>killed</status>' in tx: r['killed'].append(T)
+                        for aid in CAP_NOTE.findall(tx): r['caps'][aid] = r['caps'].get(aid, 0) + 1
                     if x.get('type') == 'tool_result':
+                        rc = x.get('content'); rc = rc if isinstance(rc, str) else ' '.join(y.get('text', '') for y in (rc or []) if isinstance(y, dict))
+                        aid = tur.get('agentId') if isinstance(tur, dict) else None
+                        if aid and CAP_RESULT.search(rc): r['caps'][aid] = r['caps'].get(aid, 0) + 1
                         g = pending_q.pop(x.get('tool_use_id'), None)
                         if g:
                             g['answered'] = T; g['error'] = bool(x.get('is_error'))
@@ -266,10 +275,10 @@ def scan_master_records(recs, path=None):
                                 if 'User has approved your plan' in rr: r['plan_approved'].append(T)
     return r
 
-def scan_subagents(session_dir):
+def scan_subagents(session_dir, caps):
     rows = []
     for p in sorted(glob.glob(os.path.join(session_dir, 'subagents', '*.jsonl'))):
-        first = last = None; turns = 0; models = set(); err = 0; capped = False; kb = os.path.getsize(p) // 1024
+        first = last = None; turns = 0; models = set(); err = 0; kb = os.path.getsize(p) // 1024
         for d in records(p):
             T = d.get('timestamp')
             if T: first = first or T; last = T
@@ -278,10 +287,7 @@ def scan_subagents(session_dir):
                 mm = (d.get('message') or {}).get('model')
                 if mm: models.add(mm)
                 if d.get('isApiErrorMessage'): err += 1
-            if d.get('type') == 'user':
-                c = (d.get('message') or {}).get('content')
-                if isinstance(c, str) and 'turn limit' in c: capped = True
-        rows.append(dict(file=os.path.basename(p), first=first, last=last, turns=turns, models=','.join(sorted(models)), err=err, kb=kb, capped=capped))
+        rows.append(dict(file=os.path.basename(p), first=first, last=last, turns=turns, models=','.join(sorted(models)), err=err, kb=kb, capped=caps.get(os.path.basename(p)[6:-6], 0)))
     return rows
 
 def codex_run(out):
@@ -401,7 +407,9 @@ def main():
     L = [f"# Arc analysis since {a.since} (generated {dt.datetime.now():%Y-%m-%d %H:%M})", '',
          f"Sessions ≥{a.min_kb} KB or with subagents: {len(masters)}. Times are UTC. Flags are mechanical; judgment findings need the timelines.", '']
     flags_all = []
-    scanned = [(scan_master(p), scan_subagents(sd), os.path.basename(p)[:8], os.path.basename(os.path.dirname(p))) for p, sd, nsub in masters]
+    scanned = []
+    for p, sd, nsub in masters:
+        r = scan_master(p); scanned.append((r, scan_subagents(sd, r['caps']), os.path.basename(p)[:8], os.path.basename(os.path.dirname(p))))
     if a.semantic: resolve_path_call_semantic([r for r, *_ in scanned])   # post-scan pass: the scan above stayed network-free
     for r, subs, sid, proj in scanned:
         L += [f"## {proj} / {sid}", f"- {r['first']} → {r['last']}, user turns {r['user_turns']}, models {sorted(r['models'])}, claude code {sorted(r['versions']) or '?'}, peak context {r['peak']:,}, api errors {r['api_errors']}",
@@ -445,7 +453,7 @@ def main():
         deaths = [s for s in subs if s['err'] and s['turns'] <= 1]
         if deaths: flags.append(f"{len(deaths)} subagent(s) died on an API error before doing work")
         for s in subs:
-            if s['capped']: flags.append(f"{(s['first'] or '')[11:16]} subagent {s['file'][:14]} hit its turn cap")
+            if s['capped']: flags.append(f"{(s['first'] or '')[11:16]} subagent {s['file'][:14]} hit its turn cap" + (f" ({s['capped']}x)" if s['capped'] > 1 else ''))
         L.append('- **flags:** ' + ('; '.join(flags) if flags else 'none'))
         flags_all += [(proj, sid, f) for f in flags]
         if r['spawns']:

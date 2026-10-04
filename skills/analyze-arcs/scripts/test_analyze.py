@@ -395,6 +395,32 @@ check("REASON does not match a bare pin", bool(analyze.REASON.search("use opus p
 check("unknown start: current pins", analyze.pins_for(None), analyze.PINS)
 check("legacy plan-reviewer name keeps its pin", analyze.PINS['team-plan-reviewer'], analyze.PINS['plan-reviewer'])
 
+# --- subagent turn caps: detected from the MASTER transcript (background notification, foreground Agent result) ---
+import json, tempfile
+def cap_note(T, aid, n=200):
+    return user_str(T, f'<task-notification>\n<task-id>{aid}</task-id>\n<tool-use-id>toolu_x</tool-use-id>\n<status>completed</status>\n'
+                       f'<summary>Agent "Step 4" stopped at its {n}-turn limit (partial result; SendMessage to task-id to continue)</summary>\n</task-notification>')
+def fg_result(T, tid, aid, text):
+    d = tool_result(T, tid, [dict(type='text', text=text)]); d['toolUseResult'] = dict(status='completed', agentId=aid); return d
+recs_caps = [cap_note(t(1), 'aaa111'), cap_note(t(2), 'bbb222'), cap_note(t(3), 'aaa111'),
+             dict(type='queue-operation', operation='enqueue', timestamp=t(3), content='<task-id>ccc333</task-id><summary>x stopped at its 200-turn limit (p)</summary>'),
+             fg_result(t(4), 'u1', 'ddd444', 'NOTE: this agent stopped at its 200-turn limit before finishing. The text below is PARTIAL output.'),
+             user_str(t(5), 'the reviewer said it hit the turn limit and stopped at its 60-turn limit in prose'),
+             fg_result(t(6), 'u2', 'eee555', 'Done. Note the turn limit is 200.'),
+             tool_result(t(7), 'u3', 'stopped at its 200-turn limit before finishing')]   # no toolUseResult.agentId: no agent to blame
+caps = analyze.scan_master_records(recs_caps)['caps']
+check("background notifications count per event, per agent id", (caps.get('aaa111'), caps.get('bbb222')), (2, 1))
+check("foreground Agent result maps via toolUseResult.agentId", caps.get('ddd444'), 1)
+check("queue-operation duplicate, prose and agentless results add nothing", sorted(caps), ['aaa111', 'bbb222', 'ddd444'])
+with tempfile.TemporaryDirectory() as sd:
+    os.makedirs(os.path.join(sd, 'subagents'))
+    for aid in ('aaa111', 'bbb222', 'zzz999'):
+        with open(os.path.join(sd, 'subagents', f'agent-{aid}.jsonl'), 'w') as f:
+            f.write(json.dumps(dict(type='user', timestamp=t(0), message=dict(content='Hit the turn limit? no, ordinary text'))) + '\n')
+    rows = {x['file']: x['capped'] for x in analyze.scan_subagents(sd, caps)}
+check("capped count lands on the matching subagent file only",
+      rows, {'agent-aaa111.jsonl': 2, 'agent-bbb222.jsonl': 1, 'agent-zzz999.jsonl': 0})
+
 print()
 if fails:
     print(f"{fails} FAILED")
