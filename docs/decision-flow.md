@@ -16,7 +16,7 @@ flowchart TD
     G0 -->|yes| LOAD[["load <b>feature-workflow</b><br/>⇒ pipeline is now ACTIVE"]]
 
     LOAD --> INV0{{"INVARIANT: master writes zero product code<br/>from here until ship"}}
-    INV0 --> S123["Stages 1–3<br/>discuss → plan mode: master authors → team-plan-reviewer → ExitPlanMode<br/><b>user approves plan</b> ← only taste gate"]
+    INV0 --> S123["Stages 1–3<br/>discuss → plan mode: master authors → plan-reviewer → ExitPlanMode<br/><b>user approves plan</b> ← only taste gate"]
 
     S123 --> G2{"<b>Gate 2</b> — the plan's <b>Parallel:</b> line<br/>weighed in stage 2, approved with the plan"}
 
@@ -109,6 +109,6 @@ These are what a logic review should test. Each should hold on every path above.
   one writer, gate 2 has already committed to the parallel path. The redirect
   works, but the wasted step is real.
 - **Gate 2 is a prediction.** A pair that looks independent can collide in
-  practice (a hub file, a shared simulator or container); `team-plan-reviewer`
+  practice (a hub file, a shared simulator or container); `plan-reviewer`
   checks each pair against the code before approval. §3's mitigation is to give a hub file to one unit and prefer
   fewer, larger units.

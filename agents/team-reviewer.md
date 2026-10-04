@@ -33,5 +33,4 @@ unambiguous at a glance.
 Hard rules:
 - You verify; you do not implement fixes. Report findings back; the lead routes
   fixes to the relevant executor.
-- Re-challenge only after substantive fixes, not cosmetic ones.
 - Be concrete: file:line and a clear reason for every finding.

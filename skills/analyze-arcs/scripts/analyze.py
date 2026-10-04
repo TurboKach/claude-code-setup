@@ -7,7 +7,8 @@ import argparse, datetime as dt, glob, json, os, re, shlex, sys
 # jev import is lazy (see semantic_reason/resolve_path_call_semantic): --semantic needs the
 # local-only semantic layer (jev.py), not shipped with the kit; without --semantic it's absent.
 
-PINS = {'team-plan-reviewer': 'inherit', 'team-reviewer': 'opus',
+# 'team-plan-reviewer' is the plan reviewer's name before 2026-10-04; kept so older sessions still read correctly.
+PINS = {'plan-reviewer': 'inherit', 'team-plan-reviewer': 'inherit', 'team-reviewer': 'opus',
         'step-executor': 'sonnet', 'team-executor': 'sonnet', 'fixer': 'sonnet',
         'codex-triage': 'sonnet', 'spec-reviewer': 'sonnet', 'explorer': 'sonnet', 'general-purpose': 'sonnet'}
 # Sessions are judged by the pins in force when they started: executors and fixer were sonnet before

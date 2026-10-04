@@ -22,7 +22,7 @@ in parallel, no extra setup).
 | `skills/feature-workflow/SKILL.md` | The six-stage single-master feature pipeline, the parallel-multi-agent mechanism picker, and the token-discipline rules. Loads on demand when a pipeline or fan-out starts. |
 | `skills/agent-teams/SKILL.md` | The orchestration playbook — when to fan out, how to pick the mechanism (subagents / Workflows), the pipeline, models, worktree/merge flow, the plan-approval gate. Loads on demand. |
 | `agents/explorer.md` | Read-only codebase search on Sonnet at effort medium — the pinned stand-in for built-in `Explore` *(Sonnet)* |
-| `agents/team-plan-reviewer.md` | Validates the plan against the code before the lead presents it via `ExitPlanMode` for **your** approval *(the session's model and effort)* |
+| `agents/plan-reviewer.md` | Validates the plan against the code before the lead presents it via `ExitPlanMode` for **your** approval *(the session's model and effort)* |
 | `agents/team-executor.md` | **Parallel fan-out only.** Implements one unit of the fan-out as a background subagent — carries `isolation: worktree` in its frontmatter, since concurrent writers merge later *(Sonnet, high; Opus when the plan marks the unit)* |
 | `agents/step-executor.md` | Implements one **sequential** step on the session's own branch — no worktree, nothing to merge; the feature-workflow counterpart to `team-executor` *(Sonnet, high; Opus when the plan marks the step)* |
 | `agents/fixer.md` | Fixes one review round's finding set (P0/P1 plus adjacent P2s) on the session's own branch, test-first red-then-green — a brownfield bug fix, so it runs deeper than a plan step *(Sonnet, high; Opus when a finding's mechanism survived an earlier round)* |
@@ -72,7 +72,7 @@ Opus plans and reviews; Sonnet writes code, runs lookups and does mechanical wor
 | Role | Model | Effort | Set by |
 |------|-------|--------|--------|
 | Master — the session you open; plans, coordinates, gates | Opus 5.5 | xhigh | `settings.json` `model` + `modelSettings` — the wizard and `/stack-update` ask (recommended / keep / don't ask again / other); `install.sh --master=recommended` applies it |
-| `team-plan-reviewer` | Opus 5.5 (the master's) | xhigh (the master's) | `model: inherit`, no `effort:` key — follows the session |
+| `plan-reviewer` | Opus 5.5 (the master's) | xhigh (the master's) | `model: inherit`, no `effort:` key — follows the session |
 | `step-executor`; `team-executor` *(parallel fan-out only)* | Sonnet 5.5 (Opus 5.5 when the plan marks the step) | high (Opus: the master's) | `modelSettings.claude-sonnet-5-5.effortLevel`; `model:` in agent frontmatter |
 | `fixer` | Sonnet 5.5 (Opus 5.5 when a finding's mechanism survived an earlier round) | high (Opus: the master's) | `modelSettings.claude-sonnet-5-5.effortLevel`; `model:` in agent frontmatter |
 | `team-reviewer` *(parallel fan-out only)* — reviews each unit's diff before merge | Opus 5.5 | medium | agent frontmatter |
@@ -152,7 +152,7 @@ value alone. The `_SONNET_`/`_HAIKU_` variants pin those tiers the same way.
 It also sets `CLAUDE_CODE_SUBAGENT_MODEL` to `sonnet` as a **floor**, not an
 override: an agent definition's `model:` and an explicit per-spawn model both
 take precedence over it. The pinned roles keep their frontmatter
-pins (`team-reviewer` on `opus`, the executors and `fixer` on `sonnet` unless the plan or a same-mechanism finding calls for `opus`; `team-plan-reviewer`'s `inherit` also
+pins (`team-reviewer` on `opus`, the executors and `fixer` on `sonnet` unless the plan or a same-mechanism finding calls for `opus`; `plan-reviewer`'s `inherit` also
 outranks the floor and follows the session's model), and a per-spawn `model: "opus"` still wins — the floor only catches
 a spawn with no pin anywhere (`general-purpose`, a bare `Agent` call — built-in
 `Explore` is the exception, always capped at Opus regardless of this floor),

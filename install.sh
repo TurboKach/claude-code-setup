@@ -232,7 +232,7 @@ for f in "$SRC"/agents/*.md; do
   backup "$base"
   cp "$f" "$DEST/$base"
 done
-echo "  installed agents (team-* + explorer + step-executor + fixer + codex-triage + spec-reviewer)"
+echo "  installed agents (team-* + plan-reviewer + explorer + step-executor + fixer + codex-triage + spec-reviewer)"
 
 # Retired agents — exact-filename removal so a re-run doesn't leave a stale
 # copy behind. These names only ever shipped from this kit, so removing them
@@ -240,7 +240,7 @@ echo "  installed agents (team-* + explorer + step-executor + fixer + codex-tria
 # is a shared directory and everything else in it is left alone. Add one line
 # here the next time an agent is retired. This is the only copy of the list —
 # INSTALL.md's wizard invokes this script rather than keeping its own.
-RETIRED_AGENTS=(team-prompt-smith.md codex-runner.md team-planner.md)
+RETIRED_AGENTS=(team-prompt-smith.md codex-runner.md team-planner.md team-plan-reviewer.md)
 for name in "${RETIRED_AGENTS[@]}"; do
   base="agents/$name"
   if [ -e "$DEST/$base" ]; then

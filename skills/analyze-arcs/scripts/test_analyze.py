@@ -393,6 +393,7 @@ for phrase in ("Opus: a design call the plan leaves to the executor", "Opus: spa
     check(f"REASON matches: {phrase}", bool(analyze.REASON.search(phrase)), True)
 check("REASON does not match a bare pin", bool(analyze.REASON.search("use opus please")), False)
 check("unknown start: current pins", analyze.pins_for(None), analyze.PINS)
+check("legacy plan-reviewer name keeps its pin", analyze.PINS['team-plan-reviewer'], analyze.PINS['plan-reviewer'])
 
 print()
 if fails:

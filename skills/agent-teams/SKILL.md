@@ -117,7 +117,7 @@ is merged, and there is no pane or process to tear down.
      open decisions, per feature-workflow's Plan shape block
    → codebase discovery goes to explorer subagents (Sonnet, read-only), which
      return summaries; the lead reads no product file itself in plan mode
-   → the LEAD spawns team-plan-reviewer (read-only) to validate the plan
+   → the LEAD spawns plan-reviewer (read-only) to validate the plan
      against the code, revises the plan file itself for any blocking finding,
      resolves the open decisions with one AskUserQuestion, then calls
      ExitPlanMode.   ← only gate
@@ -190,7 +190,7 @@ effort, diff review on Opus; code-writing (Opus when the plan marks a unit), sea
 | Role | Spawned as | Model | Effort | Rationale |
 |------|-----------|-------|--------|-----------|
 | Orchestrator (lead) | main session | whatever the owner picked at session start | the session's effort | coordination, authoring, gates |
-| `team-plan-reviewer` | subagent | the session's model (`inherit`) | the session's | validates the plan against the code before the gate; read-only |
+| `plan-reviewer` | subagent | the session's model (`inherit`) | the session's | validates the plan against the code before the gate; read-only |
 | `team-executor` | **background subagent** | Sonnet 5.5 (Opus only when the plan marks the unit with a reason) | the saved `claude-sonnet-5-5` level (high) | writes code; a well-specified unit needs no more model |
 | `team-reviewer` | subagent | Opus | medium | adversarial bug-hunting on a bounded diff |
 | `team-merger` | subagent | Sonnet | medium | mechanical merge/verify |
@@ -241,7 +241,7 @@ Plan (lead in plan mode; explorer discovers, lead authors, reviewer validates), 
 > [EnterPlanMode] Spawn explorer subagents to report the files, symbols, and
 > patterns <feature> touches, then author the plan directly into the plan file —
 > units, file boundaries, shared contracts, open decisions — per feature-workflow's
-> Plan shape block. Have team-plan-reviewer validate it, resolve the open decisions
+> Plan shape block. Have plan-reviewer validate it, resolve the open decisions
 > with the user, and get approval via ExitPlanMode before any execution.
 
 Fan out execution (background subagents that write + merge → worktree), after approval:
