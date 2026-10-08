@@ -28,3 +28,4 @@ Maintenance rules:
 - **`skills/feature-workflow/scripts/codex-challenge.sh` — elapsed-line accuracy gaps** — no timing line on setup exits; pinned runs exclude cleanup from the reported elapsed → docs/todos/codex-challenge-elapsed-accuracy.md
 - **`skills/analyze-arcs/scripts/analyze.py` — ExitPlanMode wait-time flag pairs by time, not call id** — a rejected exit is credited with a later approval's wait → docs/todos/analyze-arcs-exit-plan-wait-pairing.md
 - **Deferred from the Opus-executors / master-model arc** — `--master` colon split on Bedrock IDs; analyze-arcs same-day pin cutover → docs/todos/deferred-opus-executors-arc.md
+- **`agents/codex-triage.md` — must-fix calls vary between two runs of the same round** — two Sonnet 5.5 runs disagreed on 32–50% of must-fix lines (confounded); measure, then tighten P1/P2 → docs/todos/codex-triage-must-fix-variance.md
