@@ -11,6 +11,7 @@ Maintenance rules:
 
 ## P2
 
+- **`agents/codex-triage.md` — must-fix calls vary between two runs of the same round** — two Sonnet 5.5 runs disagreed on 32–50% of must-fix lines (confounded); measure, then tighten P1/P2 → docs/todos/codex-triage-must-fix-variance.md
 - **`install.sh:177` — `RETIRED_AGENTS` entries aren't validated as plain basenames** — `RETIRED_AGENTS` array isn't checked for being a bare filename → docs/todos/install-sh-177-retired-agents-basename.md
 - **`install.sh:164-168` vs `install.sh:178-185` — no disjointness check between shipped and retired agents** — Copy loop over `agents/*.md` runs before the retirement-prune loop, no disjointness check → docs/todos/install-sh-no-disjointness-check.md
 - **`install.sh:116-117` — append idempotency check requires an exact `## Feature workflow` heading** — `--claude-md=append` idempotency check matches only the literal `## Feature workflow` line → docs/todos/install-sh-append-idempotency-check.md
@@ -28,4 +29,3 @@ Maintenance rules:
 - **`skills/feature-workflow/scripts/codex-challenge.sh` — elapsed-line accuracy gaps** — no timing line on setup exits; pinned runs exclude cleanup from the reported elapsed → docs/todos/codex-challenge-elapsed-accuracy.md
 - **`skills/analyze-arcs/scripts/analyze.py` — ExitPlanMode wait-time flag pairs by time, not call id** — a rejected exit is credited with a later approval's wait → docs/todos/analyze-arcs-exit-plan-wait-pairing.md
 - **Deferred from the Opus-executors / master-model arc** — `--master` colon split on Bedrock IDs; analyze-arcs same-day pin cutover → docs/todos/deferred-opus-executors-arc.md
-- **`agents/codex-triage.md` — must-fix calls vary between two runs of the same round** — two Sonnet 5.5 runs disagreed on 32–50% of must-fix lines (confounded); measure, then tighten P1/P2 → docs/todos/codex-triage-must-fix-variance.md
