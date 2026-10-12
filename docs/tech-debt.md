@@ -29,3 +29,5 @@ Maintenance rules:
 - **`skills/feature-workflow/scripts/codex-challenge.sh` — elapsed-line accuracy gaps** — no timing line on setup exits; pinned runs exclude cleanup from the reported elapsed → docs/todos/codex-challenge-elapsed-accuracy.md
 - **`skills/analyze-arcs/scripts/analyze.py` — ExitPlanMode wait-time flag pairs by time, not call id** — a rejected exit is credited with a later approval's wait → docs/todos/analyze-arcs-exit-plan-wait-pairing.md
 - **Deferred from the Opus-executors / master-model arc** — `--master` colon split on Bedrock IDs; analyze-arcs same-day pin cutover → docs/todos/deferred-opus-executors-arc.md
+- **Stage 5 → push — no record of the verified HEAD, nothing checks it at push** — git-note record per verified commit (verdict, test counts, doctrine fingerprint) + a `git push` hook → docs/todos/verified-head-record.md
+- **`skills/analyze-arcs` — no escape-rate metric for per-step codex rounds** — count stage-5 P0/P1 that slipped past their step's review, to judge per-step rounds on value → docs/todos/escape-rate-metric.md
