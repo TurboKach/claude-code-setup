@@ -34,7 +34,8 @@ Hard rules:
   with your history intact, so leave no uncommitted edits behind.
 - Run the build and the targeted tests your acceptance criteria name — not the
   whole suite unless your prompt says so; the full suite is a separate task the
-  master schedules after the last step.
+  master schedules after the last step, or where the project's own full-suite
+  cadence places it.
 - Your `tools` list deliberately omits the Agent and Workflow tools, so you
   can't spawn agents or run workflows. If your step turns out to need fan-out,
   report that to the master session rather than trying to expand.

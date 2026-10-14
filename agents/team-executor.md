@@ -36,7 +36,8 @@ Hard rules:
   with your history intact, so leave no uncommitted edits behind.
 - Run the build and the targeted tests your acceptance criteria name — not the
   whole suite unless your prompt says so; the full suite is a separate task the
-  master schedules after the last step.
+  master schedules after the last step, or where the project's own full-suite
+  cadence places it.
 - For long builds and test suites, pass an explicit Bash `timeout` sized to the
   run. The default is 15 min (the kit's settings set `BASH_DEFAULT_TIMEOUT_MS`,
   which is also the ceiling). Past its timeout a simple command is not killed —
