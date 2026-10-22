@@ -88,6 +88,6 @@ order of start time; a spawn that died before writing a transcript shifts the ro
 compare the `model seen` column with the pin when that happens.
 
 Summing tokens by hand: Claude Code writes one JSONL line per content block, each repeating the
-response's usage, so count each message id once. In subagent transcripts `output_tokens` holds a
-stream-start value, not the final count: turns, context size and cache reads are reliable there,
-output is not.
+response's usage, so count each message id once. In subagent transcript lines whose `version` is
+below 2.1.307, `output_tokens` holds a stream-start value, not the final count: turns, context size
+and cache reads are reliable there, output is not.
