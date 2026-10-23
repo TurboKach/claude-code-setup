@@ -33,9 +33,12 @@ sentence cut from a long `SKILL.md` moves the rules behind it toward the part th
   bytes) and each `SKILL.md`'s post-cut size against the 5,000-token compaction budget.
 - **Docs basis:** Claude Code's best-practices page (`best-practices.md:170`, written for
   CLAUDE.md): "For each line, ask: 'Would removing this cause Claude to make mistakes?' If not,
-  cut it." For skills and agent files the basis is the skill best-practices page: "Only add
-  context Claude doesn't already have", and a line that "works perfectly for Opus might need
-  more detail for Haiku".
+  cut it." For `SKILL.md` files, `skills.md:374` applies the same test: "apply the same
+  conciseness test you would for CLAUDE.md content". The platform skill best-practices page adds
+  "Only add context Claude doesn't already have". Its model line — "What works perfectly for Opus
+  might need more detail for Haiku" — names Haiku, not Sonnet, and covers Skills, not
+  `agents/*.md`. So keeping a borderline cut's text in a Sonnet-read agent file is the owner's
+  policy, not a docs rule.
 
 **Depends.** Nothing open. The protected text above already stands, so the pass reads the final
 wording.

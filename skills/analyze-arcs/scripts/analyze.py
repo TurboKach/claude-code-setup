@@ -559,20 +559,26 @@ def resolve_path_call_semantic(sessions, workers=8):
             # else: a real "no" -- stays pending for the next round's candidate
 
 def find_masters(projects_dir, since, min_kb):
-    """(masters, skipped): one (transcript, session dir, subagent count) per session id, oldest first, and how many other copies were left out.
-    The session id is the file name up to its first dot, so a `<id>.orphaned-<stamp>.jsonl` set-aside copy folds into its session.
-    Of any number of copies the largest wins (a shorter one is an older snapshot), then the lexicographically last project dir."""
-    best, found = {}, 0
-    for p in glob.glob(os.path.join(projects_dir, '*', '*.jsonl')):
+    """(masters, skipped, aside): one (transcript, session dir, subagent count) per session id, oldest first; how many other `<id>.jsonl`
+    copies were left out; how many set-aside `<id>.orphaned-<stamp>-<suffix>.jsonl` copies passed the filters, used or not.
+    The session id is the file name up to its first dot. Of the exact `<id>.jsonl` copies the largest wins (a shorter one is an older
+    snapshot), then the lexicographically last project dir. A set-aside copy is a previous transcript of its session: it is read only for
+    an id with no `<id>.jsonl` anywhere (even one the window or size filter drops), and then by the same rule."""
+    paths = glob.glob(os.path.join(projects_dir, '*', '*.jsonl'))
+    stem = lambda p: os.path.basename(p).split('.')[0]
+    live = {stem(p) for p in paths if os.path.basename(p) == stem(p) + '.jsonl'}   # ids with a live transcript, before the window and size filters
+    best, copies, aside = {}, 0, 0
+    for p in paths:
         if os.path.getmtime(p) < since: continue
-        sid = os.path.basename(p).split('.')[0]; sd = os.path.join(os.path.dirname(p), sid)
+        sid = stem(p); sd = os.path.join(os.path.dirname(p), sid); exact = os.path.basename(p) == sid + '.jsonl'
         nsub = len(glob.glob(os.path.join(sd, 'subagents', '*.jsonl'))); size = os.path.getsize(p)
         if size < min_kb * 1024 and nsub == 0: continue
-        found += 1
-        key = (size, os.path.dirname(p), os.path.basename(p))
+        copies += exact; aside += not exact
+        if not exact and sid in live: continue
+        key = (exact, size, os.path.dirname(p), os.path.basename(p))
         if sid not in best or key > best[sid][0]: best[sid] = (key, p, sd, nsub)
     masters = sorted(((p, sd, nsub) for _, p, sd, nsub in best.values()), key=lambda x: os.path.getmtime(x[0]))
-    return masters, found - len(masters)
+    return masters, copies - sum(v[0][0] for v in best.values()), aside
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--since', required=True); ap.add_argument('--projects-dir', default=os.path.expanduser('~/.claude/projects'))
@@ -584,9 +590,10 @@ def main():
         sys.path.insert(0, os.path.expanduser('~/.claude/local/analyze-arcs'))
         try: import jev
         except ImportError: sys.exit('--semantic requires the local-only semantic layer (jev.py), expected at ~/.claude/local/analyze-arcs/')
-    masters, skipped = find_masters(a.projects_dir, since, a.min_kb)
+    masters, skipped, aside = find_masters(a.projects_dir, since, a.min_kb)
     L = [f"# Arc analysis since {a.since} (generated {dt.datetime.now():%Y-%m-%d %H:%M})", '',
-         f"Sessions ≥{a.min_kb} KB or with subagents: {len(masters)}, one per session id; duplicate copies skipped: {skipped}. Times are UTC. Flags are mechanical; judgment findings need the timelines.", '']
+         f"Sessions ≥{a.min_kb} KB or with subagents: {len(masters)}, one per session id; duplicate copies skipped: {skipped}. Times are UTC. Flags are mechanical; judgment findings need the timelines.", '',
+         f"Set-aside copies (<id>.orphaned-…): {aside}", '']
     flags_all = []
     scanned = []
     for p, sd, nsub in masters:

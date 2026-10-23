@@ -441,31 +441,52 @@ def write_session(root, proj, name, text, subagents=0):
         with open(os.path.join(d, name.split('.')[0], 'subagents', f'agent-{i}.jsonl'), 'w') as f: f.write('{}\n')
 
 def chosen(root, min_kb=0, since=0):
-    masters, skipped = analyze.find_masters(root, since, min_kb)
+    masters, skipped = analyze.find_masters(root, since, min_kb)[:2]   # skipped: other <id>.jsonl copies left out
     return [os.path.relpath(p, root) for p, _, _ in masters], skipped
+
+def set_aside(root, min_kb=0, since=0):
+    return analyze.find_masters(root, since, min_kb)[2:]   # (set-aside copies found,)
 
 with tempfile.TemporaryDirectory() as root:
     write_session(root, '-a-old', 's1.jsonl', 'same\n'); write_session(root, '-b-new', 's1.jsonl', 'same\n')
     check("identical pair: one section, the lexicographically last project dir, one copy skipped",
           chosen(root), (['-b-new/s1.jsonl'], 1))
+    check("no set-aside copy: the count is 0", set_aside(root), (0,))
 with tempfile.TemporaryDirectory() as root:
     write_session(root, '-a-old', 's2.jsonl', 'a\nb\nc\n'); write_session(root, '-b-new', 's2.jsonl', 'a\nb\n')
     check("prefix pair: the longer copy wins, even in the earlier-named dir", chosen(root), (['-a-old/s2.jsonl'], 1))
 with tempfile.TemporaryDirectory() as root:
     for proj in ('-a', '-b', '-c'): write_session(root, proj, 's3.jsonl', 'same\n')
     check("any number of copies: all but the winner are skipped and counted", chosen(root), (['-c/s3.jsonl'], 2))
+# A set-aside <id>.orphaned-<stamp>-<suffix>.jsonl copy folds into its id but never beats a live <id>.jsonl, whatever the sizes.
 with tempfile.TemporaryDirectory() as root:
-    write_session(root, '-p', 's4.jsonl', 'a\n'); write_session(root, '-p', 's4.orphaned-20261001T101010-ab12.jsonl', 'a\nb\n', subagents=0)
-    masters, skipped = analyze.find_masters(root, 0, 0)
-    check("x.orphaned-<stamp>.jsonl folds into x: one section, the larger copy", ([os.path.relpath(p, root) for p, _, _ in masters], skipped),
-          (['-p/s4.orphaned-20261001T101010-ab12.jsonl'], 1))
-    check("an orphaned winner takes its subagents from <proj>/<id>, not from its own file name", masters[0][1], os.path.join(root, '-p', 's4'))
+    write_session(root, '-p', 's4.jsonl', 'a\n'); write_session(root, '-p', 's4.orphaned-20261001T101010-ab12.jsonl', 'a\nb\nc\n')
+    check("an exact <id>.jsonl beats a larger .orphaned- copy of its id", chosen(root), (['-p/s4.jsonl'], 0))
+    check("the set-aside copy is counted on its own, not as a skipped duplicate", set_aside(root), (1,))
 with tempfile.TemporaryDirectory() as root:
-    write_session(root, '-p', 's5.jsonl', 'a\nb\n'); write_session(root, '-p', 's5.orphaned-1-x.jsonl', 'a\n')
-    check("a smaller set-aside copy loses to the live transcript", chosen(root), (['-p/s5.jsonl'], 1))
+    write_session(root, '-p', 's5.orphaned-1-x.jsonl', 'a\n', subagents=1); write_session(root, '-p', 's5.orphaned-2-y.jsonl', 'a\nb\n')
+    masters = analyze.find_masters(root, 0, 0)[0]
+    check("with no <id>.jsonl anywhere, the largest set-aside copy stands in",
+          [os.path.relpath(p, root) for p, _, _ in masters], ['-p/s5.orphaned-2-y.jsonl'])
+    check("a set-aside winner takes its subagents from <proj>/<id>, not from its own file name",
+          (masters[0][1], masters[0][2]), (os.path.join(root, '-p', 's5'), 1))
+    check("every set-aside copy is counted, none as a skipped duplicate", (chosen(root)[1], set_aside(root)), (0, (2,)))
 with tempfile.TemporaryDirectory() as root:
-    write_session(root, '-a-old', 's6.jsonl', 'same\n', subagents=2); write_session(root, '-b-new', 's6.jsonl', 'same\n', subagents=1)
-    masters, _ = analyze.find_masters(root, 0, 0)
+    write_session(root, '-p', 's6.jsonl', 'a\nb\n'); write_session(root, '-p', 's6.orphaned-1-x.jsonl', 'a\n')
+    check("a smaller set-aside copy loses to the live transcript", chosen(root), (['-p/s6.jsonl'], 0))
+with tempfile.TemporaryDirectory() as root:
+    write_session(root, '-a', 's7.jsonl', 'a\n'); write_session(root, '-b', 's7.jsonl', 'a\n'); write_session(root, '-a', 's7.orphaned-1-x.jsonl', 'a\nb\nc\n')
+    check("among exact copies the size-then-dir rule holds, whatever a set-aside copy weighs",
+          (chosen(root), set_aside(root)), ((['-b/s7.jsonl'], 1), (1,)))
+with tempfile.TemporaryDirectory() as root:
+    write_session(root, '-p', 's8.jsonl', 'x\n'); write_session(root, '-p', 's8.orphaned-1-x.jsonl', 'x' * 2048 + '\n')
+    check("a live copy the size filter drops is not replaced by its set-aside copy",
+          (chosen(root, min_kb=1), set_aside(root, min_kb=1)), (([], 0), (1,)))
+    os.utime(os.path.join(root, '-p', 's8.jsonl'), (1, 1))
+    check("a live copy outside the window is not replaced by its set-aside copy", chosen(root, since=1000), ([], 0))
+with tempfile.TemporaryDirectory() as root:
+    write_session(root, '-a-old', 's9.jsonl', 'same\n', subagents=2); write_session(root, '-b-new', 's9.jsonl', 'same\n', subagents=1)
+    masters = analyze.find_masters(root, 0, 0)[0]
     check("subagents come from the winning copy's dir", (os.path.dirname(masters[0][0]).endswith('-b-new'), masters[0][2]), (True, 1))
 with tempfile.TemporaryDirectory() as root:
     write_session(root, '-p', 'small.jsonl', 'x\n'); write_session(root, '-p', 'kept.jsonl', 'x\n', subagents=1)
@@ -598,6 +619,9 @@ with tempfile.TemporaryDirectory() as root:
     os.makedirs(os.path.join(root, '-Users-me-Dev-b-new', '0123456789ab-cdef', 'subagents'))
     with open(os.path.join(root, '-Users-me-Dev-b-new', '0123456789ab-cdef', 'subagents', 'agent-1.jsonl'), 'w') as f:
         for x in (edit_use(t(12), 's1', 'Edit', OTHER), tool_result(t(13), 's1')): f.write(json.dumps(x) + '\n')
+    # a larger set-aside copy of the same session, with one more product write: the live copy must still be the one reported
+    with open(os.path.join(root, '-Users-me-Dev-b-new', '0123456789ab-cdef.orphaned-20261001T101010-ab12.jsonl'), 'w') as f:
+        for x in session + [bash_use(t(50), 'b3', SED), bash_result(t(51), 'b3', ['/repo/src/extra.py'])]: f.write(json.dumps(x) + '\n')
     out = os.path.join(root, 'report.md')
     argv, sys.argv = sys.argv, ['analyze.py', '--since', '2026-01-01', '--projects-dir', root, '--out', out, '--min-kb', '0']
     try: analyze.main()
@@ -606,7 +630,8 @@ with tempfile.TemporaryDirectory() as root:
     sections = [l.split() for l in report if l.startswith('## ') and l != '## All flags']
     check("one section for the two copies, shaped for weekly.sh (## <proj> / <id8>, NF == 4)",
           [(s[0], s[2], len(s), s[1]) for s in sections], [('##', '/', 4, '-Users-me-Dev-b-new')])
-    check("the header counts the skipped copy", any('duplicate copies skipped: 1' in l for l in report), True)
+    check("the header counts the skipped <id>.jsonl copy", any('duplicate copies skipped: 1' in l for l in report), True)
+    check("the header reports set-aside copies on their own line", [l for l in report if 'Set-aside' in l], ["Set-aside copies (<id>.orphaned-…): 1"])
     import re
     check("weekly.sh's pipeline-arc grep (feature-workflow loaded: [0-9]) still finds the line",
           sum(1 for l in report if re.search(r'feature-workflow loaded: [0-9]', l)), 1)

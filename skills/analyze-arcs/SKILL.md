@@ -21,7 +21,9 @@ the master's view of it.
    python3 ~/.claude/skills/analyze-arcs/scripts/analyze.py --since YYYY-MM-DD --out <scratchpad>/arcs/report.md
    ```
    One section per session id: copies of a transcript under several project directories are reported once, from the
-   largest (then the lexicographically last directory), and the header counts the copies skipped.
+   largest (then the lexicographically last directory), and the header counts the `<id>.jsonl` copies skipped.
+   A set-aside `<id>.orphaned-…jsonl` copy, a previous transcript of the session, never beats a live `<id>.jsonl`
+   whatever the sizes; it is read only for an id with no `<id>.jsonl`, and the header counts set-aside copies on their own line.
    Per session: span, models, Claude Code version, peak context, subagent roster (type, pin, turns, minutes, KB,
    model actually seen), every `codex-challenge.sh` launch with its range, `--out`, run
    minutes and verdict size, every gate with how long it waited, pushes, killed background
@@ -34,9 +36,14 @@ the master's view of it.
    - master `Edit`/`Write` on a product file after `feature-workflow` loaded — or a Bash command that
      changed one, read from the harness's own changed-file record (`bashEditDiff.changedFiles` on the
      tool result; 2.1.269+). The auto-mode prompt steers edits
-     through Bash, so the Edit/Write check alone is blind; sessions from before 2.1.269 say "Bash
-     writes: not recorded". Two gaps in the record: a command that exits non-zero gets no record even
-     when it changed files, and a `run_in_background` command gets none either. The record is best
+     through Bash, so the Edit/Write check alone is blind. "Bash writes: not recorded" means no Bash
+     result carried a record: Claude Code before 2.1.269, or a permission mode other than auto and
+     `bypassPermissions`, the only two that record by default (`bashEditDiffEnabled: true` in user or
+     managed settings records in every mode). Gaps in the record: a command that exits non-zero gets
+     no record even when it changed files, and a `run_in_background` command gets none either; a record
+     marked `unavailable` ("Set when the diff is incomplete or couldn't be taken") or `skipped` (a git
+     command that moves the working tree takes no diff) can list fewer paths than changed, or none; at most
+     200 paths are listed; files Git ignores and files in submodules are never listed. The record is best
      effort and also lists files git moved or another process wrote while the command ran, so two
      exclusions run after both scans (an excluded path counts nowhere: not in this flag, not in the first
      master edit or the missing-call-line check, not as the end of a plan-mode span):
@@ -64,7 +71,9 @@ the master's view of it.
      leaves no `ExitPlanMode` call at all — the span ends at the first proven-successful product-file edit
      after it (an Edit/Write/MultiEdit/NotebookEdit whose own `tool_result` was not an error, or a Bash write
      the harness's `bashEditDiff.changedFiles` record shows and the exclusions above keep; the harness blocks product edits while still in
-     plan mode, so one proves plan mode had already ended), or end of transcript if there's no such edit
+     plan mode, so one proves plan mode had already ended — except in an interactive terminal session with
+     bypass permissions available, where Claude Code does not enforce plan mode's blocks and an edit can run
+     during planning, so the span can end too early there), or end of transcript if there's no such edit
      either. The command text goes through a quote-aware tokenizer, not a regex: segments split on unquoted
      `&&`/`||`/`|`/`;`/newline, operands come from `shlex`, each option's value is consumed with it (`head -n
      5 f` reads `f` only), redirections are not operands (`2>/dev/null`; a `<f` redirect *is* a read), and for
@@ -110,3 +119,8 @@ Summing tokens by hand: Claude Code writes one JSONL line per content block, eac
 response's usage, so count each message id once. In subagent transcript lines whose `version` is
 below 2.1.307, `output_tokens` holds a stream-start value, not the final count: turns, context size
 and cache reads are reliable there, output is not.
+
+Every transcript field the analyzer reads is observed, not documented: "The entry format is internal to
+Claude Code and changes between versions" (the `bashEditDiff` fields are documented as hook input, not
+as transcript entries). After an upgrade, check a count that falls to zero against a raw transcript
+before reading it as a quiet week.
