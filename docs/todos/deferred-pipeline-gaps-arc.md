@@ -1,8 +1,8 @@
 # Deferred from the pipeline-gaps arc
 
-**What:** thirteen standalone findings that came up in the arc (the analyzer fixes: session dedupe,
+**What:** fourteen standalone findings that came up in the arc (the analyzer fixes: session dedupe,
 Bash-write exclusions, pin-reason cue; the stage-5 rounds; the docs re-check) and were not fixed there:
-four doctrine gaps, seven analyzer blind spots or limits, two harness-drift risks. Each can be picked up
+five doctrine gaps, seven analyzer blind spots or limits, two harness-drift risks. Each can be picked up
 alone.
 
 **Why:** the analyzer step was scoped to the false flags. Nothing below blocks it; each item needs its
@@ -103,8 +103,17 @@ Deferred at the arc's close (the stage-5 rounds and the docs re-check):
     that calls it (`:601`) has none either, so one such transcript aborts the whole report. The trigger is
     a pathological command: 0 in 210,376 real commands fuzzed. Fix: bound the recursion fail-closed (an
     over-deep command stays counted).
+14. **Doctrine: stage 5's *fix now* does not say the fixer's commit is re-challenged.** Once the loop has
+    ended, `skills/feature-workflow/SKILL.md` stage 5 offers the standalone findings "*fix now* (one fixer
+    spawn for the set)". Every re-challenge instruction in that skill belongs to the P0/P1 loop ("the next
+    round re-challenges the resulting HEAD"). `global/CLAUDE.md`'s codex gate implies a re-run here: the
+    challenge runs "once on the whole range", and the only commit after the clean verdict that it exempts
+    is one "that touches only `docs/reviews/`, `docs/todos/`, the project's TODO index or handoff docs".
+    Found at the arc's close; both texts checked against 323788b. This arc did re-run (round 2 followed
+    the owner's *fix now* set), so the gap is in the text, not in the practice. Fix: one clause after
+    *fix now* saying the range is re-challenged at the new HEAD unless the fix touches only those paths.
 
-**Depends:** nothing. Items 1–3, 8 and 12 are doctrine edits and go through the line test and the
+**Depends:** nothing. Items 1–3, 8, 12 and 14 are doctrine edits and go through the line test and the
 review gates (item 12 also changes a settings file, and belongs with `docs/todos/verified-head-record.md`);
 items 4, 5, 7, 10 and 13 are analyzer changes with tests in `test_analyze.py`.
 
@@ -112,4 +121,5 @@ items 4, 5, 7, 10 and 13 are analyzer changes with tests in `test_analyze.py`.
 about 30 min each, one Sonnet fixer. Item 10: the same, plus the count of records the stricter rule
 would count again. Items 6 and 9: watch items, minutes to confirm. Item 11: a design record, no work
 until a case shows up. Item 12: one settings line if the rule alone is enough; otherwise the
-verified-head arc. Item 13: a depth bound and one test, about 15 min, one Sonnet fixer.
+verified-head arc. Item 13: a depth bound and one test, about 15 min, one Sonnet fixer. Item 14: one
+clause after *fix now*.
