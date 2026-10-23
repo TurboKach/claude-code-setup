@@ -37,7 +37,8 @@ the master's view of it.
      changed one, read from the harness's own changed-file record (`bashEditDiff.changedFiles` on the
      tool result; 2.1.269+). The auto-mode prompt steers edits
      through Bash, so the Edit/Write check alone is blind. "Bash writes: not recorded" means no Bash
-     result carried a changed-file list: Claude Code before 2.1.269; a permission mode other than auto and
+     result carried a `bashEditDiff` record (one that lists no file, such as a lone `shared` or
+     `unavailable`, still counts): Claude Code before 2.1.269; a permission mode other than auto and
      `bypassPermissions`, the only two that record by default (`bashEditDiffEnabled: true` in user or
      managed settings records in every mode); or no Bash command in the session changed a file
      (read-only commands carry no diff). Gaps in the record: a command that exits non-zero gets

@@ -590,6 +590,21 @@ check("git status | sed 'w out' is a master write: counted",
 check("a record's shared flag is kept on its entries",
       [e['shared'] for e in master_with(bash_use(t(10), 'b1', SED), bash_result(t(20), 'b1', [SRC], shared=True))['edits']], [True])
 
+# --- bash_diff: a session reads "recorded" when any Bash result carries a bashEditDiff record, even one that lists no file ---
+def bash_record(T, tid, bed):
+    d = tool_result(T, tid); d['toolUseResult'] = dict(bashEditDiff=bed); return d
+LONE_RECORDS = (("a shared mark with an empty list", {'shared': True, 'changedFiles': []}),
+                ("a shared mark with files and moreFiles but no list", {'files': [], 'moreFiles': 0, 'shared': True}),
+                ("an unavailable mark alone", {'unavailable': True}),
+                ("an unavailable mark with files and moreFiles but no list", {'files': [], 'moreFiles': 0, 'unavailable': True}),
+                ("a skipped mark with files and moreFiles but no list", {'files': [], 'moreFiles': 0, 'skipped': True}))
+for name, bed in LONE_RECORDS:
+    r_rec = master_with(bash_use(t(10), 'b1', 'git status'), bash_record(t(20), 'b1', bed))
+    check(f"{name}: recorded, and no path becomes a master write", (r_rec['bash_diff'], r_rec['edits']), (True, []))
+check("a null bashEditDiff proves nothing: not recorded",
+      master_with(bash_use(t(10), 'b1', 'git status'), bash_record(t(20), 'b1', None))['bash_diff'], False)
+check("a result with no bashEditDiff: not recorded", master_with(bash_use(t(10), 'b1', 'ls'), tool_result(t(20), 'b1'))['bash_diff'], False)
+
 # --- an excluded entry neither ends the plan span nor sets first_product_edit nor closes the semantic candidates ---
 def with_bash_write(cmd):
     r = analyze.scan_master_records([tool_use(t(0), 'e1', 'EnterPlanMode'), tool_result(t(1), 'e1'), text_msg(t(2), 'before the write'),
@@ -640,20 +655,27 @@ with tempfile.TemporaryDirectory() as root:
           [f"00:00 master Bash on product file inside pipeline: {SRC} (shared)"])
     check("a session with a Bash record says so", any('Bash writes: recorded by the harness' in l for l in report), True)
 
-# --- main(): a session whose Bash results carry no record says why, on the same line as feature-workflow loaded ---
-with tempfile.TemporaryDirectory() as root:
-    os.makedirs(os.path.join(root, '-Users-me-Dev-p'))
-    with open(os.path.join(root, '-Users-me-Dev-p', 'fedcba9876543210.jsonl'), 'w') as f:
-        for x in (user_str(t(0), 'hello'), text_msg(t(1), 'ok')): f.write(json.dumps(x) + '\n')
-    out = os.path.join(root, 'report.md')
-    argv, sys.argv = sys.argv, ['analyze.py', '--since', '2026-01-01', '--projects-dir', root, '--out', out, '--min-kb', '0']
-    try: analyze.main()
-    finally: sys.argv = argv
-    check("no Bash record: the line names the three causes, version, permission mode and no changed file",
-          [l for l in open(out).read().splitlines() if l.startswith('- feature-workflow loaded:')],
-          ["- feature-workflow loaded: no; path call line: none; first master edit: none; Bash writes: not recorded (Edit/Write only — "
-           "Claude Code before 2.1.269; a permission mode other than auto/bypassPermissions without bashEditDiffEnabled: true in user or managed settings; "
-           "or no Bash command in the session changed a file (read-only commands carry no diff))"])
+# --- main(): a session with no Bash record says why, and one whose only record lists no file reads "recorded", on the feature-workflow loaded line ---
+def feature_line(records):
+    """The '- feature-workflow loaded:' line analyze.main() writes for a projects dir holding one session made of `records`."""
+    with tempfile.TemporaryDirectory() as root:
+        os.makedirs(os.path.join(root, '-Users-me-Dev-p'))
+        with open(os.path.join(root, '-Users-me-Dev-p', 'fedcba9876543210.jsonl'), 'w') as f:
+            for x in records: f.write(json.dumps(x) + '\n')
+        out = os.path.join(root, 'report.md')
+        argv, sys.argv = sys.argv, ['analyze.py', '--since', '2026-01-01', '--projects-dir', root, '--out', out, '--min-kb', '0']
+        try: analyze.main()
+        finally: sys.argv = argv
+        return [l for l in open(out).read().splitlines() if l.startswith('- feature-workflow loaded:')]
+LINE_HEAD = "- feature-workflow loaded: no; path call line: none; first master edit: none; Bash writes: "
+chatter = [user_str(t(0), 'hello'), text_msg(t(1), 'ok')]
+check("no Bash record: the line names the three causes, version, permission mode and no changed file", feature_line(chatter),
+      [LINE_HEAD + "not recorded (Edit/Write only — Claude Code before 2.1.269; a permission mode other than auto/bypassPermissions "
+                   "without bashEditDiffEnabled: true in user or managed settings; or no Bash command in the session changed a file "
+                   "(read-only commands carry no diff))"])
+for name, bed in LONE_RECORDS:
+    check(f"{name}: the line says recorded", feature_line(chatter + [bash_use(t(2), 'b1', 'git status'), bash_record(t(3), 'b1', bed)]),
+          [LINE_HEAD + "recorded by the harness"])
 
 print()
 if fails:

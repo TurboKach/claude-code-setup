@@ -371,10 +371,11 @@ def scan_master_records(recs, path=None):
             # moved or another process wrote. exclude_bash_writes() marks those, and sets first_edit / first_product_edit from what is left.
             tur = d.get('toolUseResult'); bed = tur.get('bashEditDiff') if isinstance(tur, dict) else None
             c = m.get('content')
-            if isinstance(bed, dict) and isinstance(bed.get('changedFiles'), list):   # a record without the list (snapshot skipped) proves nothing
+            if isinstance(bed, dict):   # any record shows the harness recorded the command, even one that lists no file (shared, unavailable, skipped)
                 r['bash_diff'] = True
                 use = next((bash_uses.pop(i) for i in result_ids(c) if i in bash_uses), {})
-                for f in bed['changedFiles']:
+                listed = bed.get('changedFiles')
+                for f in listed if isinstance(listed, list) else []:   # only paths the harness listed become master writes
                     r['edits'].append(dict(t=T, t0=use.get('t0'), cmd=use.get('cmd'), shared=bool(bed.get('shared')), tool='Bash', file=f, error=False))
             if isinstance(c, str):
                 if not d.get('isMeta'):
