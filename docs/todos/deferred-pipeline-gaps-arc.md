@@ -1,8 +1,8 @@
 # Deferred from the pipeline-gaps arc
 
-**What:** twelve standalone findings that came up in the arc (the analyzer fixes: session dedupe,
+**What:** thirteen standalone findings that came up in the arc (the analyzer fixes: session dedupe,
 Bash-write exclusions, pin-reason cue; the stage-5 rounds; the docs re-check) and were not fixed there:
-four doctrine gaps, six analyzer blind spots or limits, two harness-drift risks. Each can be picked up
+four doctrine gaps, seven analyzer blind spots or limits, two harness-drift risks. Each can be picked up
 alone.
 
 **Why:** the analyzer step was scoped to the false flags. Nothing below blocks it; each item needs its
@@ -96,13 +96,20 @@ Deferred at the arc's close (the stage-5 rounds and the docs re-check):
     written, so `git -C . push`, `git -c … push` and `git 'push'` are not stopped (`permissions.md`,
     "What a Bash rule doesn't match"), and it cannot compare the pushed HEAD with the verified one.
     Choose the rule, the hook or both when that arc is picked up.
+13. **Analyzer: deeply nested `$(…)` makes `cannot_write` raise `RecursionError`** (codex P2, conf 0.6,
+    round 2). `cannot_write` calls itself on the body of each `$(…)` or backtick (`analyze.py:271`), so
+    about 500 nested `echo $(…)` reach Python's default recursion limit of 1000 (measured 2026-10-23: 495
+    return, 500 raise). Its only caller, `exclude_bash_writes` (`:458`), has no try/except, and the loop
+    that calls it (`:601`) has none either, so one such transcript aborts the whole report. The trigger is
+    a pathological command: 0 in 210,376 real commands fuzzed. Fix: bound the recursion fail-closed (an
+    over-deep command stays counted).
 
 **Depends:** nothing. Items 1–3, 8 and 12 are doctrine edits and go through the line test and the
 review gates (item 12 also changes a settings file, and belongs with `docs/todos/verified-head-record.md`);
-items 4, 5, 7 and 10 are analyzer changes with tests in `test_analyze.py`.
+items 4, 5, 7, 10 and 13 are analyzer changes with tests in `test_analyze.py`.
 
 **Effort:** items 1–3: one short doctrine edit each. Item 8: a half-session design call. Items 4, 5, 7:
 about 30 min each, one Sonnet fixer. Item 10: the same, plus the count of records the stricter rule
 would count again. Items 6 and 9: watch items, minutes to confirm. Item 11: a design record, no work
 until a case shows up. Item 12: one settings line if the rule alone is enough; otherwise the
-verified-head arc.
+verified-head arc. Item 13: a depth bound and one test, about 15 min, one Sonnet fixer.
