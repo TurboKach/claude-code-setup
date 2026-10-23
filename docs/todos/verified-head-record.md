@@ -7,7 +7,7 @@ version each arc ran under, and the data for the escape-rate metric
 
 **Why.** "The gate is the whole range at a single HEAD" (feature-workflow stage 5) is a rule
 the master keeps in mind; nothing enforces it. Commits that land after the clean verdict
-(docs fixes, handoff notes, a "tiny" change) go out under a review that never saw them. The
+(a "tiny" change) go out under a review that never saw them. The
 2026-10-12 weekly arc review measured it: after the final verdict, 3 of 6 masters re-ran codex
 and 3 pushed past the gated head. Idea source: "AI Broke the Assumptions Behind CI"
 (https://stack72.dev/ai-broke-the-assumptions-behind-ci/), an attestation tied to the final
@@ -31,7 +31,7 @@ commit that goes stale once the branch moves.
   The owner then re-runs the review on that delta, or pushes knowingly. The hook parses the
   command structurally, not with a regex.
 
-Open policy question for that arc: does a docs-only delta need a re-review? (The C1 split above.)
+Settled: a docs-only delta does not reopen the gate (global CLAUDE.md, the codex gate).
 
 **Depends.** Nothing.
 
