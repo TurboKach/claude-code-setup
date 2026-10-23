@@ -649,10 +649,11 @@ with tempfile.TemporaryDirectory() as root:
     argv, sys.argv = sys.argv, ['analyze.py', '--since', '2026-01-01', '--projects-dir', root, '--out', out, '--min-kb', '0']
     try: analyze.main()
     finally: sys.argv = argv
-    check("no Bash record: the line names both causes, version and permission mode",
+    check("no Bash record: the line names the three causes, version, permission mode and no changed file",
           [l for l in open(out).read().splitlines() if l.startswith('- feature-workflow loaded:')],
           ["- feature-workflow loaded: no; path call line: none; first master edit: none; Bash writes: not recorded (Edit/Write only — "
-           "Claude Code before 2.1.269, or a permission mode other than auto/bypassPermissions without bashEditDiffEnabled: true in user or managed settings)"])
+           "Claude Code before 2.1.269; a permission mode other than auto/bypassPermissions without bashEditDiffEnabled: true in user or managed settings; "
+           "or no Bash command in the session changed a file (read-only commands carry no diff))"])
 
 print()
 if fails:
