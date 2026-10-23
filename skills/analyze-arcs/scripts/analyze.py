@@ -29,7 +29,8 @@ PATH_CALL = re.compile(r'(?i)\bpath call\b|^\s*\**\s*(one-shot|pipeline)\b(?!-)|
 # <task-notification> (agent id in <task-id>), or a foreground Agent tool_result (agent id in toolUseResult.agentId).
 CAP_NOTE = re.compile(r'<task-id>(\w+)</task-id>(?:(?!</task-notification>).)*?<summary>[^<]*stopped at its \d+-turn limit', re.S)
 CAP_RESULT = re.compile(r'stopped at its \d+-turn limit before finishing')
-REASON = re.compile(r'(?i)reason|opus for|structural|mechanism|rate.?limit|429|judg|design call|subsystem|concurren|security|migrat|long-horizon')
+# "Opus because" / "Opus:" count only within 20 characters of "Opus" in one sentence: a bare "because" turns up in most off-doctrine prompts.
+REASON = re.compile(r'(?i)reason|opus for|opus\b[^.\n]{0,20}?(because|:)|structural|mechanism|rate.?limit|429|judg|design call|subsystem|concurren|security|migrat|long-horizon')
 
 # --semantic: Noul >= this counts as "yes" for analyze.py's own reason/path_call questions.
 # semantic.py's judgments have their own per-judgment thresholds (FLAG_THRESHOLDS); this constant
@@ -154,6 +155,98 @@ def bash_read_paths(cmd):
             paths = ['.']   # a bare recursive search reads the cwd
         out.extend(paths)
     return out
+
+# Commands that cannot write a file by hand: cd and the read filters. A redirect, `sed -i` and `sort -o` still write and are checked
+# below; `tee` and `uniq in out` write, so they are not on the closed list. git is handled apart: it moves files itself.
+NO_WRITE_CMDS = ('cd', 'head', 'tail', 'cut', 'wc', 'grep', 'rg', 'tr', 'cat', 'echo', 'printf', 'true', 'ls', 'column', 'jq', 'sort', 'sed')
+GIT_VALUE_OPTS = ('-C', '-c', '--git-dir', '--work-tree', '--namespace')   # global options whose value is the next token (`--opt=value` is one token)
+
+def _close_paren(s, i):
+    """Index of the `)` that closes a `(` opened just before s[i], skipping quoted text; -1 when unbalanced."""
+    depth, q = 1, None
+    while i < len(s):
+        c = s[i]
+        if c == '\\' and q != "'": i += 2; continue
+        if q:
+            if c == q: q = None
+        elif c in '"\'': q = c
+        elif c == '(': depth += 1
+        elif c == ')':
+            depth -= 1
+            if depth == 0: return i
+        i += 1
+    return -1
+
+def _substitutions(cmd):
+    """(outer, inner) of a command: outer is cmd with every $(...) and `...` replaced by `_`, inner lists their bodies.
+    Single quotes hide a substitution, double quotes do not. None when a quote or a substitution is unbalanced."""
+    outer, inner, q, i = '', [], None, 0
+    while i < len(cmd):
+        c = cmd[i]
+        if c == '\\' and q != "'" and i + 1 < len(cmd): outer += cmd[i:i + 2]; i += 2; continue
+        if q != "'" and c == '`':
+            j = cmd.find('`', i + 1)
+            if j < 0: return None
+            inner.append(cmd[i + 1:j]); outer += '_'; i = j + 1; continue
+        if q != "'" and cmd.startswith('$(', i):
+            j = _close_paren(cmd, i + 2)
+            if j < 0: return None
+            inner.append(cmd[i + 2:j]); outer += '_'; i = j + 1; continue
+        if c in '"\'' and q in (None, c): q = None if q else c
+        outer += c; i += 1
+    return None if q else (outer, inner)
+
+def _tokens(seg):
+    """The words of a segment, with each unquoted shell operator (`>`, `>&`, `&`, `<(`, `)`...) a token of its own. ValueError on unbalanced quotes."""
+    lex = shlex.shlex(seg, posix=True, punctuation_chars=True)
+    lex.whitespace_split = True; lex.commenters = ''   # a `#` inside a word is text, and a comment must never hide a redirect
+    return list(lex)
+
+def _bad_operator(toks):
+    """True when a token is a shell operator other than a descriptor copy (`2>&1`) or an output redirect to /dev/null: a redirect to a
+    file, a background `&`, a subshell, a process substitution, a heredoc. Text inside quotes is part of a word, never an operator."""
+    for i, t in enumerate(toks):
+        if not t or t.strip('();<>|&'): continue
+        nxt = toks[i + 1] if i + 1 < len(toks) else ''
+        if t == '>&' and nxt.isdigit(): continue
+        if t in ('>', '>>', '&>', '&>>') and nxt == '/dev/null': continue
+        return True
+    return False
+
+def _has_option(args, short, long):
+    """True when args holds the short option (alone or in a cluster such as -ni) or a long option that starts with `long`."""
+    return any(a.startswith(long) or (a.startswith('-') and not a.startswith('--') and short in a) for a in args)
+
+def _git_cannot_write(args):
+    """A git call whose subcommand is not apply or am. The subcommand must be a plain word, so `$SUB` or a placeholder never passes."""
+    i = 0
+    while i < len(args) and args[i].startswith('-'): i += 2 if args[i] in GIT_VALUE_OPTS else 1
+    sub = args[i] if i < len(args) else ''
+    return sub.replace('-', '').isalpha() and sub not in ('apply', 'am')
+
+def _segment_cannot_write(seg):
+    try: toks = _tokens(seg)
+    except ValueError: return False   # unbalanced quotes: claim nothing
+    if _bad_operator(toks): return False
+    while toks and toks[0].partition('=')[1] and toks[0].partition('=')[0].isidentifier(): toks.pop(0)   # leading VAR=val
+    if not toks: return False   # assignments only: not on the list
+    word, args = toks[0], toks[1:]
+    if word == 'git': return _git_cannot_write(args)
+    if word == 'sed': return not _has_option(args, 'i', '--in-place')
+    if word == 'sort': return not _has_option(args, 'o', '--o')
+    return word in NO_WRITE_CMDS
+
+def cannot_write(cmd):
+    """True when a Bash command cannot have written a file by hand, so the paths the harness listed for it are files git moved or
+    another process wrote. Closed allowlist: every segment (_segments + shlex) is a cd, a git call that is not apply/am, or a read
+    filter; no operator redirects output to a file or backgrounds a job; each $(...) or `...` inside passes the same test.
+    Any other segment, or text that does not parse, keeps the command counted."""
+    sub = _substitutions(cmd or '')
+    if sub is None: return False
+    outer, inner = sub
+    segs = [s for s in _segments(outer) if s.strip()]
+    return bool(segs) and all(_segment_cannot_write(s) for s in segs) and all(cannot_write(b) for b in inner)
+
 def product_file(f):
     """True when f names a product file; False for scratch, plans, reviews, TODO indexes and build artifacts."""
     f = (f or '').strip('\'"')
@@ -172,6 +265,17 @@ def records(p):
         try: yield json.loads(line)
         except Exception: continue
 
+def result_ids(c):
+    """The tool_use ids of the tool_result blocks in a user message's content."""
+    return [x.get('tool_use_id') for x in c if isinstance(x, dict) and x.get('type') == 'tool_result'] if isinstance(c, list) else []
+
+def bash_changed(tur):
+    """The absolute paths a Bash tool result lists as changed: bashEditDiff.changedFiles plus the files it holds a diff for."""
+    bed = tur.get('bashEditDiff') if isinstance(tur, dict) else None
+    if not isinstance(bed, dict): return []
+    cf, fl = bed.get('changedFiles'), bed.get('files')
+    return [f for f in (cf if isinstance(cf, list) else []) + [x.get('filePath') for x in (fl if isinstance(fl, list) else []) if isinstance(x, dict)] if isinstance(f, str)]
+
 def scan_master(p):
     return scan_master_records(records(p), path=p)
 
@@ -180,7 +284,7 @@ def scan_master_records(recs, path=None):
              spawns=[], codex=[], edits=[], gates=[], pushes=[], killed=[], fw_loaded=None, path_call=None, caps={},   # caps: agent id -> number of turn-cap stops
              plan_approved=[], exit_plan=[], enter_plan=[], reads=[], first_edit=None, first_product_edit=None,
              api_errors=0, bash_diff=False, versions=set(), path_call_candidates=[], path_call_regex_fallback=False)
-    pending_q = {}
+    pending_q = {}; bash_uses = {}   # bash_uses: tool_use id -> start time and command, to window a Bash write and read its command
     for d in recs:
         t = d.get('type'); T = d.get('timestamp')
         if T:
@@ -199,8 +303,9 @@ def scan_master_records(recs, path=None):
                 if c.get('type') == 'text':
                     tx = c['text']
                     if r['path_call'] is None and PATH_CALL.search(tx[:200]): r['path_call'] = T
-                    # --semantic candidate collection (network-free here): only text seen before
-                    # fw_loaded or the first product edit, capped — asked about in resolve_path_call_semantic().
+                    # --semantic candidate collection (network-free here): only text seen before fw_loaded or the first
+                    # Edit/Write product edit, capped — exclude_bash_writes() trims it at the first Bash write that counts.
+                    # Asked about in resolve_path_call_semantic().
                     if (r['fw_loaded'] is None and r['first_product_edit'] is None
                             and len(r['path_call_candidates']) < PATH_CALL_MAX_CANDIDATES):
                         r['path_call_candidates'].append(dict(t=T, text=tx[:PATH_CALL_CANDIDATE_CHARS]))
@@ -218,6 +323,7 @@ def scan_master_records(recs, path=None):
                                                pin='--pin' in cmd, out=out.group(1).strip('\'";') if out else None,
                                                timeout=i.get('timeout'), id=c['id']))
                     if re.search(r'\bgit push\b', cmd): r['pushes'].append(T)
+                    bash_uses[c['id']] = dict(t0=T, cmd=cmd)
                     for tok in bash_read_paths(cmd):
                         r['reads'].append(dict(t=T, tool='Bash', file=tok))
                 elif n in ('Edit', 'Write', 'MultiEdit', 'NotebookEdit'):
@@ -238,14 +344,15 @@ def scan_master_records(recs, path=None):
                     # EnterPlanMode opens a span only once its tool_result comes back not-an-error (below); a denied call opens nothing.
         elif t == 'user':
             # Files a Bash command changed, as the harness recorded them (git working tree, ≤200 paths; 2.1.269+, `bashEditDiffEnabled`,
-            # on by default in auto/bypass mode, never shown to the model). Ground truth — the command text is not parsed.
+            # on by default in auto/bypass mode, never shown to the model). Best effort, so a pointer to review: it can list files git
+            # moved or another process wrote. exclude_bash_writes() marks those, and sets first_edit / first_product_edit from what is left.
             tur = d.get('toolUseResult'); bed = tur.get('bashEditDiff') if isinstance(tur, dict) else None
+            c = m.get('content')
             if isinstance(bed, dict) and isinstance(bed.get('changedFiles'), list):   # a record without the list (snapshot skipped) proves nothing
                 r['bash_diff'] = True
+                use = next((bash_uses.pop(i) for i in result_ids(c) if i in bash_uses), {})
                 for f in bed['changedFiles']:
-                    r['edits'].append(dict(t=T, tool='Bash', file=f, error=False)); r['first_edit'] = r['first_edit'] or T
-                    if r['first_product_edit'] is None and product_file(f): r['first_product_edit'] = T
-            c = m.get('content')
+                    r['edits'].append(dict(t=T, t0=use.get('t0'), cmd=use.get('cmd'), shared=bool(bed.get('shared')), tool='Bash', file=f, error=False))
             if isinstance(c, str):
                 if not d.get('isMeta'):
                     r['user_turns'] += 1; r['first_prompt'] = r['first_prompt'] or c[:160].replace('\n', ' ')
@@ -286,16 +393,50 @@ def scan_subagents(session_dir, caps):
     rows = []
     for p in sorted(glob.glob(os.path.join(session_dir, 'subagents', '*.jsonl'))):
         first = last = None; turns = 0; models = set(); err = 0; kb = os.path.getsize(p) // 1024
+        calls, writes = {}, []   # calls: tool_use id -> (tool, path, start) of an Edit/Write/Bash; writes: (path, start, end) once the result is back
         for d in records(p):
             T = d.get('timestamp')
             if T: first = first or T; last = T
+            c = (d.get('message') or {}).get('content')
             if d.get('type') == 'assistant':
                 turns += 1
                 mm = (d.get('message') or {}).get('model')
                 if mm: models.add(mm)
                 if d.get('isApiErrorMessage'): err += 1
-        rows.append(dict(file=os.path.basename(p), first=first, last=last, turns=turns, models=','.join(sorted(models)), err=err, kb=kb, capped=caps.get(os.path.basename(p)[6:-6], 0)))
+                for x in c if isinstance(c, list) else []:
+                    if isinstance(x, dict) and x.get('type') == 'tool_use' and x.get('name') in ('Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'Bash'):
+                        i = x.get('input') or {}
+                        calls[x['id']] = (x['name'], i.get('file_path') or i.get('notebook_path') or '', T)
+            elif d.get('type') == 'user':
+                for x in c if isinstance(c, list) else []:
+                    call = calls.pop(x.get('tool_use_id'), None) if isinstance(x, dict) and x.get('type') == 'tool_result' else None
+                    if not call or not (call[2] and T): continue   # a write with no tool_result, or no clock, is not proven
+                    paths = bash_changed(d.get('toolUseResult')) if call[0] == 'Bash' else ([] if x.get('is_error') else [call[1]])
+                    writes += [(f, call[2], T) for f in paths if f]
+        rows.append(dict(file=os.path.basename(p), first=first, last=last, turns=turns, models=','.join(sorted(models)), err=err, kb=kb, capped=caps.get(os.path.basename(p)[6:-6], 0), writes=writes))
     return rows
+
+def exclude_bash_writes(r, subs):
+    """Mark the master's Bash write entries that are not master writes, then set first_edit / first_product_edit from the rest.
+    The harness lists what changed under the repo while a command ran (best effort), so a path is marked when
+    - 'subagent write': a same-session subagent wrote the same absolute path while the Bash call ran (the two [tool_use, tool_result]
+      windows overlap); a call with no known start, or a subagent write with no tool_result, drops nothing;
+    - 'no file-writing command': cannot_write() says the command only reads or has git move files.
+    Every consumer of r['edits'] skips marked entries. The semantic path-call candidates are cut at the new first product edit."""
+    windows = {}
+    for s in subs:
+        for f, w0, w1 in s['writes']: windows.setdefault(f, []).append((w0, w1))
+    verdict = {}
+    for e in r['edits']:
+        if e['tool'] != 'Bash': continue
+        if e.get('t0') and e['t'] and any(w0 <= e['t'] and e['t0'] <= w1 for w0, w1 in windows.get(e['file'], ())): e['excluded'] = 'subagent write'
+        else:
+            if e.get('cmd') not in verdict: verdict[e.get('cmd')] = cannot_write(e.get('cmd'))
+            if verdict[e.get('cmd')]: e['excluded'] = 'no file-writing command'
+    live = [e for e in r['edits'] if not e.get('excluded')]
+    r['first_edit'] = min((e['t'] for e in live if e['t']), default=None)
+    r['first_product_edit'] = cut = min((e['t'] for e in live if e['t'] and product_file(e['file'])), default=None)
+    r['path_call_candidates'] = [x for x in r['path_call_candidates'] if cut is None or x['t'] <= cut]
 
 def codex_run(out):
     if not out: return None
@@ -318,8 +459,8 @@ def plan_span_end(x0, exit_plan, plan_approved, edits, enter_plan, last):
         revision-phase reads inside it.
     (b) the first proven-successful product-file edit after x0 — an Edit/Write/MultiEdit/NotebookEdit
         whose tool_result was not an error, or a Bash write the harness's own changed-file record
-        shows — since the harness blocks product edits while still in plan mode, one proves plan mode
-        had already ended.
+        shows and exclude_bash_writes() did not mark — since the harness blocks product edits while
+        still in plan mode, one proves plan mode had already ended.
     (c) the next EnterPlanMode after x0, if any: a later enter proves the earlier span was left
         (approved or not) even when neither (a) nor (b) fired for it — so it never scans into a
         later cycle's events.
@@ -333,7 +474,7 @@ def plan_span_end(x0, exit_plan, plan_approved, edits, enter_plan, last):
         if later and later[0][1] == 'approved':
             approved_end = e
             break
-    prod_edits = sorted(e['t'] for e in edits if e['t'] > x0 and not e.get('error') and product_file(e['file']))
+    prod_edits = sorted(e['t'] for e in edits if e['t'] > x0 and not e.get('error') and not e.get('excluded') and product_file(e['file']))
     edit_end = prod_edits[0] if prod_edits else None
     candidates = [c for c in (approved_end, edit_end, bound) if c is not None]
     return min(candidates) if candidates else last
@@ -394,6 +535,22 @@ def resolve_path_call_semantic(sessions, workers=8):
                 del pending[key]
             # else: a real "no" -- stays pending for the next round's candidate
 
+def find_masters(projects_dir, since, min_kb):
+    """(masters, skipped): one (transcript, session dir, subagent count) per session id, oldest first, and how many other copies were left out.
+    The session id is the file name up to its first dot, so a `<id>.orphaned-<stamp>.jsonl` set-aside copy folds into its session.
+    Of any number of copies the largest wins (a shorter one is an older snapshot), then the lexicographically last project dir."""
+    best, found = {}, 0
+    for p in glob.glob(os.path.join(projects_dir, '*', '*.jsonl')):
+        if os.path.getmtime(p) < since: continue
+        sid = os.path.basename(p).split('.')[0]; sd = os.path.join(os.path.dirname(p), sid)
+        nsub = len(glob.glob(os.path.join(sd, 'subagents', '*.jsonl'))); size = os.path.getsize(p)
+        if size < min_kb * 1024 and nsub == 0: continue
+        found += 1
+        key = (size, os.path.dirname(p), os.path.basename(p))
+        if sid not in best or key > best[sid][0]: best[sid] = (key, p, sd, nsub)
+    masters = sorted(((p, sd, nsub) for _, p, sd, nsub in best.values()), key=lambda x: os.path.getmtime(x[0]))
+    return masters, found - len(masters)
+
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--since', required=True); ap.add_argument('--projects-dir', default=os.path.expanduser('~/.claude/projects'))
     ap.add_argument('--out', required=True); ap.add_argument('--min-kb', type=int, default=150)
@@ -404,19 +561,14 @@ def main():
         sys.path.insert(0, os.path.expanduser('~/.claude/local/analyze-arcs'))
         try: import jev
         except ImportError: sys.exit('--semantic requires the local-only semantic layer (jev.py), expected at ~/.claude/local/analyze-arcs/')
-    masters = []
-    for p in glob.glob(os.path.join(a.projects_dir, '*', '*.jsonl')):
-        if os.path.getmtime(p) < since: continue
-        sd = p[:-6]; nsub = len(glob.glob(os.path.join(sd, 'subagents', '*.jsonl')))
-        if os.path.getsize(p) < a.min_kb * 1024 and nsub == 0: continue
-        masters.append((p, sd, nsub))
-    masters.sort(key=lambda x: os.path.getmtime(x[0]))
+    masters, skipped = find_masters(a.projects_dir, since, a.min_kb)
     L = [f"# Arc analysis since {a.since} (generated {dt.datetime.now():%Y-%m-%d %H:%M})", '',
-         f"Sessions ≥{a.min_kb} KB or with subagents: {len(masters)}. Times are UTC. Flags are mechanical; judgment findings need the timelines.", '']
+         f"Sessions ≥{a.min_kb} KB or with subagents: {len(masters)}, one per session id; duplicate copies skipped: {skipped}. Times are UTC. Flags are mechanical; judgment findings need the timelines.", '']
     flags_all = []
     scanned = []
     for p, sd, nsub in masters:
-        r = scan_master(p); scanned.append((r, scan_subagents(sd, r['caps']), os.path.basename(p)[:8], os.path.basename(os.path.dirname(p))))
+        r = scan_master(p); subs = scan_subagents(sd, r['caps']); exclude_bash_writes(r, subs)
+        scanned.append((r, subs, os.path.basename(p)[:8], os.path.basename(os.path.dirname(p))))
     if a.semantic: resolve_path_call_semantic([r for r, *_ in scanned])   # post-scan pass: the scan above stayed network-free
     for r, subs, sid, proj in scanned:
         L += [f"## {proj} / {sid}", f"- {r['first']} → {r['last']}, user turns {r['user_turns']}, models {sorted(r['models'])}, claude code {sorted(r['versions']) or '?'}, peak context {r['peak']:,}, api errors {r['api_errors']}",
@@ -425,7 +577,7 @@ def main():
         flags = []
         path_call_suffix = ' (regex)' if a.semantic and r['path_call_regex_fallback'] else ''
         if r['fw_loaded'] and not (r['path_call'] and r['path_call'] <= r['fw_loaded']): flags.append('no one-shot/pipeline call line before feature-workflow loaded' + path_call_suffix)
-        if not r['fw_loaded'] and not r['path_call'] and any(product_file(e['file']) for e in r['edits']): flags.append('product edits without a one-shot/pipeline call line' + path_call_suffix)
+        if not r['fw_loaded'] and not r['path_call'] and any(product_file(e['file']) for e in r['edits'] if not e.get('excluded')): flags.append('product edits without a one-shot/pipeline call line' + path_call_suffix)
         for s in r['spawns']:
             want = pins_for(r['first']).get(s['type'])
             if want == 'inherit':
@@ -442,7 +594,8 @@ def main():
             if c['out'] and not re.search(r'/claude-\d+/[^/]*|/scratchpad/', c['out']): flags.append(f"{c['t'][11:16]} --out outside scratchpad/docs/reviews: {c['out']}")
         if r['fw_loaded']:
             for e in r['edits']:
-                if e['t'] > r['fw_loaded'] and product_file(e['file']): flags.append(f"{e['t'][11:16]} master {e['tool']} on product file inside pipeline: {e['file']}")
+                if e['t'] > r['fw_loaded'] and not e.get('excluded') and product_file(e['file']):
+                    flags.append(f"{e['t'][11:16]} master {e['tool']} on product file inside pipeline: {e['file']}{' (shared)' if e.get('shared') else ''}")
         for x0 in sorted(r['enter_plan']):
             end = plan_span_end(x0, r['exit_plan'], r['plan_approved'], r['edits'], r['enter_plan'], r['last'])
             reads = [rd for rd in r['reads'] if x0 <= rd['t'] <= end and product_file(rd['file'])]

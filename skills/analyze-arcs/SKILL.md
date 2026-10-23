@@ -20,20 +20,35 @@ the master's view of it.
    ```
    python3 ~/.claude/skills/analyze-arcs/scripts/analyze.py --since YYYY-MM-DD --out <scratchpad>/arcs/report.md
    ```
+   One section per session id: copies of a transcript under several project directories are reported once, from the
+   largest (then the lexicographically last directory), and the header counts the copies skipped.
    Per session: span, models, Claude Code version, peak context, subagent roster (type, pin, turns, minutes, KB,
    model actually seen), every `codex-challenge.sh` launch with its range, `--out`, run
    minutes and verdict size, every gate with how long it waited, pushes, killed background
    tasks. Then the **flags** — mechanical checks only:
    - unpinned `Agent` spawn, or a pin off the doctrine tier (plan-reviewer unpinned — it inherits the session's model,
      team-reviewer `opus`, executors, fixers and triage `sonnet` unless the plan marks a step Opus or a same-mechanism fixer round calls for it) with whether the prompt states a reason
+     (a reason keyword, or "Opus" followed within 20 characters, in its sentence, by `because` or a colon)
    - named spawn (delivery rerouted to the mailbox)
    - `codex-challenge.sh` run in the foreground; `--out` outside the session scratchpad
    - master `Edit`/`Write` on a product file after `feature-workflow` loaded — or a Bash command that
      changed one, read from the harness's own changed-file record (`bashEditDiff.changedFiles` on the
-     tool result; 2.1.269+, never parsed from the command text). The auto-mode prompt steers edits
+     tool result; 2.1.269+). The auto-mode prompt steers edits
      through Bash, so the Edit/Write check alone is blind; sessions from before 2.1.269 say "Bash
      writes: not recorded". Two gaps in the record: a command that exits non-zero gets no record even
-     when it changed files, and a `run_in_background` command gets none either. Plan files, `docs/prompts/`,
+     when it changed files, and a `run_in_background` command gets none either. The record is best
+     effort and also lists files git moved or another process wrote while the command ran, so two
+     exclusions run after both scans (an excluded path counts nowhere: not in this flag, not in the first
+     master edit or the missing-call-line check, not as the end of a plan-mode span):
+     a path is dropped when a subagent of the same session wrote that exact path while the call ran
+     (the two tool_use-to-tool_result windows overlap; a subagent write with no result, or an errored one, drops nothing);
+     every path of a command that cannot write a file by hand is dropped — each segment is a `cd`, a `git`
+     call other than `apply`/`am`, or a read filter (`head`, `tail`, `cut`, `wc`, `grep`, `rg`, `tr`, `cat`,
+     `echo`, `printf`, `true`, `ls`, `column`, `jq`, `sort` without `-o`, `sed` without `-i`), no operator
+     redirects output to a file or starts a background job, and each `$(...)` or backtick inside passes the
+     same test. The list is closed: any other command, or text that does not parse, stays counted. A path
+     that survives from a record the harness marked `shared` (another Bash call ran in the repository at
+     the same time) gets `(shared)` on its flag line. Plan files, `docs/prompts/`,
      `docs/reviews/`, `docs/todos/`, handoff docs, the TODO/tech-debt index, `/tmp/` and build artifacts
      are not product files
    - master `Read` of a product file, or a Bash read command (`cat`/`head`/`tail`/`less`/`sed`/`grep`/`rg`
@@ -44,7 +59,7 @@ the master's view of it.
      does not end the span either). When no approved exit ever follows — including a Shift+Tab exit, which
      leaves no `ExitPlanMode` call at all — the span ends at the first proven-successful product-file edit
      after it (an Edit/Write/MultiEdit/NotebookEdit whose own `tool_result` was not an error, or a Bash write
-     the harness's `bashEditDiff.changedFiles` record shows; the harness blocks product edits while still in
+     the harness's `bashEditDiff.changedFiles` record shows and the exclusions above keep; the harness blocks product edits while still in
      plan mode, so one proves plan mode had already ended), or end of transcript if there's no such edit
      either. The command text goes through a quote-aware tokenizer, not a regex: segments split on unquoted
      `&&`/`||`/`|`/`;`/newline, operands come from `shlex`, each option's value is consumed with it (`head -n

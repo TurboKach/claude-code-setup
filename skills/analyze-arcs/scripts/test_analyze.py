@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plain assert-based tests for analyze.py's plan-mode span and Bash-read token filter.
+"""Plain assert-based tests for analyze.py's plan-mode span, Bash-read token filter, session dedupe, Bash-write exclusions and pin-reason cue.
 Run: python3 test_analyze.py
 No pytest, no fixtures on disk — everything is built in-process."""
 import sys, os
@@ -423,6 +423,160 @@ with tempfile.TemporaryDirectory() as sd:
     rows = {x['file']: x['capped'] for x in analyze.scan_subagents(sd, caps)}
 check("capped count lands on the matching subagent file only",
       rows, {'agent-aaa111.jsonl': 2, 'agent-bbb222.jsonl': 1, 'agent-zzz999.jsonl': 0})
+
+# --- REASON: "Opus" needs its cue (`because` or a colon) in the same sentence, within 20 characters ---
+for phrase in ("You run on Opus because the step spans two repos", "You run on Opus: the reviewer needs it", "Opus because this is a hard call",
+               "Model: Opus, because the step is hard", "Opus is pinned because the step is hard", "Opus for this"):
+    check(f"REASON matches: {phrase}", bool(analyze.REASON.search(phrase)), True)
+for phrase in ("Spawn it with model opus now", "Use opus and run the whole suite on the fixture because it is stable",
+               "Pin: opus. The fixture is stable because it is seeded", "Run it because the suite is flaky"):
+    check(f"REASON does not match: {phrase}", bool(analyze.REASON.search(phrase)), False)
+
+# --- find_masters: one section per session id ---
+def write_session(root, proj, name, text, subagents=0):
+    d = os.path.join(root, proj); os.makedirs(d, exist_ok=True)
+    with open(os.path.join(d, name), 'w') as f: f.write(text)
+    for i in range(subagents):
+        os.makedirs(os.path.join(d, name.split('.')[0], 'subagents'), exist_ok=True)
+        with open(os.path.join(d, name.split('.')[0], 'subagents', f'agent-{i}.jsonl'), 'w') as f: f.write('{}\n')
+
+def chosen(root, min_kb=0, since=0):
+    masters, skipped = analyze.find_masters(root, since, min_kb)
+    return [os.path.relpath(p, root) for p, _, _ in masters], skipped
+
+with tempfile.TemporaryDirectory() as root:
+    write_session(root, '-a-old', 's1.jsonl', 'same\n'); write_session(root, '-b-new', 's1.jsonl', 'same\n')
+    check("identical pair: one section, the lexicographically last project dir, one copy skipped",
+          chosen(root), (['-b-new/s1.jsonl'], 1))
+with tempfile.TemporaryDirectory() as root:
+    write_session(root, '-a-old', 's2.jsonl', 'a\nb\nc\n'); write_session(root, '-b-new', 's2.jsonl', 'a\nb\n')
+    check("prefix pair: the longer copy wins, even in the earlier-named dir", chosen(root), (['-a-old/s2.jsonl'], 1))
+with tempfile.TemporaryDirectory() as root:
+    for proj in ('-a', '-b', '-c'): write_session(root, proj, 's3.jsonl', 'same\n')
+    check("any number of copies: all but the winner are skipped and counted", chosen(root), (['-c/s3.jsonl'], 2))
+with tempfile.TemporaryDirectory() as root:
+    write_session(root, '-p', 's4.jsonl', 'a\n'); write_session(root, '-p', 's4.orphaned-20261001T101010-ab12.jsonl', 'a\nb\n', subagents=0)
+    masters, skipped = analyze.find_masters(root, 0, 0)
+    check("x.orphaned-<stamp>.jsonl folds into x: one section, the larger copy", ([os.path.relpath(p, root) for p, _, _ in masters], skipped),
+          (['-p/s4.orphaned-20261001T101010-ab12.jsonl'], 1))
+    check("an orphaned winner takes its subagents from <proj>/<id>, not from its own file name", masters[0][1], os.path.join(root, '-p', 's4'))
+with tempfile.TemporaryDirectory() as root:
+    write_session(root, '-p', 's5.jsonl', 'a\nb\n'); write_session(root, '-p', 's5.orphaned-1-x.jsonl', 'a\n')
+    check("a smaller set-aside copy loses to the live transcript", chosen(root), (['-p/s5.jsonl'], 1))
+with tempfile.TemporaryDirectory() as root:
+    write_session(root, '-a-old', 's6.jsonl', 'same\n', subagents=2); write_session(root, '-b-new', 's6.jsonl', 'same\n', subagents=1)
+    masters, _ = analyze.find_masters(root, 0, 0)
+    check("subagents come from the winning copy's dir", (os.path.dirname(masters[0][0]).endswith('-b-new'), masters[0][2]), (True, 1))
+with tempfile.TemporaryDirectory() as root:
+    write_session(root, '-p', 'small.jsonl', 'x\n'); write_session(root, '-p', 'kept.jsonl', 'x\n', subagents=1)
+    check("a small transcript is kept only with subagents", chosen(root, min_kb=1), (['-p/kept.jsonl'], 0))
+    os.utime(os.path.join(root, '-p', 'kept.jsonl'), (1, 1))
+    check("--since still filters on modification time", chosen(root, min_kb=0, since=1000), (['-p/small.jsonl'], 0))
+
+# --- cannot_write: a skip needs every segment on the closed allowlist ---
+D3 = ('git status --porcelain | wc -l && git revert --no-edit c93056d 2>&1 | tail -2 && git log --oneline -3 && git diff --stat 08b6960 HEAD | tail -1; '
+      'echo "diff-vs-plan-head-exit=$(git diff --quiet 08b6960 HEAD; echo $?)"; git status --porcelain | head')
+for cmd in (D3, "git checkout x | tail -2", "cd d && git status", "GIT_PAGER=cat git -C d -c a=b --git-dir=g --no-pager log", "git -P --namespace n stash",
+            "git merge --no-ff b -m 'Merge A & B (x=y) -> main' 2>&1 | tail -3", "git log > /dev/null 2>&1", "git pull --ff-only && git log -1 --format=%h",
+            "git log `git rev-parse HEAD`", "git log '$(rm x)'", "git commit -q -m 'x' && git status | head", "sort in | head", "sed -n 1,5p f"):
+    check(f"cannot write: {cmd[:60]}", analyze.cannot_write(cmd), True)
+for cmd in ("git apply p", "git am p", "git -C d apply p", "git \"apply\" p", "git checkout x && sed -i '' s/a/b/ f", "git checkout x && sed -ni 5p f",
+            "echo x > f", "echo x>f", "echo 'a b'>f", "git log | tee f", "git log >> f", "git log &> f", "git log > /dev/null > f", "git status & rm x", "git status; rm x",
+            "git log | xargs rm", "cat <(rm x)", "(git status)", "sort -o out in", "sort --output=out in", "uniq in out", "cp a b", "python3 -c 1",
+            "git log $(rm x)", "echo \"$(rm x)\"", "echo $((1+2))", "git $SUB", "git", "x=1", "cat > f <<'EOF'\nhi\nEOF", "git commit -F - <<'EOF'\nmsg\nEOF",
+            "git commit -m 'unbalanced", "/usr/bin/git log", "", None):
+    check(f"counted: {cmd!r}"[:70], analyze.cannot_write(cmd), False)
+
+# --- exclude_bash_writes: a master Bash path is dropped on an overlapping same-path subagent write, or when the command cannot write ---
+def bash_use(T, tid, cmd): return tool_use(T, tid, 'Bash', dict(command=cmd))
+def bash_result(T, tid, files, shared=False, key='changedFiles'):
+    d = tool_result(T, tid)
+    d['toolUseResult'] = dict(bashEditDiff={key: files, 'moreFiles': 0, **({'shared': True} if shared else {})})
+    return d
+SRC, OTHER = '/repo/src/app.py', '/repo/src/other.py'
+
+def master_with(*recs): return analyze.scan_master_records([user_str(t(0), 'Base directory for this skill: /x/feature-workflow'), *recs])
+
+def sub_rows(*recs):
+    with tempfile.TemporaryDirectory() as sd:
+        os.makedirs(os.path.join(sd, 'subagents'))
+        with open(os.path.join(sd, 'subagents', 'agent-1.jsonl'), 'w') as f:
+            for x in recs: f.write(json.dumps(x) + '\n')
+        return analyze.scan_subagents(sd, {})
+
+def excluded_after(master_recs, sub_recs):
+    r = master_with(*master_recs); analyze.exclude_bash_writes(r, sub_rows(*sub_recs)); return [e.get('excluded') for e in r['edits']]
+
+SED = "sed -i '' s/a/b/ src/app.py"
+master_bash = [bash_use(t(10), 'b1', SED), bash_result(t(20), 'b1', [SRC])]
+check("overlapping same-path subagent Edit drops the path",
+      excluded_after(master_bash, [edit_use(t(12), 's1', 'Edit', SRC), tool_result(t(13), 's1')]), ['subagent write'])
+check("same path, subagent write before the call starts: counted",
+      excluded_after(master_bash, [edit_use(t(1), 's1', 'Edit', SRC), tool_result(t(2), 's1')]), [None])
+check("same path, subagent write after the call ends: counted",
+      excluded_after(master_bash, [edit_use(t(30), 's1', 'Write', SRC), tool_result(t(31), 's1')]), [None])
+check("another path: counted", excluded_after(master_bash, [edit_use(t(12), 's1', 'Edit', OTHER), tool_result(t(13), 's1')]), [None])
+check("a subagent write with no tool_result drops nothing", excluded_after(master_bash, [edit_use(t(12), 's1', 'Edit', SRC)]), [None])
+check("a subagent write whose tool_result is an error drops nothing",
+      excluded_after(master_bash, [edit_use(t(12), 's1', 'Edit', SRC), tool_result(t(13), 's1', is_error=True)]), [None])
+check("a subagent Bash write (bashEditDiff) drops the path too",
+      excluded_after(master_bash, [bash_use(t(11), 's1', 'python3 w.py'), bash_result(t(15), 's1', [SRC])]), ['subagent write'])
+check("a subagent Bash write listed under files[].filePath counts as well",
+      excluded_after(master_bash, [bash_use(t(11), 's1', 'python3 w.py'), bash_result(t(15), 's1', [dict(filePath=SRC)], key='files')]),
+      ['subagent write'])
+check("a master Bash result with no tool_use on record has no window: counted",
+      excluded_after([bash_result(t(20), 'b9', [SRC])], [edit_use(t(12), 's1', 'Edit', SRC), tool_result(t(13), 's1')]), [None])
+check("only the overlapped path of a multi-path call is dropped",
+      excluded_after([bash_use(t(10), 'b1', SED), bash_result(t(20), 'b1', [SRC, OTHER])], [edit_use(t(12), 's1', 'Edit', SRC), tool_result(t(13), 's1')]),
+      ['subagent write', None])
+check("a git-only command drops its paths", excluded_after([bash_use(t(10), 'b1', 'git checkout x'), bash_result(t(20), 'b1', [SRC])], []), ['no file-writing command'])
+check("a record's shared flag is kept on its entries",
+      [e['shared'] for e in master_with(bash_use(t(10), 'b1', SED), bash_result(t(20), 'b1', [SRC], shared=True))['edits']], [True])
+
+# --- an excluded entry neither ends the plan span nor sets first_product_edit nor closes the semantic candidates ---
+def with_bash_write(cmd):
+    r = analyze.scan_master_records([tool_use(t(0), 'e1', 'EnterPlanMode'), tool_result(t(1), 'e1'), text_msg(t(2), 'before the write'),
+                                     bash_use(t(5), 'b1', cmd), bash_result(t(6), 'b1', [SRC]), text_msg(t(7), 'after the write')])
+    analyze.exclude_bash_writes(r, [])
+    return r, analyze.plan_span_end(r['enter_plan'][0], r['exit_plan'], r['plan_approved'], r['edits'], r['enter_plan'], r['last'])
+r_ex, end_ex = with_bash_write('git checkout x')
+check("excluded Bash write: first_product_edit stays unset", (r_ex['first_edit'], r_ex['first_product_edit']), (None, None))
+check("excluded Bash write: the plan span runs to end of transcript", end_ex, r_ex['last'])
+check("excluded Bash write: both candidate blocks stay", [c['text'] for c in r_ex['path_call_candidates']], ['before the write', 'after the write'])
+r_in, end_in = with_bash_write(SED)
+check("counted Bash write: sets first_edit and first_product_edit", (r_in['first_edit'], r_in['first_product_edit']), (t(6), t(6)))
+check("counted Bash write: ends the plan span", end_in, t(6))
+check("counted Bash write: candidates are cut at it", [c['text'] for c in r_in['path_call_candidates']], ['before the write'])
+check("plan_span_end skips an excluded entry",
+      analyze.plan_span_end(t(0), [], [], [dict(t=t(5), file=SRC, error=False, excluded='x')], [], t(20)), t(20))
+
+# --- main(): one section per session id, the weekly.sh-parsed shapes, and the (shared) label ---
+with tempfile.TemporaryDirectory() as root:
+    session = [user_str(t(0), 'Base directory for this skill: /x/feature-workflow'),
+               bash_use(t(10), 'b1', SED), bash_result(t(20), 'b1', [SRC, OTHER], shared=True),
+               bash_use(t(30), 'b2', 'git checkout x'), bash_result(t(31), 'b2', ['/repo/src/moved.py'])]
+    for proj in ('-Users-me-Dev-a-old', '-Users-me-Dev-b-new'):
+        os.makedirs(os.path.join(root, proj))
+        with open(os.path.join(root, proj, '0123456789ab-cdef.jsonl'), 'w') as f:
+            for x in session: f.write(json.dumps(x) + '\n')
+    os.makedirs(os.path.join(root, '-Users-me-Dev-b-new', '0123456789ab-cdef', 'subagents'))
+    with open(os.path.join(root, '-Users-me-Dev-b-new', '0123456789ab-cdef', 'subagents', 'agent-1.jsonl'), 'w') as f:
+        for x in (edit_use(t(12), 's1', 'Edit', OTHER), tool_result(t(13), 's1')): f.write(json.dumps(x) + '\n')
+    out = os.path.join(root, 'report.md')
+    argv, sys.argv = sys.argv, ['analyze.py', '--since', '2026-01-01', '--projects-dir', root, '--out', out, '--min-kb', '0']
+    try: analyze.main()
+    finally: sys.argv = argv
+    report = open(out).read().splitlines()
+    sections = [l.split() for l in report if l.startswith('## ') and l != '## All flags']
+    check("one section for the two copies, shaped for weekly.sh (## <proj> / <id8>, NF == 4)",
+          [(s[0], s[2], len(s), s[1]) for s in sections], [('##', '/', 4, '-Users-me-Dev-b-new')])
+    check("the header counts the skipped copy", any('duplicate copies skipped: 1' in l for l in report), True)
+    import re
+    check("weekly.sh's pipeline-arc grep (feature-workflow loaded: [0-9]) still finds the line",
+          sum(1 for l in report if re.search(r'feature-workflow loaded: [0-9]', l)), 1)
+    check("the master-write flag keeps the counted path with (shared), drops the overlapped path and the git-only call",
+          [l.split(': ', 1)[1] for l in report if l.startswith('- ') and ' / ' in l and 'master Bash on product file' in l],
+          [f"00:00 master Bash on product file inside pipeline: {SRC} (shared)"])
 
 print()
 if fails:
