@@ -191,7 +191,7 @@ effort, diff review on Opus; code-writing (Opus when the plan marks a unit), sea
 |------|-----------|-------|--------|-----------|
 | Orchestrator (lead) | main session | whatever the owner picked at session start | the session's effort | coordination, authoring, gates |
 | `plan-reviewer` | subagent | the session's model (`inherit`) | the session's | validates the plan against the code before the gate; read-only |
-| `team-executor` | **background subagent** | Sonnet 5.5 (Opus only when the plan marks the unit with a reason) | the saved `claude-sonnet-5-5` level (high) | writes code; a well-specified unit needs no more model |
+| `team-executor` | **background subagent** | Sonnet (Opus only when the plan marks the unit with a reason) | the level saved for its model under `modelSettings` (high) | writes code; a well-specified unit needs no more model |
 | `team-reviewer` | subagent | Opus | medium | adversarial bug-hunting on a bounded diff |
 | `team-merger` | subagent | Sonnet | medium | mechanical merge/verify |
 | `explorer` | subagent | Sonnet | medium | codebase search, read-only, effort pinned by frontmatter (built-in `Explore` floats with the session's effort and runs on Opus under a Fable or Opus master) |
