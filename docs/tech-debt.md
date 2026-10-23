@@ -31,5 +31,5 @@ Maintenance rules:
 - **Deferred from the Opus-executors / master-model arc** — `--master` colon split on Bedrock IDs; analyze-arcs same-day pin cutover → docs/todos/deferred-opus-executors-arc.md
 - **Stage 5 → push — no record of the verified HEAD, nothing checks it at push** — git-note record per verified commit (verdict, test counts, doctrine fingerprint) + a `git push` hook → docs/todos/verified-head-record.md
 - **`skills/analyze-arcs` — no escape-rate metric for per-step codex rounds** — count stage-5 P0/P1 that slipped past their step's review, to judge per-step rounds on value → docs/todos/escape-rate-metric.md
-- **Deferred from the pipeline-gaps arc** — Doctrine gaps, analyzer blind spots and harness drift found while fixing the analyzer → docs/todos/deferred-pipeline-gaps-arc.md
+- **Deferred from the pipeline-gaps arc** — Analyzer blind spots and limits; stage-5 check-in vs the 5,000-token compaction cut; auto-mode push ask; doctrine gaps → docs/todos/deferred-pipeline-gaps-arc.md
 - **`global/`, `skills/*/SKILL.md`, `agents/*.md` — no line-test + provenance pass over the instruction text** — cut recaps, version stamps and measurement tails; split by file group, judge cuts for the Sonnet-read agent files → docs/todos/doctrine-line-test-pass.md

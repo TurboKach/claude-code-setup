@@ -602,7 +602,7 @@ def main():
     if a.semantic: resolve_path_call_semantic([r for r, *_ in scanned])   # post-scan pass: the scan above stayed network-free
     for r, subs, sid, proj in scanned:
         L += [f"## {proj} / {sid}", f"- {r['first']} → {r['last']}, user turns {r['user_turns']}, models {sorted(r['models'])}, claude code {sorted(r['versions']) or '?'}, peak context {r['peak']:,}, api errors {r['api_errors']}",
-              f"- prompt: {r['first_prompt']}", f"- feature-workflow loaded: {r['fw_loaded'] or 'no'}; path call line: {r['path_call'] or 'none'}; first master edit: {r['first_edit'] or 'none'}; Bash writes: {'recorded by the harness' if r['bash_diff'] else 'not recorded (Edit/Write only — needs 2.1.269+ with bashEditDiffEnabled)'}",
+              f"- prompt: {r['first_prompt']}", f"- feature-workflow loaded: {r['fw_loaded'] or 'no'}; path call line: {r['path_call'] or 'none'}; first master edit: {r['first_edit'] or 'none'}; Bash writes: {'recorded by the harness' if r['bash_diff'] else 'not recorded (Edit/Write only — Claude Code before 2.1.269, or a permission mode other than auto/bypassPermissions without bashEditDiffEnabled: true in user or managed settings)'}",
               f"- subagents {len(subs)} ({sum(s['kb'] for s in subs)//1024} MB), codex launches {len(r['codex'])}, pushes {len(r['pushes'])}, background tasks killed {len(r['killed'])}"]
         flags = []
         path_call_suffix = ' (regex)' if a.semantic and r['path_call_regex_fallback'] else ''

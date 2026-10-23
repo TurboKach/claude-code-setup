@@ -638,6 +638,21 @@ with tempfile.TemporaryDirectory() as root:
     check("the master-write flag keeps the counted path with (shared), drops the overlapped path and the git-only call",
           [l.split(': ', 1)[1] for l in report if l.startswith('- ') and ' / ' in l and 'master Bash on product file' in l],
           [f"00:00 master Bash on product file inside pipeline: {SRC} (shared)"])
+    check("a session with a Bash record says so", any('Bash writes: recorded by the harness' in l for l in report), True)
+
+# --- main(): a session whose Bash results carry no record says why, on the same line as feature-workflow loaded ---
+with tempfile.TemporaryDirectory() as root:
+    os.makedirs(os.path.join(root, '-Users-me-Dev-p'))
+    with open(os.path.join(root, '-Users-me-Dev-p', 'fedcba9876543210.jsonl'), 'w') as f:
+        for x in (user_str(t(0), 'hello'), text_msg(t(1), 'ok')): f.write(json.dumps(x) + '\n')
+    out = os.path.join(root, 'report.md')
+    argv, sys.argv = sys.argv, ['analyze.py', '--since', '2026-01-01', '--projects-dir', root, '--out', out, '--min-kb', '0']
+    try: analyze.main()
+    finally: sys.argv = argv
+    check("no Bash record: the line names both causes, version and permission mode",
+          [l for l in open(out).read().splitlines() if l.startswith('- feature-workflow loaded:')],
+          ["- feature-workflow loaded: no; path call line: none; first master edit: none; Bash writes: not recorded (Edit/Write only — "
+           "Claude Code before 2.1.269, or a permission mode other than auto/bypassPermissions without bashEditDiffEnabled: true in user or managed settings)"])
 
 print()
 if fails:
