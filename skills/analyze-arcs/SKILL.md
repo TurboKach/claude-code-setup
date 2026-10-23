@@ -43,10 +43,14 @@ the master's view of it.
      a path is dropped when a subagent of the same session wrote that exact path while the call ran
      (the two tool_use-to-tool_result windows overlap; a subagent write with no result, or an errored one, drops nothing);
      every path of a command that cannot write a file by hand is dropped — each segment is a `cd`, a `git`
-     call other than `apply`/`am`, or a read filter (`head`, `tail`, `cut`, `wc`, `grep`, `rg`, `tr`, `cat`,
-     `echo`, `printf`, `true`, `ls`, `column`, `jq`, `sort` without `-o`, `sed` without `-i`), no operator
+     call from a closed subcommand list (those that move files git owns, such as `merge` and `checkout`, and
+     those that write no working-tree file, such as `log` and `commit`; `rm`, `mv`, `clean`, `config`, `apply`
+     and `am` stay counted), or a read filter (`head`, `tail`, `cut`, `wc`, `grep`, `rg`, `tr`, `cat`,
+     `echo`, `printf`, `true`, `ls`, `column`, `jq`, `sort`), with no option or leading assignment that names a
+     file to write or a program to run (`--output`, `rebase --exec`, `git -c`, `sort -o`, `rg --pre`); no operator
      redirects output to a file or starts a background job, and each `$(...)` or backtick inside passes the
-     same test. The list is closed: any other command, or text that does not parse, stays counted. A path
+     same test. The lists are closed: any other command (`sed`, `tee`, `uniq`), or text that does not parse,
+     stays counted. A path
      that survives from a record the harness marked `shared` (another Bash call ran in the repository at
      the same time) gets `(shared)` on its flag line. Plan files, `docs/prompts/`,
      `docs/reviews/`, `docs/todos/`, handoff docs, the TODO/tech-debt index, `/tmp/` and build artifacts

@@ -476,9 +476,17 @@ with tempfile.TemporaryDirectory() as root:
 # --- cannot_write: a skip needs every segment on the closed allowlist ---
 D3 = ('git status --porcelain | wc -l && git revert --no-edit c93056d 2>&1 | tail -2 && git log --oneline -3 && git diff --stat 08b6960 HEAD | tail -1; '
       'echo "diff-vs-plan-head-exit=$(git diff --quiet 08b6960 HEAD; echo $?)"; git status --porcelain | head')
-for cmd in (D3, "git checkout x | tail -2", "cd d && git status", "GIT_PAGER=cat git -C d -c a=b --git-dir=g --no-pager log", "git -P --namespace n stash",
+for cmd in (D3, "git checkout x | tail -2", "cd d && git status", "GIT_PAGER=cat git -C d --git-dir=g --no-pager log", "git -P --namespace n stash",
             "git merge --no-ff b -m 'Merge A & B (x=y) -> main' 2>&1 | tail -3", "git log > /dev/null 2>&1", "git pull --ff-only && git log -1 --format=%h",
-            "git log `git rev-parse HEAD`", "git log '$(rm x)'", "git commit -q -m 'x' && git status | head", "sort in | head", "sed -n 1,5p f"):
+            "git log `git rev-parse HEAD`", "git log '$(rm x)'", "git commit -q -m 'x' && git status | head", "sort in | head",
+            "git switch -c x origin/dev", "git rebase --onto main a b", "git rebase --continue", "git rebase -i main", "git stash push -m x", "git stash show -p",
+            "git cherry-pick -x abc", "git checkout --ours f", "git restore --source=HEAD~1 --staged --worktree -- f", "git reset --hard origin/dev",
+            "git revert --no-edit abc", "git pull --rebase -q", "git fetch -q origin dev && git merge --ff-only origin/dev", "git tag -f t HEAD", "git branch -D x",
+            "git merge --ff-only -q dev && git push -u origin dev 2>&1 | tail -3",
+            "git diff --name-only --diff-filter=U | wc -l", "git log --oneline --first-parent -3 --format=%h", "git log --exclude=refs/heads/x --all", "git show -s HEAD",
+            "GIT_EDITOR=true git rebase --continue 2>&1 | tail -1", "SKIP=pytest git commit -qm x", "GIT_EDITOR=true SKIP=a,b git rebase --continue",
+            "rg -l pat | head", "rg --glob '*.py' pat src", "rg -n -e pat -g '!x' .", "sort -u in | head", "sort -k2,2 -t, -n in", "sort --check in",
+            "tail -n 5 f | cut -c1-80", "grep -rnE 'a|b' src | wc -l", "ls -la | column -t", "jq -r .a f", "cat -n f | tr -d '\\n'", "echo --- header ---", "printf '%s\\n' a", "true"):
     check(f"cannot write: {cmd[:60]}", analyze.cannot_write(cmd), True)
 for cmd in ("git apply p", "git am p", "git -C d apply p", "git \"apply\" p", "git checkout x && sed -i '' s/a/b/ f", "git checkout x && sed -ni 5p f",
             "echo x > f", "echo x>f", "echo 'a b'>f", "git log | tee f", "git log >> f", "git log &> f", "git log > /dev/null > f", "git status & rm x", "git status; rm x",
@@ -486,6 +494,31 @@ for cmd in ("git apply p", "git am p", "git -C d apply p", "git \"apply\" p", "g
             "git log $(rm x)", "echo \"$(rm x)\"", "echo $((1+2))", "git $SUB", "git", "x=1", "cat > f <<'EOF'\nhi\nEOF", "git commit -F - <<'EOF'\nmsg\nEOF",
             "git commit -m 'unbalanced", "/usr/bin/git log", "", None):
     check(f"counted: {cmd!r}"[:70], analyze.cannot_write(cmd), False)
+# sed is not on the list: a script's w/W/e commands and s///w, s///e flags write files or run programs, -f hides the script in a file, -i edits in place
+for cmd in ("sed -f script.sed f", "sed -n -f s.sed f", "sed --file=s.sed f", "sed 'w out' f", "sed -n '1,5p;w out' f", "sed 's/a/b/w out' f", "sed -e 'W out' f",
+            "sed '1e touch x' f", "sed 's/a/b/e' f", "sed -n 1,5p f", "git status | sed -n 1,5p", "git checkout x && sed -n 1,5p f"):
+    check(f"counted (sed): {cmd!r}"[:70], analyze.cannot_write(cmd), False)
+# git: only the listed subcommands pass; these write files by hand (rm, mv, clean, config --file, format-patch -o, archive, ...) or are not listed
+for cmd in ("git rm f", "git rm -q -r d", "git mv a b", "git clean -fd", "git config --file f k v", "git config k v", "git format-patch -o d HEAD~1",
+            "git archive -o f HEAD", "git bundle create f HEAD", "git checkout-index -a --prefix=d/", "git clone u d", "git init d", "git worktree add d",
+            "git submodule update", "git bisect run cmd", "git read-tree -u HEAD", "git status && git rm f"):
+    check(f"counted (git subcommand): {cmd!r}"[:70], analyze.cannot_write(cmd), False)
+# git: an allowed subcommand's own options can still name a file to write or a program to run (`--output`, rebase `--exec`/`-x`, `--upload-pack`)
+for cmd in ("git diff --output=f", "git diff --stat --output f", "git log --output f", "git log --output=f -3", "git show --output=f", "git stash show --output=f",
+            "git rebase --exec 'touch f' main", "git rebase -x 'touch f' main", "git rebase -ix 'touch f' main", "git rebase -i --exec=cmd main",
+            "git fetch --upload-pack=cmd", "git fetch --upload=cmd", "git pull --upload-pack cmd", "git log -3 | head && git diff --outp=f",
+            "git push --receive-pack=cmd", "git push --exec cmd origin dev"):
+    check(f"counted (git option): {cmd!r}"[:70], analyze.cannot_write(cmd), False)
+# git global options and leading assignments outside the closed lists can name a program (-c core.fsmonitor, --exec-path, GIT_EXTERNAL_DIFF, PATH) or a file (GIT_INDEX_FILE)
+for cmd in ("git -c core.fsmonitor=cmd status", "git -c alias.x='!touch f' log", "git -c a=b log", "git --exec-path=d log", "git --config-env=a=B log", "git -p log",
+            "git --bare log", "GIT_EXTERNAL_DIFF=cmd git diff", "GIT_INDEX_FILE=x git add -A", "PATH=d git log", "GIT_EDITOR=vim git rebase --continue",
+            "GIT_PAGER='tee f' git log", "FOO=1 git log", "SKIP=a GIT_SSH_COMMAND=cmd git fetch"):
+    check(f"counted (git global): {cmd!r}"[:70], analyze.cannot_write(cmd), False)
+# filters: options that write a file or run a program (sort -o/--compress-program/-T, rg --pre/--hostname-bin/-z)
+for cmd in ("rg --pre cmd pat", "rg --pre=cmd pat", "rg --hostname-bin cmd pat", "rg -z pat", "rg -lz pat", "rg --search-zip pat",
+            "sort --compress-program=sh in", "sort --compress-program sh in", "sort --comp=sh in", "sort -T d in", "sort --temporary-directory=d in",
+            "sort --out out in", "sort -uo out in", "git log | sort -o out"):
+    check(f"counted (filter option): {cmd!r}"[:70], analyze.cannot_write(cmd), False)
 
 # --- exclude_bash_writes: a master Bash path is dropped on an overlapping same-path subagent write, or when the command cannot write ---
 def bash_use(T, tid, cmd): return tool_use(T, tid, 'Bash', dict(command=cmd))
@@ -530,6 +563,9 @@ check("only the overlapped path of a multi-path call is dropped",
       excluded_after([bash_use(t(10), 'b1', SED), bash_result(t(20), 'b1', [SRC, OTHER])], [edit_use(t(12), 's1', 'Edit', SRC), tool_result(t(13), 's1')]),
       ['subagent write', None])
 check("a git-only command drops its paths", excluded_after([bash_use(t(10), 'b1', 'git checkout x'), bash_result(t(20), 'b1', [SRC])], []), ['no file-writing command'])
+check("git rm is a master write: counted", excluded_after([bash_use(t(10), 'b1', 'git rm -q src/app.py'), bash_result(t(20), 'b1', [SRC])], []), [None])
+check("git status | sed 'w out' is a master write: counted",
+      excluded_after([bash_use(t(10), 'b1', "git status | sed -n 'w src/app.py'"), bash_result(t(20), 'b1', [SRC])], []), [None])
 check("a record's shared flag is kept on its entries",
       [e['shared'] for e in master_with(bash_use(t(10), 'b1', SED), bash_result(t(20), 'b1', [SRC], shared=True))['edits']], [True])
 

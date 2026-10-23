@@ -156,10 +156,21 @@ def bash_read_paths(cmd):
         out.extend(paths)
     return out
 
-# Commands that cannot write a file by hand: cd and the read filters. A redirect, `sed -i` and `sort -o` still write and are checked
-# below; `tee` and `uniq in out` write, so they are not on the closed list. git is handled apart: it moves files itself.
-NO_WRITE_CMDS = ('cd', 'head', 'tail', 'cut', 'wc', 'grep', 'rg', 'tr', 'cat', 'echo', 'printf', 'true', 'ls', 'column', 'jq', 'sort', 'sed')
-GIT_VALUE_OPTS = ('-C', '-c', '--git-dir', '--work-tree', '--namespace')   # global options whose value is the next token (`--opt=value` is one token)
+# Commands that cannot write a file by hand: cd and the read filters. A redirect still writes and is checked below. Not on the list: `tee`,
+# `uniq in out`, and `sed` (its w/W/e commands and s///w, s///e flags write files or run programs, -f hides the script, -i edits in place).
+# git is handled apart: it moves files itself.
+NO_WRITE_CMDS = ('cd', 'head', 'tail', 'cut', 'wc', 'grep', 'rg', 'tr', 'cat', 'echo', 'printf', 'true', 'ls', 'column', 'jq', 'sort')
+# The options of those filters that write a file or run a program: (short letters, long names). Any other option only changes what is printed.
+FILTER_WRITES = {'sort': ('oT', ('--output', '--compress-program', '--temporary-directory')),   # -T makes temp files
+                 'rg': ('z', ('--pre', '--hostname-bin', '--search-zip'))}   # --pre and --hostname-bin run a command; -z runs a decompressor
+# git: two closed lists of subcommands, the ones that move files git owns and the ones that write no working-tree file. Anything else (rm, mv, clean,
+# config --file, format-patch -o, apply, am, ...) stays counted. Hooks and config run programs by design, so only the command's own words are judged.
+GIT_MOVES = ('merge', 'switch', 'checkout', 'rebase', 'revert', 'pull', 'cherry-pick', 'reset', 'stash', 'restore')
+GIT_NO_WORKTREE = ('status', 'log', 'diff', 'show', 'add', 'commit', 'fetch', 'push', 'branch', 'rev-parse', 'tag')
+GIT_WRITES = ('--output', '--exec', '--upload-pack', '--receive-pack')   # long options that name a file to write or a program to run: diff/log/show/stash, rebase, fetch/pull, push
+GIT_VALUE_OPTS = ('-C', '--git-dir', '--work-tree', '--namespace')   # global options whose value is the next token (`--opt=value` is one token)
+GIT_FLAG_OPTS = ('--no-pager', '-P')   # the only global options without a value; any other (-c, --config-env, --exec-path, -p) can name a program
+SAFE_ENV = {'GIT_EDITOR': 'true', 'GIT_PAGER': 'cat', 'SKIP': None}   # leading NAME=value that names no program or file: name -> its one value (None: any)
 
 def _close_paren(s, i):
     """Index of the `)` that closes a `(` opened just before s[i], skipping quoted text; -1 when unbalanced."""
@@ -213,33 +224,45 @@ def _bad_operator(toks):
         return True
     return False
 
-def _has_option(args, short, long):
-    """True when args holds the short option (alone or in a cluster such as -ni) or a long option that starts with `long`."""
-    return any(a.startswith(long) or (a.startswith('-') and not a.startswith('--') and short in a) for a in args)
+def _has_option(args, short, longs):
+    """True when args holds a short option from `short` (alone or in a cluster such as -uo), or one of the long options `longs` or an abbreviation of
+    it (`--outp`, `--output=f`): getopt and git's option parser take any prefix. An abbreviation counts even when the tool would refuse it as ambiguous."""
+    for a in args:
+        if a.startswith('--'):
+            name = a.partition('=')[0]
+            if len(name) > 2 and any(l.startswith(name) for l in longs): return True
+        elif a.startswith('-') and any(c in a for c in short): return True
+    return False
 
 def _git_cannot_write(args):
-    """A git call whose subcommand is not apply or am. The subcommand must be a plain word, so `$SUB` or a placeholder never passes."""
+    """A git call from the closed lists: only the listed global options, a listed subcommand (so `$SUB` or a placeholder never passes), and no option
+    of it that names a file to write or a program to run (rebase's `-x` is `--exec`)."""
     i = 0
-    while i < len(args) and args[i].startswith('-'): i += 2 if args[i] in GIT_VALUE_OPTS else 1
+    while i < len(args) and args[i].startswith('-'):
+        name, eq, _ = args[i].partition('=')
+        if name in GIT_VALUE_OPTS: i += 1 if eq else 2
+        elif name in GIT_FLAG_OPTS and not eq: i += 1
+        else: return False
     sub = args[i] if i < len(args) else ''
-    return sub.replace('-', '').isalpha() and sub not in ('apply', 'am')
+    return sub in GIT_MOVES + GIT_NO_WORKTREE and not _has_option(args[i + 1:], 'x' if sub == 'rebase' else '', GIT_WRITES)
 
 def _segment_cannot_write(seg):
     try: toks = _tokens(seg)
     except ValueError: return False   # unbalanced quotes: claim nothing
     if _bad_operator(toks): return False
-    while toks and toks[0].partition('=')[1] and toks[0].partition('=')[0].isidentifier(): toks.pop(0)   # leading VAR=val
+    while toks and '=' in toks[0] and toks[0].partition('=')[0].isidentifier():   # leading VAR=val
+        name, _, val = toks.pop(0).partition('=')
+        if name not in SAFE_ENV or SAFE_ENV[name] not in (None, val): return False   # it can name a program (GIT_EXTERNAL_DIFF, PATH) or a file (GIT_INDEX_FILE)
     if not toks: return False   # assignments only: not on the list
     word, args = toks[0], toks[1:]
     if word == 'git': return _git_cannot_write(args)
-    if word == 'sed': return not _has_option(args, 'i', '--in-place')
-    if word == 'sort': return not _has_option(args, 'o', '--o')
-    return word in NO_WRITE_CMDS
+    return word in NO_WRITE_CMDS and not _has_option(args, *FILTER_WRITES.get(word, ('', ())))
 
 def cannot_write(cmd):
     """True when a Bash command cannot have written a file by hand, so the paths the harness listed for it are files git moved or
-    another process wrote. Closed allowlist: every segment (_segments + shlex) is a cd, a git call that is not apply/am, or a read
-    filter; no operator redirects output to a file or backgrounds a job; each $(...) or `...` inside passes the same test.
+    another process wrote. Closed allowlist: every segment (_segments + shlex) is a cd, a git call from the closed subcommand lists,
+    or a read filter, and none of its options or leading assignments names a file to write or a program to run; no operator
+    redirects output to a file or backgrounds a job; each $(...) or `...` inside passes the same test.
     Any other segment, or text that does not parse, keeps the command counted."""
     sub = _substitutions(cmd or '')
     if sub is None: return False
