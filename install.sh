@@ -453,9 +453,10 @@ def register_hook(event, matcher, path, timeout):
     return None
 
 def move_hook(event, old_matcher, new_matcher, path):
-    """Moves the entry for path, unchanged, from the old_matcher group to the
-    new_matcher group and drops an old group left holding nothing else. Any
-    shape we don't expect leaves the settings untouched."""
+    """Moves every entry for path, unchanged, from the old_matcher group to the
+    new_matcher group (an exact duplicate is dropped, an entry that differs is
+    kept) and drops an old group left holding nothing else. Any shape we don't
+    expect leaves the settings untouched."""
     hooks = d.get("hooks")
     groups = hooks.get(event) if isinstance(hooks, dict) else None
     if not isinstance(groups, list) or not all(isinstance(g, dict) for g in groups):
@@ -468,7 +469,7 @@ def move_hook(event, old_matcher, new_matcher, path):
     new = next((g for g in groups if g.get("matcher") == new_matcher), None)
     if not old or (new is not None and not isinstance(new.get("hooks", []), list)):
         return
-    entry = next(e for e in old[0]["hooks"] if ours(e))
+    moved = [e for g in old for e in g["hooks"] if ours(e)]
     for g in old:
         g["hooks"] = [e for e in g["hooks"] if not ours(e)]
     groups[:] = [g for g in groups
@@ -477,8 +478,7 @@ def move_hook(event, old_matcher, new_matcher, path):
         new = {"matcher": new_matcher, "hooks": []}
         groups.append(new)
     entries = new.setdefault("hooks", [])
-    if not any(ours(e) for e in entries):
-        entries.append(entry)
+    entries += [e for i, e in enumerate(moved) if e not in entries and e not in moved[:i]]
 
 # A Monitor call also reaches Bash-matched hooks as a Bash call; only a handler
 # whose matcher covers both runs once, as Monitor, which the hook lets through.
