@@ -146,7 +146,7 @@ Session name: acme-ios
 - acme-api (acme/api): the REST API this app consumes
 - acme-web (acme/web): shares the API client types
 ```
-A `PreToolUse` hook on Bash
+A `PreToolUse` hook on Bash (matcher `Bash|Monitor`, so Monitor calls pass)
 denies `run_in_background` inside subagents (their background commands would
 outlive them) and any poll loop on a `.output.done` marker (never written), and
 `BASH_DEFAULT_TIMEOUT_MS` is set to 15 minutes so a build or test run with no

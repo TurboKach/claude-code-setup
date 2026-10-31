@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# PreToolUse hook on Bash (settings.example.json registers it; install.sh
-# merges it). Hook JSON on stdin; a deny is printed as the documented
-# hookSpecificOutput JSON on stdout, exit 0. Three rules:
+# PreToolUse hook on Bash and Monitor (settings.example.json registers it;
+# install.sh merges it). A Monitor call also reaches Bash-matched hooks as a
+# Bash call; one handler matching both runs once, as Monitor, and passes — a
+# Monitor command stops at its timeout_ms. Hook JSON on stdin; a deny is
+# printed as the documented hookSpecificOutput JSON on stdout, exit 0. Three
+# rules:
 #
 #   A. run_in_background:true inside a subagent (hook input carries agent_id
 #      only there) is denied. With fork mode on — the interactive default

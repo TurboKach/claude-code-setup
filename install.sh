@@ -24,7 +24,7 @@ set -euo pipefail
 # repo has moved past the SHA you installed (and stamps that SHA so the check
 # has something to compare against), a SessionStart hook that names the session
 # from its repo's CLAUDE.md "Session name:" line — see hooks/session-name.sh —
-# and a PreToolUse hook on Bash that denies run_in_background inside
+# and a PreToolUse hook on Bash (matcher Bash|Monitor) that denies run_in_background inside
 # subagents — see hooks/subagent-no-background.sh.
 #
 # Flags (all optional — no flags reproduces the behavior above exactly; see
@@ -452,11 +452,44 @@ def register_hook(event, matcher, path, timeout):
         entries.append({"type": "command", "command": path, "timeout": timeout})
     return None
 
+def move_hook(event, old_matcher, new_matcher, path):
+    """Moves the entry for path, unchanged, from the old_matcher group to the
+    new_matcher group and drops an old group left holding nothing else. Any
+    shape we don't expect leaves the settings untouched."""
+    hooks = d.get("hooks")
+    groups = hooks.get(event) if isinstance(hooks, dict) else None
+    if not isinstance(groups, list) or not all(isinstance(g, dict) for g in groups):
+        return
+    target = norm_path(path)
+    def ours(e):
+        return isinstance(e, dict) and "command" in e and norm_path(e["command"]) == target
+    old = [g for g in groups if g.get("matcher") == old_matcher
+           and isinstance(g.get("hooks"), list) and any(ours(e) for e in g["hooks"])]
+    new = next((g for g in groups if g.get("matcher") == new_matcher), None)
+    if not old or (new is not None and not isinstance(new.get("hooks", []), list)):
+        return
+    entry = next(e for e in old[0]["hooks"] if ours(e))
+    for g in old:
+        g["hooks"] = [e for e in g["hooks"] if not ours(e)]
+    groups[:] = [g for g in groups
+                 if not (any(g is o for o in old) and not g["hooks"] and set(g) <= {"matcher", "hooks"})]
+    if new is None:
+        new = {"matcher": new_matcher, "hooks": []}
+        groups.append(new)
+    entries = new.setdefault("hooks", [])
+    if not any(ours(e) for e in entries):
+        entries.append(entry)
+
+# A Monitor call also reaches Bash-matched hooks as a Bash call; only a handler
+# whose matcher covers both runs once, as Monitor, which the hook lets through.
+# Earlier installs put it in a "Bash" group.
+move_hook("PreToolUse", "Bash", "Bash|Monitor", bg_hook_path)
+
 installed_hooks, skipped_hooks = [], []
 for label, event, matcher, path, timeout in (
     ("SessionStart update-check hook", "SessionStart", "", hook_path, 10),
     ("SessionStart session-name hook", "SessionStart", "", name_hook_path, 5),
-    ("PreToolUse subagent-no-background hook", "PreToolUse", "Bash", bg_hook_path, 5),
+    ("PreToolUse subagent-no-background hook", "PreToolUse", "Bash|Monitor", bg_hook_path, 5),
 ):
     warning = register_hook(event, matcher, path, timeout)
     (skipped_hooks if warning else installed_hooks).append((label, warning))

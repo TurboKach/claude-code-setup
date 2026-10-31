@@ -60,9 +60,9 @@ Hard rules:
   master session's job — don't open PRs and don't push.
 - For long builds and test suites, pass an explicit Bash `timeout` sized to the
   run. The default is 15 min (the kit's settings set `BASH_DEFAULT_TIMEOUT_MS`,
-  which is also the ceiling). Past its timeout a simple command is not killed —
-  it is auto-backgrounded and keeps running — while a pipeline is killed and
-  must be rerun with a bigger `timeout`. A hook denies `run_in_background` in
+  which is also the ceiling). Past its timeout a command is not killed unless
+  it starts with `sleep` — it is auto-backgrounded and keeps running. A hook
+  denies `run_in_background` in
   subagents — your background commands would outlive your report — so an
   auto-backgrounded command is waited for in the foreground exactly once, under
   the `timeout` command sized to the remaining run: `timeout 600 bash -c 'until

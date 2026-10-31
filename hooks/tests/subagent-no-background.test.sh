@@ -94,6 +94,9 @@ expect_deny "subagent bare until-pgrep wait -> deny" \
   '{"tool_name":"Bash","agent_id":"a1","agent_type":"fixer","tool_input":{"command":"until ! pgrep -f \"[x]codebuild\" >/dev/null; do sleep 10; done; echo done"}}' \
   "hung"
 
+expect_allow "Monitor bare until-pgrep wait -> allow (stops at timeout_ms)" \
+  '{"tool_name":"Monitor","tool_input":{"command":"until ! pgrep -f xcodebuild >/dev/null; do sleep 5; done; echo done","description":"build","timeout_ms":600000}}'
+
 expect_deny "master bare while-pgrep wait -> deny" \
   '{"tool_name":"Bash","tool_input":{"command":"while pgrep -f xcodebuild >/dev/null; do sleep 5; done"}}' \
   "hung"

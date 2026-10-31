@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Plain-bash tests for install.sh's master-model handling — no framework. Exits
+# Plain-bash tests for install.sh's master-model handling and hook
+# registration — no framework. Exits
 # non-zero on the first failure; prints PASS/FAIL per case. Each case installs
 # into its own CLAUDE_HOME under mktemp -d, removed on exit.
 set -u
@@ -80,5 +81,29 @@ echo '{"modelSettings": {"'$SUB_ID'": {"effortLevel": "low"}}}' > "$home/setting
 CLAUDE_HOME="$home" bash "$REPO/install.sh" --master=recommended >/dev/null 2>&1 || fail "sonnet saved: install failed"
 [ "$(setting 'd["modelSettings"]["'$SUB_ID'"]["effortLevel"]')" = low ] || fail "saved sonnet effort was overridden"
 pass "sonnet effort saved: never overridden, even by --master=recommended"
+
+# The subagent-no-background hook sits in one "Bash|Monitor" group: a fresh
+# install puts it there; an earlier install's "Bash" entry is moved as it is,
+# the user's own Bash hooks stay, and a re-run adds no copy.
+hook_count() {  # <matcher> → entries in that PreToolUse group that run the hook
+  setting 'sum(1 for g in d.get("hooks", {}).get("PreToolUse", []) if g.get("matcher") == "'"$1"'" for e in g.get("hooks", []) if e.get("command", "").endswith("/hooks/subagent-no-background.sh"))'
+}
+install "hook: fresh install" "$REC_MODEL" ""
+[ "$(hook_count 'Bash|Monitor')" = 1 ] && [ "$(hook_count Bash)" = 0 ] || fail "hook: fresh install is not in one Bash|Monitor group"
+pass "hook: fresh install registers it for Bash|Monitor"
+home="$TMP/hook-upgrade"; mkdir -p "$home"
+echo '{"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "~/.claude/hooks/subagent-no-background.sh", "timeout": 7}, {"type": "command", "command": "/usr/local/bin/own-hook"}]}]}}' > "$home/settings.json"
+CLAUDE_HOME="$home" bash "$REPO/install.sh" >/dev/null 2>&1 || fail "hook upgrade: install failed"
+CLAUDE_HOME="$home" bash "$REPO/install.sh" >/dev/null 2>&1 || fail "hook upgrade: re-run failed"
+[ "$(hook_count 'Bash|Monitor')" = 1 ] || fail "hook upgrade: not exactly one Bash|Monitor entry"
+[ "$(hook_count Bash)" = 0 ] || fail "hook upgrade: still in the Bash group"
+[ "$(setting '[e for g in d["hooks"]["PreToolUse"] if g["matcher"] == "Bash|Monitor" for e in g["hooks"]][0]["timeout"]')" = 7 ] || fail "hook upgrade: the entry was not moved as it was"
+[ "$(setting '[e["command"] for g in d["hooks"]["PreToolUse"] if g["matcher"] == "Bash" for e in g["hooks"]]')" = "['/usr/local/bin/own-hook']" ] || fail "hook upgrade: the user's own Bash hook was not kept"
+pass "hook: upgrade moves the Bash entry, keeps the user's hooks, re-run adds no copy"
+home="$TMP/hook-only"; mkdir -p "$home"
+echo '{"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "~/.claude/hooks/subagent-no-background.sh", "timeout": 5}]}]}}' > "$home/settings.json"
+CLAUDE_HOME="$home" bash "$REPO/install.sh" >/dev/null 2>&1 || fail "hook-only: install failed"
+[ "$(setting 'sum(1 for g in d["hooks"]["PreToolUse"] if g.get("matcher") == "Bash")')" = 0 ] || fail "hook-only: the emptied Bash group was left behind"
+pass "hook: an emptied Bash group is removed"
 
 echo "all install-master tests passed"
