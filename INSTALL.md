@@ -110,8 +110,8 @@ their existing `CLAUDE.md`:
 ```
 
 Run it and show the output — it reports what it backed up, installed,
-pruned, and merged (skills, agents, rules, the update-check, session-name and
-subagent-no-background hooks and the update stamp, retired-agent removal, and
+pruned, and merged (skills, agents, rules, the update-check, session-name,
+skill-reload and subagent-no-background hooks and the update stamp, retired-agent removal, and
 the `settings.json` merge). **If it exits
 non-zero, stop** — report exactly what it printed; nothing after that point
 in its output was applied.
@@ -146,6 +146,8 @@ Session name: acme-ios
 - acme-api (acme/api): the REST API this app consumes
 - acme-web (acme/web): shares the API client types
 ```
+A `SessionStart` hook with matcher `compact` reminds the session to invoke the
+`feature-workflow` skill again after a compaction when it had loaded it before.
 A `PreToolUse` hook on Bash (matcher `Bash|Monitor`, so Monitor calls pass)
 denies `run_in_background` inside subagents (their background commands would
 outlive them) and any poll loop on a `.output.done` marker (never written), and

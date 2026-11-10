@@ -111,4 +111,23 @@ CLAUDE_HOME="$home" bash "$REPO/install.sh" >/dev/null 2>&1 || fail "hook-own-if
 [ "$(hook_count 'Bash|Monitor')" = 2 ] && [ "$(hook_count Bash)" = 0 ] || fail "hook-own-if: a hand-edited entry was lost or not moved"
 pass "hook: a hand-edited entry is moved, never dropped"
 
+
+# The skill-reload hook sits in its own SessionStart group with matcher
+# "compact": a fresh install adds it once, a re-run adds no copy, and the
+# user's own SessionStart hooks stay.
+reload_count() {  # → entries in the SessionStart "compact" group that run the hook
+  setting 'sum(1 for g in d.get("hooks", {}).get("SessionStart", []) if g.get("matcher") == "compact" for e in g.get("hooks", []) if e.get("command", "").endswith("/hooks/skill-reload-after-compact.sh"))'
+}
+install "reload: fresh install" "$REC_MODEL" ""
+[ "$(reload_count)" = 1 ] || fail "reload: fresh install does not register the hook once in the compact group"
+CLAUDE_HOME="$home" bash "$REPO/install.sh" >/dev/null 2>&1 || fail "reload: re-run failed"
+[ "$(reload_count)" = 1 ] || fail "reload: a re-run duplicated the entry"
+pass "reload hook: fresh install registers it in a compact group, a re-run adds no copy"
+home="$TMP/reload-own"; mkdir -p "$home"
+echo '{"hooks": {"SessionStart": [{"matcher": "", "hooks": [{"type": "command", "command": "/usr/local/bin/own-start"}]}]}}' > "$home/settings.json"
+CLAUDE_HOME="$home" bash "$REPO/install.sh" >/dev/null 2>&1 || fail "reload-own: install failed"
+[ "$(reload_count)" = 1 ] || fail "reload-own: the hook was not registered once"
+[ "$(setting '[e["command"] for g in d["hooks"]["SessionStart"] if g["matcher"] == "" for e in g["hooks"] if "own-start" in e["command"]]')" = "['/usr/local/bin/own-start']" ] || fail "reload-own: the user's own SessionStart hook was lost"
+pass "reload hook: the user's own SessionStart hooks survive"
+
 echo "all install-master tests passed"

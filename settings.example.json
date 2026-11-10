@@ -36,6 +36,16 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/skill-reload-after-compact.sh",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PreToolUse": [
