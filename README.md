@@ -39,7 +39,6 @@ in parallel, no extra setup).
 | `skills/analyze-arcs/` | `/analyze-arcs <since-date>`: scans every Claude Code session and subagent transcript since a date plus the codex-challenge logs, and writes a report with the measured numbers (subagent roster and pins, codex rounds, gates and their wait times, peak context) and the mechanical doctrine violations (unpinned spawns, wrong-tier pins, `--out` outside the scratchpad, master product edits inside a pipeline, overnight `ExitPlanMode` waits, missing path-call line); judgment findings stay with the reader |
 | `skills/feature-workflow/scripts/codex-challenge.sh` | Range-scoped adversarial `codex exec` on exactly `<base>..<head>`; optional self-removing pinned worktree; `gtimeout 900`, 3 attempts / 5 min (a 400 from a rejected model stops retrying immediately); model + effort from `CODEX_REVIEW_MODEL` / `CODEX_REVIEW_EFFORT` (default `gpt-6.1-sol` / `medium`), recorded in the verdict header — these keys arrive via the Claude Code session's environment, so a run started from a bare terminal outside a session falls back to the default; writes the verdict file, prints its path on stdout and the elapsed wall-clock time on stderr |
 | `install.sh` | Copies everything into `~/.claude` (with backups) and merges the settings keys above |
-| `docs/decision-flow.md` | Mermaid map of the gates: who executes each kind of work, in which checkout, reviewed by whom — a reading aid; the authoritative text stays in the files it points at |
 | `docs/references.md` | The sources the doctrine is built on — harness docs (version-stamped, authoritative), the model-behavior guides it's tuned against, and cookbook patterns; plus the last Claude Code version the doctrine was validated against |
 | `docs/tech-debt.md` | Known gaps deliberately left unfixed, each with the site, the reasoning, and the review that surfaced it |
 
@@ -57,6 +56,8 @@ REVIEW (reviewer, read-only — no worktree)                 │
 MERGE (merger) → removes each worktree+branch, reports completion
 CODEX (lead) → one codex-challenge.sh <feature-base>..HEAD ─┘   ← triaged verdict, P0/P1 fixed
 ```
+
+A visual map of the pipeline is at <https://turbokach.github.io/pipeline-viz/>.
 
 Pick the fan-out mechanism by need: **background subagents** by default;
 **Workflows** for large/deterministic/resumable fan-outs. Worktree isolation

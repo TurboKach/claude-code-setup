@@ -1,4 +1,4 @@
-### `skills/feature-workflow/SKILL.md:52` — no fallback if real+regression lines alone exceed the cap
+### `skills/feature-workflow/SKILL.md:110` — no fallback if real+regression lines alone exceed the cap
 
 The verdict size contract now permits truncation to drop only `test-gap` and
 `theoretical` lines. Codex round 4 noted there is no fallback when the real

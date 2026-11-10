@@ -12,7 +12,7 @@ after round 2 had been clean.
 5. `[conf:0.5] skills/feature-workflow/scripts/codex-challenge.sh:71 — test-gap: exit 0 with an empty .msg reports success; the stage-5 parking rule covers it only at the doctrine level → S1 test-gap #2`
 6. `[conf:0.4] skills/feature-workflow/scripts/codex-challenge.sh:65 — theoretical: every non-zero exit retries, including permanent auth/config errors (two 5-min sleeps) → S1 (dropped-for-cap line)`
 7. `[conf:0.4] skills/feature-workflow/SKILL.md:18 — theoretical: the unpinned stage-5 launch reads stray uncommitted working-tree state as final code → S2 theoretical #2`
-8. `[conf:0.3] skills/feature-workflow/SKILL.md:22 — theoretical: unpinned slices read the final tree while triage verifies against git show <head>; consistent only while stage 5 has no writer → S2 theoretical #3`
+8. `[conf:0.3] skills/feature-workflow/SKILL.md:70 — theoretical: unpinned slices read the final tree while triage verifies against git show <head>; consistent only while stage 5 has no writer → S2 theoretical #3`
 
 9. `[P2 conf:0.4] skills/feature-workflow/scripts/codex-challenge.sh:47 — the pin's worktree add runs outside the gtimeout wrapper; a hung LFS/smudge filter blocks --pin with no verdict → F3 #2`
 10. `[P2 conf:0.4] skills/feature-workflow/scripts/codex-challenge.sh:47 — the fixed 2 GiB preflight ignores actual checkout and LFS size → F3 #3`

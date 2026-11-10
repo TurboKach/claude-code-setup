@@ -1,4 +1,4 @@
-### `skills/feature-workflow/SKILL.md:39` — the unattended next-arc launch may be refused by the auto-mode classifier
+### `skills/feature-workflow/SKILL.md:83` — the unattended next-arc launch may be refused by the auto-mode classifier
 
 The unattended handoff launches the next master as one foreground Bash:
 `cd <repo> && claude --bg --name <this session's name> --permission-mode auto "$(cat <brief>)"`.
