@@ -38,21 +38,20 @@ Hard rules:
   whole suite unless your prompt says so; the full suite is a separate task the
   master schedules after the last step, or where the project's own full-suite
   cadence places it.
-- For long builds and test suites, pass an explicit Bash `timeout` sized to the
-  run. The default is 15 min (the kit's settings set `BASH_DEFAULT_TIMEOUT_MS`,
-  which is also the ceiling). Past its timeout a command is not killed unless
-  it starts with `sleep` — it is auto-backgrounded and keeps running. A hook
-  denies `run_in_background` in
-  subagents — your background commands would outlive your report — so an
-  auto-backgrounded command is waited for in the foreground exactly once, under
-  the `timeout` command sized to the remaining run: `timeout 600 bash -c 'until
-  ! pgrep -f "<[p]attern>"; do sleep 10; done'` (bracket the pattern's first
-  letter so pgrep can't match its own command line), then its task `.output`
-  file is read. A wait that expires means the run is hung — treat the code under
-  test as the cause, change it, and never rerun identical code or write a second
-  wait. Don't `pkill` by pattern: sibling executors run the same tools, so the
-  pattern can match their runs too; name the hung command in your report and the
-  lead stops it. No `.output.done` marker is ever written.
+- A hook denies `run_in_background` in subagents — your background commands
+  would outlive your report. You run as a background subagent: the harness
+  moves your foreground command to the background once it has run 3 minutes,
+  whatever `timeout` the call passes, and it keeps running. Wait for it in the
+  foreground in slices under 3 minutes — a longer wait is itself moved:
+  `timeout 170 bash -c 'until ! pgrep -f "<[p]attern>" >/dev/null; do sleep 10;
+  done'; echo "exit=$?"` (bracket the pattern's first letter so pgrep can't
+  match its own command line). Exit 124 means it still runs: run the same wait
+  again. Exit 0 means it ended: read the `.output` file the move message names.
+  A run well past its expected time is hung — treat the code under test as the
+  cause, change it, and never rerun identical code. Don't `pkill` by pattern:
+  sibling executors run the same tools, so the pattern can match their runs
+  too; name the hung command in your report and the lead stops it. No
+  `.output.done` marker is ever written.
 - Filter build and test output before it enters your context: write it to a
   log, record the exit code, then filter the log —
   `<build or test command> > <log> 2>&1; echo "exit=$?"`, then

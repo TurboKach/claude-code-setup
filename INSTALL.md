@@ -149,8 +149,9 @@ Session name: acme-ios
 A `PreToolUse` hook on Bash (matcher `Bash|Monitor`, so Monitor calls pass)
 denies `run_in_background` inside subagents (their background commands would
 outlive them) and any poll loop on a `.output.done` marker (never written), and
-`BASH_DEFAULT_TIMEOUT_MS` is set to 15 minutes so a build or test run with no
-explicit timeout is not auto-backgrounded at 2 minutes, and `bashOutputMaxChars`
+`BASH_DEFAULT_TIMEOUT_MS` is set to 15 minutes so a build or test run in the
+main session with no explicit timeout is not auto-backgrounded at 2 minutes (a
+subagent's command is moved at 3 minutes whatever the timeout), and `bashOutputMaxChars`
 to 30000 so a valid command result over 30k characters arrives as a file path
 plus a 2k preview instead of flooding the context, and `bashEditDiffEnabled` to true so the
 transcript records which files each Bash command changed (`/analyze-arcs`
